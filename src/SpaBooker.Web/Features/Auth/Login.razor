@@ -1,7 +1,8 @@
-@page "/auth/login"
+@page "/auth/login-blazor"
 @inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager NavigationManager
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@* This Blazor version is deprecated - use /auth/login (Razor Page) instead *@
 
 <PageTitle>Login - SpaBooker</PageTitle>
 

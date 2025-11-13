@@ -1,8 +1,9 @@
-@page "/auth/register"
+@page "/auth/register-blazor"
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager NavigationManager
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@* This Blazor version is deprecated - use /auth/register-page (Razor Page) instead *@
 
 <PageTitle>Register - SpaBooker</PageTitle>
 
