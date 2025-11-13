@@ -5,6 +5,13 @@
 
 <PageTitle>Login - SpaBooker</PageTitle>
 
+@if (loginSuccessful)
+{
+    <meta http-equiv="refresh" content="0;url=/" />
+    <p>Login successful! Redirecting...</p>
+}
+else
+{
 <div class="auth-container">
     <div class="auth-card card">
         <div class="card-body">
@@ -64,11 +71,13 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     private LoginModel loginModel = new();
     private string? errorMessage;
     private bool isSubmitting;
+    private bool loginSuccessful = false;
 
     private async Task HandleLogin()
     {
@@ -93,7 +102,8 @@
 
             if (result.Succeeded)
             {
-                NavigationManager.NavigateTo("/", forceLoad: true);
+                // Set flag to trigger redirect
+                loginSuccessful = true;
             }
             else if (result.IsLockedOut)
             {
