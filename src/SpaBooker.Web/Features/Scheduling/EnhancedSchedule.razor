@@ -17,14 +17,40 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div>
-                    <h1 class="text-rose-gold mb-2">My Schedule</h1>
+                    <h1 class="text-rose-gold mb-2">@GetScheduleTitle()</h1>
                     <p class="text-muted mb-0">View appointments and manage availability</p>
                 </div>
-                <div>
-                    <button class="btn btn-primary" @onclick="() => ShowBlockTimeModal()">
-                        <i class="bi bi-calendar-x"></i> Block Time Off
-                    </button>
-                </div>
+                <AuthorizeView Roles="Admin">
+                    <div class="d-flex gap-2 flex-wrap">
+                        @if (therapists.Any())
+                        {
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-people"></i> @(viewingUserId == currentUserId ? "My Schedule" : viewingUser?.FirstName + " " + viewingUser?.LastName)
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item @(viewingUserId == currentUserId ? "active" : "")" href="#" @onclick="@(() => SwitchToUser(currentUserId))" @onclick:preventDefault>My Schedule</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li class="dropdown-header">Therapists</li>
+                                    @foreach (var therapist in therapists)
+                                    {
+                                        <li><a class="dropdown-item @(viewingUserId == therapist.Id ? "active" : "")" href="#" @onclick="@(() => SwitchToUser(therapist.Id))" @onclick:preventDefault>@therapist.FirstName @therapist.LastName</a></li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                        <button class="btn btn-primary" @onclick="() => ShowBlockTimeModal()">
+                            <i class="bi bi-calendar-x"></i> Block Time Off
+                        </button>
+                    </div>
+                </AuthorizeView>
+                <AuthorizeView Roles="Therapist">
+                    <div>
+                        <button class="btn btn-primary" @onclick="() => ShowBlockTimeModal()">
+                            <i class="bi bi-calendar-x"></i> Block Time Off
+                        </button>
+                    </div>
+                </AuthorizeView>
             </div>
         </div>
     </div>
@@ -505,6 +531,11 @@
     private TherapistAvailability? selectedBlockedTime;
     private BlockTimeModel blockModel = new();
     
+    // User switching
+    private List<ApplicationUser> therapists = new();
+    private string? viewingUserId;
+    private ApplicationUser? viewingUser;
+    
     // Time slots for day view (8 AM to 8 PM in 15-minute intervals)
     private readonly TimeSpan[] timeSlots = Enumerable.Range(0, 49).Select(i => new TimeSpan(8, i * 15, 0)).ToArray();
 
@@ -513,12 +544,59 @@
         try
         {
             await GetCurrentUser();
+            viewingUserId = currentUserId;
+            await LoadTherapists();
             await LoadScheduleData();
         }
         catch (Exception)
         {
             isLoading = false;
         }
+    }
+    
+    private async Task LoadTherapists()
+    {
+        try
+        {
+            var userList = await UserManager.GetUsersInRoleAsync("Therapist");
+            therapists = userList.OrderBy(t => t.FirstName).ThenBy(t => t.LastName).ToList();
+            
+            if (!string.IsNullOrEmpty(viewingUserId))
+            {
+                viewingUser = therapists.FirstOrDefault(t => t.Id == viewingUserId);
+                if (viewingUser == null && viewingUserId == currentUserId)
+                {
+                    viewingUser = await UserManager.FindByIdAsync(currentUserId);
+                }
+            }
+        }
+        catch (Exception)
+        {
+            therapists = new();
+        }
+    }
+    
+    private string GetScheduleTitle()
+    {
+        if (viewingUser != null && viewingUser.Id != currentUserId)
+        {
+            return $"{viewingUser.FirstName} {viewingUser.LastName}'s Schedule";
+        }
+        return "My Schedule";
+    }
+    
+    private async Task SwitchToUser(string? userId)
+    {
+        if (string.IsNullOrEmpty(userId)) return;
+        
+        viewingUserId = userId;
+        viewingUser = therapists.FirstOrDefault(t => t.Id == userId);
+        if (viewingUser == null && userId == currentUserId)
+        {
+            viewingUser = await UserManager.FindByIdAsync(currentUserId);
+        }
+        
+        await LoadScheduleData();
     }
 
     private async Task GetCurrentUser()
@@ -551,14 +629,15 @@
         try
         {
             isLoading = true;
-
+            
+            var userIdToLoad = viewingUserId ?? currentUserId;
             var (startDate, endDate) = GetDateRange();
 
             bookings = await DbContext.Bookings
                 .Include(b => b.Service)
                 .Include(b => b.Client)
                 .Include(b => b.Location)
-                .Where(b => b.TherapistId == currentUserId 
+                .Where(b => b.TherapistId == userIdToLoad 
                          && b.StartTime >= startDate 
                          && b.StartTime < endDate
                          && b.Status != BookingStatus.Cancelled)
@@ -566,7 +645,7 @@
                 .ToListAsync();
 
             blockedTimes = await DbContext.TherapistAvailability
-                .Where(a => a.TherapistId == currentUserId 
+                .Where(a => a.TherapistId == userIdToLoad 
                          && a.SpecificDate != null
                          && !a.IsAvailable
                          && a.SpecificDate >= startDate.Date
