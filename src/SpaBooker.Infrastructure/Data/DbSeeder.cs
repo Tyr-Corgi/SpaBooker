@@ -61,7 +61,6 @@ public static class DbSeeder
                 LastName = "Johnson",
                 PhoneNumber = "(555) 987-6543",
                 Specialties = "Swedish, Deep Tissue, Hot Stone",
-                YearsExperience = 8,
                 Bio = "Licensed massage therapist with 8 years of experience specializing in therapeutic and relaxation techniques.",
                 EmailConfirmed = true,
                 CreatedAt = DateTime.UtcNow
