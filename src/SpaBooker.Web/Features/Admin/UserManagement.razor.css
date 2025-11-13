@@ -1,0 +1,82 @@
+.spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.4rem solid var(--rose-gold-light);
+    border-top-color: var(--rose-gold-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.table-header {
+    background: linear-gradient(135deg, var(--rose-gold-primary) 0%, var(--rose-gold-light) 100%);
+    color: white;
+}
+
+.table-header th {
+    font-weight: 600;
+    border: none;
+    padding: 1rem;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.table tbody tr:hover {
+    background-color: #fff5f5;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--rose-gold-primary) 0%, var(--rose-gold-light) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+.nav-tabs .nav-link {
+    color: var(--rose-gold-dark);
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: var(--rose-gold-primary);
+    color: white;
+    border-color: var(--rose-gold-primary);
+}
+
+.nav-tabs .nav-link:hover:not(.active) {
+    background-color: #fff5f5;
+    border-color: var(--pink-lighter);
+}
+
+.input-group-text {
+    background-color: white;
+    border-right: none;
+}
+
+.input-group .form-control {
+    border-left: none;
+}
+
+.input-group .form-control:focus {
+    box-shadow: none;
+    border-color: var(--rose-gold-primary);
+}
+
+.input-group .form-control:focus + .input-group-text {
+    border-color: var(--rose-gold-primary);
+}
+

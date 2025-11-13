@@ -1,0 +1,293 @@
+@page "/admin/users/create"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Create User - SpaBooker</PageTitle>
+
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="/admin/users" class="btn btn-outline-secondary mb-3">
+                <i class="bi bi-arrow-left me-2"></i>Back to Users
+            </a>
+            <h1 class="text-rose-gold mb-2">Create New User</h1>
+            <p class="text-muted">Add a new user to the system</p>
+        </div>
+    </div>
+
+    <EditForm Model="@createModel" OnValidSubmit="SubmitCreateUser" FormName="createUser">
+        <DataAnnotationsValidator />
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-circle me-2"></i>
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        <div class="row">
+            <!-- Personal Information -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0">Personal Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">First Name *</label>
+                                <InputText class="form-control" @bind-Value="createModel.FirstName" />
+                                <ValidationMessage For="@(() => createModel.FirstName)" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Last Name *</label>
+                                <InputText class="form-control" @bind-Value="createModel.LastName" />
+                                <ValidationMessage For="@(() => createModel.LastName)" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email *</label>
+                            <InputText type="email" class="form-control" @bind-Value="createModel.Email" />
+                            <ValidationMessage For="@(() => createModel.Email)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <InputText class="form-control" @bind-Value="createModel.PhoneNumber" 
+                                      placeholder="(555) 123-4567" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Password *</label>
+                            <InputText type="password" class="form-control" @bind-Value="createModel.Password" />
+                            <ValidationMessage For="@(() => createModel.Password)" />
+                            <small class="text-muted">Must be at least 6 characters</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Location</label>
+                            <InputSelect class="form-select" @bind-Value="createModel.LocationId">
+                                <option value="">-- Select Location --</option>
+                                @foreach (var location in locations)
+                                {
+                                    <option value="@location.Id">@location.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Therapist Information -->
+                @if (createModel.IsTherapist)
+                {
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-rose-gold text-white">
+                            <h5 class="mb-0">Therapist Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Bio</label>
+                                <InputTextArea class="form-control" rows="3" @bind-Value="createModel.Bio" 
+                                              placeholder="Tell clients about yourself..." />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Specialties</label>
+                                <InputText class="form-control" @bind-Value="createModel.Specialties" 
+                                          placeholder="e.g., Deep Tissue, Swedish, Hot Stone" />
+                                <small class="text-muted">Separate multiple specialties with commas</small>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Roles -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0">User Roles *</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="roleClient" @bind="createModel.IsClient">
+                            <label class="form-check-label" for="roleClient">
+                                <span class="badge bg-success me-2">Client</span>
+                                <div class="small text-muted mt-1">Can book appointments and manage profile</div>
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="roleTherapist" @bind="createModel.IsTherapist">
+                            <label class="form-check-label" for="roleTherapist">
+                                <span class="badge bg-primary me-2">Therapist</span>
+                                <div class="small text-muted mt-1">Can view schedule and manage availability</div>
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="roleAdmin" @bind="createModel.IsAdmin">
+                            <label class="form-check-label" for="roleAdmin">
+                                <span class="badge bg-danger me-2">Admin</span>
+                                <div class="small text-muted mt-1">Full system access and management</div>
+                            </label>
+                        </div>
+
+                        <div class="alert alert-info mt-3">
+                            <small>
+                                <i class="bi bi-info-circle me-1"></i>
+                                Select at least one role for the user.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0">Account Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="emailConfirmed" @bind="createModel.EmailConfirmed">
+                            <label class="form-check-label" for="emailConfirmed">
+                                Email Confirmed
+                            </label>
+                        </div>
+                        <small class="text-muted">Check if email is already verified</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-plus-circle me-2"></i>Create User
+                    </button>
+                    <a href="/admin/users" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private CreateUserModel createModel = new();
+    private List<Location> locations = new();
+    private bool isSaving = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        locations = await DbContext.Locations
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.Name)
+            .ToListAsync();
+    }
+
+    private async Task SubmitCreateUser()
+    {
+        // Validate at least one role selected
+        if (!createModel.IsClient && !createModel.IsTherapist && !createModel.IsAdmin)
+        {
+            errorMessage = "Please select at least one role for the user.";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var user = new ApplicationUser
+            {
+                UserName = createModel.Email,
+                Email = createModel.Email,
+                FirstName = createModel.FirstName,
+                LastName = createModel.LastName,
+                PhoneNumber = createModel.PhoneNumber,
+                LocationId = string.IsNullOrEmpty(createModel.LocationId) ? null : int.Parse(createModel.LocationId),
+                Bio = createModel.Bio,
+                Specialties = createModel.Specialties,
+                EmailConfirmed = createModel.EmailConfirmed,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await UserManager.CreateAsync(user, createModel.Password);
+
+            if (result.Succeeded)
+            {
+                // Assign roles
+                if (createModel.IsClient)
+                    await UserManager.AddToRoleAsync(user, "Client");
+                if (createModel.IsTherapist)
+                    await UserManager.AddToRoleAsync(user, "Therapist");
+                if (createModel.IsAdmin)
+                    await UserManager.AddToRoleAsync(user, "Admin");
+
+                NavigationManager.NavigateTo($"/admin/users?success=User {user.FirstName} {user.LastName} created successfully");
+            }
+            else
+            {
+                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred while creating the user. Please try again.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    public class CreateUserModel
+    {
+        [Required]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required]
+        public string LastName { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [Required]
+        [MinLength(6, ErrorMessage = "Password must be at least 6 characters")]
+        public string Password { get; set; } = string.Empty;
+
+        public string LocationId { get; set; } = string.Empty;
+        public string Bio { get; set; } = string.Empty;
+        public string Specialties { get; set; } = string.Empty;
+
+        public bool IsClient { get; set; } = true;
+        public bool IsTherapist { get; set; }
+        public bool IsAdmin { get; set; }
+
+        public bool EmailConfirmed { get; set; } = true;
+    }
+}
+
