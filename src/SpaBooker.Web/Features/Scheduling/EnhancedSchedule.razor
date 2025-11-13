@@ -476,54 +476,80 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await GetCurrentUser();
-        await LoadScheduleData();
+        try
+        {
+            await GetCurrentUser();
+            await LoadScheduleData();
+        }
+        catch (Exception)
+        {
+            isLoading = false;
+        }
     }
 
     private async Task GetCurrentUser()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        
-        if (user.Identity?.IsAuthenticated == true)
+        try
         {
-            var appUser = await UserManager.GetUserAsync(user);
-            currentUserId = appUser?.Id;
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var appUser = await UserManager.GetUserAsync(user);
+                currentUserId = appUser?.Id;
+            }
+        }
+        catch (Exception)
+        {
+            // Silent fail - user not authenticated
         }
     }
 
     private async Task LoadScheduleData()
     {
-        if (string.IsNullOrEmpty(currentUserId)) return;
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            isLoading = false;
+            return;
+        }
 
-        isLoading = true;
+        try
+        {
+            isLoading = true;
 
-        var (startDate, endDate) = GetDateRange();
+            var (startDate, endDate) = GetDateRange();
 
-        bookings = await DbContext.Bookings
-            .Include(b => b.Service)
-            .Include(b => b.Client)
-            .Include(b => b.Location)
-            .Where(b => b.TherapistId == currentUserId 
-                     && b.StartTime >= startDate 
-                     && b.StartTime < endDate
-                     && b.Status != BookingStatus.Cancelled)
-            .OrderBy(b => b.StartTime)
-            .ToListAsync();
+            bookings = await DbContext.Bookings
+                .Include(b => b.Service)
+                .Include(b => b.Client)
+                .Include(b => b.Location)
+                .Where(b => b.TherapistId == currentUserId 
+                         && b.StartTime >= startDate 
+                         && b.StartTime < endDate
+                         && b.Status != BookingStatus.Cancelled)
+                .OrderBy(b => b.StartTime)
+                .ToListAsync();
 
-        blockedTimes = await DbContext.TherapistAvailability
-            .Where(a => a.TherapistId == currentUserId 
-                     && a.SpecificDate != null
-                     && !a.IsAvailable
-                     && a.SpecificDate >= startDate.Date
-                     && a.SpecificDate < endDate.Date)
-            .OrderBy(a => a.SpecificDate)
-            .ToListAsync();
-
-        isLoading = false;
+            blockedTimes = await DbContext.TherapistAvailability
+                .Where(a => a.TherapistId == currentUserId 
+                         && a.SpecificDate != null
+                         && !a.IsAvailable
+                         && a.SpecificDate >= startDate.Date
+                         && a.SpecificDate < endDate.Date)
+                .OrderBy(a => a.SpecificDate)
+                .ToListAsync();
+        }
+        catch (Exception)
+        {
+            bookings = new();
+            blockedTimes = new();
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
-
-    // Continue in next part due to length...
     
     private (DateTime start, DateTime end) GetDateRange()
     {
