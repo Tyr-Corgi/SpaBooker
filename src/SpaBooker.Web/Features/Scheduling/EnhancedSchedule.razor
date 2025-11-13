@@ -20,37 +20,36 @@
                     <h1 class="text-rose-gold mb-2">@GetScheduleTitle()</h1>
                     <p class="text-muted mb-0">View appointments and manage availability</p>
                 </div>
-                <AuthorizeView Roles="Admin">
+                @if (isAdmin && therapists.Any())
+                {
                     <div class="d-flex gap-2 flex-wrap">
-                        @if (therapists.Any())
-                        {
-                            <div class="dropdown">
-                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                    <i class="bi bi-people"></i> @(viewingUserId == currentUserId ? "My Schedule" : viewingUser?.FirstName + " " + viewingUser?.LastName)
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item @(viewingUserId == currentUserId ? "active" : "")" href="#" @onclick="@(() => SwitchToUser(currentUserId))" @onclick:preventDefault>My Schedule</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li class="dropdown-header">Therapists</li>
-                                    @foreach (var therapist in therapists)
-                                    {
-                                        <li><a class="dropdown-item @(viewingUserId == therapist.Id ? "active" : "")" href="#" @onclick="@(() => SwitchToUser(therapist.Id))" @onclick:preventDefault>@therapist.FirstName @therapist.LastName</a></li>
-                                    }
-                                </ul>
-                            </div>
-                        }
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-people"></i> @(viewingUserId == currentUserId ? "My Schedule" : viewingUser?.FirstName + " " + viewingUser?.LastName)
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item @(viewingUserId == currentUserId ? "active" : "")" href="#" @onclick="@(() => SwitchToUser(currentUserId))" @onclick:preventDefault>My Schedule</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li class="dropdown-header">All Staff</li>
+                                @foreach (var therapist in therapists)
+                                {
+                                    <li><a class="dropdown-item @(viewingUserId == therapist.Id ? "active" : "")" href="#" @onclick="@(() => SwitchToUser(therapist.Id))" @onclick:preventDefault>@therapist.FirstName @therapist.LastName</a></li>
+                                }
+                            </ul>
+                        </div>
                         <button class="btn btn-primary" @onclick="() => ShowBlockTimeModal()">
                             <i class="bi bi-calendar-x"></i> Block Time Off
                         </button>
                     </div>
-                </AuthorizeView>
-                <AuthorizeView Roles="Therapist">
+                }
+                else
+                {
                     <div>
                         <button class="btn btn-primary" @onclick="() => ShowBlockTimeModal()">
                             <i class="bi bi-calendar-x"></i> Block Time Off
                         </button>
                     </div>
-                </AuthorizeView>
+                }
             </div>
         </div>
     </div>
@@ -535,6 +534,7 @@
     private List<ApplicationUser> therapists = new();
     private string? viewingUserId;
     private ApplicationUser? viewingUser;
+    private bool isAdmin = false;
     
     // Time slots for day view (8 AM to 8 PM in 15-minute intervals)
     private readonly TimeSpan[] timeSlots = Enumerable.Range(0, 49).Select(i => new TimeSpan(8, i * 15, 0)).ToArray();
@@ -545,7 +545,22 @@
         {
             await GetCurrentUser();
             viewingUserId = currentUserId;
-            await LoadTherapists();
+            
+            // Check if user is admin
+            if (!string.IsNullOrEmpty(currentUserId))
+            {
+                var user = await UserManager.FindByIdAsync(currentUserId);
+                if (user != null)
+                {
+                    isAdmin = await UserManager.IsInRoleAsync(user, "Admin");
+                }
+            }
+            
+            if (isAdmin)
+            {
+                await LoadTherapists();
+            }
+            
             await LoadScheduleData();
         }
         catch (Exception)
@@ -558,8 +573,13 @@
     {
         try
         {
-            var userList = await UserManager.GetUsersInRoleAsync("Therapist");
-            therapists = userList.OrderBy(t => t.FirstName).ThenBy(t => t.LastName).ToList();
+            // Load both therapists and admins (all staff who can have schedules)
+            var therapistList = await UserManager.GetUsersInRoleAsync("Therapist");
+            var adminList = await UserManager.GetUsersInRoleAsync("Admin");
+            
+            // Combine and deduplicate (in case someone has both roles)
+            var allStaff = therapistList.Union(adminList).Distinct().ToList();
+            therapists = allStaff.OrderBy(t => t.FirstName).ThenBy(t => t.LastName).ToList();
             
             if (!string.IsNullOrEmpty(viewingUserId))
             {
@@ -593,16 +613,12 @@
         {
             viewingUserId = userId;
             viewingUser = therapists.FirstOrDefault(t => t.Id == userId);
-            if (viewingUser == null && userId == currentUserId)
+            if (viewingUser == null && userId == currentUserId && !string.IsNullOrEmpty(currentUserId))
             {
                 viewingUser = await UserManager.FindByIdAsync(currentUserId);
             }
             
-            await InvokeAsync(async () =>
-            {
-                await LoadScheduleData();
-                StateHasChanged();
-            });
+            await LoadScheduleData();
         }
         catch (Exception)
         {
@@ -640,7 +656,6 @@
         try
         {
             isLoading = true;
-            StateHasChanged();
             
             var userIdToLoad = viewingUserId ?? currentUserId;
             var (startDate, endDate) = GetDateRange();
@@ -687,7 +702,6 @@
         finally
         {
             isLoading = false;
-            StateHasChanged();
         }
     }
     
