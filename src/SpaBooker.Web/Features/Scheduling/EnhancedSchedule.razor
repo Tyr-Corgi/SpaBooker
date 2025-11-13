@@ -3,11 +3,12 @@
 @using SpaBooker.Core.Entities
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Web
 @inject ApplicationDbContext DbContext
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @attribute [Authorize(Roles = "Therapist,Admin")]
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>Schedule - SpaBooker</PageTitle>
 
@@ -127,15 +128,13 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Start Date *</label>
-                                <InputDate class="form-control" @bind-Value="blockModel.StartDate" 
-                                          min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                <InputDate class="form-control" @bind-Value="blockModel.StartDate" />
                                 <ValidationMessage For="@(() => blockModel.StartDate)" />
                             </div>
                             
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">End Date *</label>
-                                <InputDate class="form-control" @bind-Value="blockModel.EndDate" 
-                                          min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                <InputDate class="form-control" @bind-Value="blockModel.EndDate" />
                                 <ValidationMessage For="@(() => blockModel.EndDate)" />
                             </div>
                         </div>
@@ -143,13 +142,15 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Start Time (Optional)</label>
-                                <input type="time" class="form-control" @bind="blockModel.StartTimeString" />
+                                <input type="time" class="form-control" value="@blockModel.StartTimeString" 
+                                      @onchange="@(e => blockModel.StartTimeString = e.Value?.ToString())" />
                                 <small class="form-text text-muted">Leave blank to block entire day</small>
                             </div>
                             
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">End Time (Optional)</label>
-                                <input type="time" class="form-control" @bind="blockModel.EndTimeString" />
+                                <input type="time" class="form-control" value="@blockModel.EndTimeString" 
+                                      @onchange="@(e => blockModel.EndTimeString = e.Value?.ToString())" />
                                 <small class="form-text text-muted">Leave blank to block entire day</small>
                             </div>
                         </div>
