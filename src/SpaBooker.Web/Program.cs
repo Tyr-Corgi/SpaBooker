@@ -61,6 +61,9 @@ builder.Services.AddScoped<IMembershipCreditService, MembershipCreditService>();
 // Register email service
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// Register gift certificate service
+builder.Services.AddScoped<IGiftCertificateService, GiftCertificateService>();
+
 // Register background services
 builder.Services.AddHostedService<BookingReminderService>();
 

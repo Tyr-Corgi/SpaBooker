@@ -21,6 +21,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
     public DbSet<TherapistAvailability> TherapistAvailability => Set<TherapistAvailability>();
     public DbSet<ServiceTherapist> ServiceTherapists => Set<ServiceTherapist>();
+    public DbSet<GiftCertificate> GiftCertificates => Set<GiftCertificate>();
+    public DbSet<GiftCertificateTransaction> GiftCertificateTransactions => Set<GiftCertificateTransaction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -189,6 +191,63 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(e => e.Location)
                 .WithMany(l => l.Therapists)
                 .HasForeignKey(e => e.LocationId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // GiftCertificate configuration
+        builder.Entity<GiftCertificate>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.OriginalAmount).HasPrecision(18, 2);
+            entity.Property(e => e.RemainingBalance).HasPrecision(18, 2);
+            entity.Property(e => e.PurchasePrice).HasPrecision(18, 2);
+            entity.Property(e => e.RecipientName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.RecipientEmail).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+
+            entity.HasOne(e => e.PurchasedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.PurchasedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.RedeemedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.RedeemedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.RestrictedToLocation)
+                .WithMany()
+                .HasForeignKey(e => e.RestrictedToLocationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.PurchasedByUserId);
+        });
+
+        // GiftCertificateTransaction configuration
+        builder.Entity<GiftCertificateTransaction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.BalanceBefore).HasPrecision(18, 2);
+            entity.Property(e => e.BalanceAfter).HasPrecision(18, 2);
+
+            entity.HasOne(e => e.GiftCertificate)
+                .WithMany(gc => gc.Transactions)
+                .HasForeignKey(e => e.GiftCertificateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.RelatedBooking)
+                .WithMany()
+                .HasForeignKey(e => e.RelatedBookingId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.PerformedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.PerformedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }
