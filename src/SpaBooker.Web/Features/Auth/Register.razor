@@ -1,10 +1,7 @@
 @page "/auth/register"
-@using Microsoft.JSInterop
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
-@rendermode InteractiveServer
 
 <PageTitle>Register - SpaBooker</PageTitle>
 
@@ -132,9 +129,7 @@
                 // Sign in the user
                 await SignInManager.SignInAsync(user, isPersistent: false);
                 
-                // Use JavaScript to redirect to avoid "Headers are read-only" error
-                await JSRuntime.InvokeVoidAsync("location.replace", "/");
-                return;
+                NavigationManager.NavigateTo("/", forceLoad: true);
             }
             else
             {
