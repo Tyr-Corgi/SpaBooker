@@ -69,6 +69,16 @@
                                 <ValidationMessage For="@(() => editModel.Description)" />
                             </div>
 
+                            <div class="mb-3">
+                                <label class="form-label">Image URL (Optional)</label>
+                                <InputText class="form-control" @bind-Value="editModel.ImageUrl" 
+                                         placeholder="https://example.com/service-image.jpg" />
+                                <small class="form-text text-muted">
+                                    💡 Tip: Use Unsplash for free spa/massage images. Recommended size: 800x600px
+                                </small>
+                                <ValidationMessage For="@(() => editModel.ImageUrl)" />
+                            </div>
+
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Duration (minutes) *</label>
@@ -258,6 +268,7 @@
             {
                 Name = service.Name,
                 Description = service.Description,
+                ImageUrl = service.ImageUrl,
                 DurationMinutes = service.DurationMinutes,
                 BasePrice = service.BasePrice,
                 LocationId = service.LocationId.ToString(),
@@ -324,6 +335,7 @@
             // Update service info
             service.Name = editModel.Name;
             service.Description = editModel.Description;
+            service.ImageUrl = editModel.ImageUrl;
             service.DurationMinutes = editModel.DurationMinutes;
             service.BasePrice = editModel.BasePrice;
             service.LocationId = int.Parse(editModel.LocationId);
@@ -371,6 +383,8 @@
 
         [Required]
         public string Description { get; set; } = string.Empty;
+
+        public string? ImageUrl { get; set; }
 
         [Required]
         [Range(1, 480, ErrorMessage = "Duration must be between 1 and 480 minutes")]

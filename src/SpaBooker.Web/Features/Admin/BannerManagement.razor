@@ -1,0 +1,315 @@
+@page "/admin/banners"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Authorization
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Banner Management - SpaBooker</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="text-rose-gold mb-2">
+                    <i class="bi bi-images me-2"></i>Banner Management
+                </h1>
+                <p class="text-muted">Manage home page carousel banners</p>
+            </div>
+            <button class="btn btn-primary" @onclick="ShowCreateDialog">
+                <i class="bi bi-plus-circle me-2"></i>Create Banner
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner"></div>
+            <p class="mt-3 text-muted">Loading banners...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var banner in banners.OrderBy(b => b.DisplayOrder))
+            {
+                <div class="col-lg-6">
+                    <div class="card banner-card @(!banner.IsActive ? "inactive" : "")">
+                        <div class="banner-preview" style="background-image: url('@banner.ImageUrl');"></div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h5 class="card-title text-rose-gold mb-1">@banner.Title</h5>
+                                    <p class="text-muted small mb-2">@banner.Subtitle</p>
+                                </div>
+                                <div class="badge-group">
+                                    <span class="badge bg-secondary">Order: @banner.DisplayOrder</span>
+                                    <span class="badge @(banner.IsActive ? "bg-success" : "bg-warning")">
+                                        @(banner.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(banner.Description))
+                            {
+                                <p class="card-text small">@banner.Description</p>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(banner.ButtonText))
+                            {
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-link-45deg"></i> Button: "@banner.ButtonText" → @banner.ButtonLink
+                                    </small>
+                                </div>
+                            }
+                            
+                            <div class="btn-group w-100 mt-3">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => EditBanner(banner)">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => ToggleActive(banner)">
+                                    <i class="bi bi-eye@(banner.IsActive ? "-slash" : "")"></i> 
+                                    @(banner.IsActive ? "Deactivate" : "Activate")
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBanner(banner)">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (!banners.Any())
+        {
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle me-2"></i>
+                No banners created yet. Click "Create Banner" to add your first carousel slide!
+            </div>
+        }
+    }
+</div>
+
+<!-- Create/Edit Banner Modal -->
+@if (showBannerDialog)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-rose-gold text-white">
+                    <h5 class="modal-title">
+                        @(editingBanner.Id == 0 ? "Create New Banner" : "Edit Banner")
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseBannerDialog"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-control" @bind="editingBanner.Title" 
+                               placeholder="e.g., Relax & Rejuvenate" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Subtitle *</label>
+                        <input type="text" class="form-control" @bind="editingBanner.Subtitle" 
+                               placeholder="e.g., Experience the ultimate in spa luxury" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" rows="2" @bind="editingBanner.Description"
+                                  placeholder="Additional description text"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Image URL *</label>
+                        <input type="url" class="form-control" @bind="editingBanner.ImageUrl" 
+                               placeholder="https://example.com/image.jpg" />
+                        <small class="form-text text-muted">
+                            💡 Tip: Use Unsplash for free high-quality images. Recommended size: 1920x1080px
+                        </small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Button Text (Optional)</label>
+                            <input type="text" class="form-control" @bind="editingBanner.ButtonText" 
+                                   placeholder="e.g., Book Now" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Button Link (Optional)</label>
+                            <input type="text" class="form-control" @bind="editingBanner.ButtonLink" 
+                                   placeholder="e.g., /select-location" />
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Display Order *</label>
+                            <input type="number" class="form-control" @bind="editingBanner.DisplayOrder" min="1" />
+                            <small class="form-text text-muted">Lower numbers appear first</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" @bind="editingBanner.IsActive" id="isActive" />
+                                <label class="form-check-label" for="isActive">
+                                    Active (show on home page)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseBannerDialog">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveBanner" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Save Banner
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Banner> banners = new();
+    private bool isLoading = true;
+    private bool showBannerDialog = false;
+    private bool isSaving = false;
+    private Banner editingBanner = new();
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBanners();
+    }
+
+    private async Task LoadBanners()
+    {
+        isLoading = true;
+        banners = await DbContext.Banners.OrderBy(b => b.DisplayOrder).ToListAsync();
+        isLoading = false;
+    }
+
+    private void ShowCreateDialog()
+    {
+        editingBanner = new Banner
+        {
+            DisplayOrder = banners.Any() ? banners.Max(b => b.DisplayOrder) + 1 : 1,
+            IsActive = true
+        };
+        showBannerDialog = true;
+        errorMessage = null;
+    }
+
+    private void EditBanner(Banner banner)
+    {
+        editingBanner = new Banner
+        {
+            Id = banner.Id,
+            Title = banner.Title,
+            Subtitle = banner.Subtitle,
+            Description = banner.Description,
+            ImageUrl = banner.ImageUrl,
+            ButtonText = banner.ButtonText,
+            ButtonLink = banner.ButtonLink,
+            DisplayOrder = banner.DisplayOrder,
+            IsActive = banner.IsActive
+        };
+        showBannerDialog = true;
+        errorMessage = null;
+    }
+
+    private void CloseBannerDialog()
+    {
+        showBannerDialog = false;
+        editingBanner = new();
+        errorMessage = null;
+    }
+
+    private async Task SaveBanner()
+    {
+        if (string.IsNullOrWhiteSpace(editingBanner.Title) ||
+            string.IsNullOrWhiteSpace(editingBanner.Subtitle) ||
+            string.IsNullOrWhiteSpace(editingBanner.ImageUrl))
+        {
+            errorMessage = "Please fill in all required fields";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            if (editingBanner.Id == 0)
+            {
+                // Create new
+                editingBanner.CreatedAt = DateTime.UtcNow;
+                DbContext.Banners.Add(editingBanner);
+            }
+            else
+            {
+                // Update existing
+                var existing = await DbContext.Banners.FindAsync(editingBanner.Id);
+                if (existing != null)
+                {
+                    existing.Title = editingBanner.Title;
+                    existing.Subtitle = editingBanner.Subtitle;
+                    existing.Description = editingBanner.Description;
+                    existing.ImageUrl = editingBanner.ImageUrl;
+                    existing.ButtonText = editingBanner.ButtonText;
+                    existing.ButtonLink = editingBanner.ButtonLink;
+                    existing.DisplayOrder = editingBanner.DisplayOrder;
+                    existing.IsActive = editingBanner.IsActive;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            await DbContext.SaveChangesAsync();
+            await LoadBanners();
+            CloseBannerDialog();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving banner: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ToggleActive(Banner banner)
+    {
+        banner.IsActive = !banner.IsActive;
+        banner.UpdatedAt = DateTime.UtcNow;
+        await DbContext.SaveChangesAsync();
+        StateHasChanged();
+    }
+
+    private async Task DeleteBanner(Banner banner)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete '{banner.Title}'?"))
+        {
+            DbContext.Banners.Remove(banner);
+            await DbContext.SaveChangesAsync();
+            await LoadBanners();
+        }
+    }
+}
+

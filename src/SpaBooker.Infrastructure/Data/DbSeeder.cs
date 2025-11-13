@@ -46,6 +46,59 @@ public static class DbSeeder
                 await userManager.AddToRoleAsync(adminUser, "Admin");
             }
         }
+
+        // Seed mock therapist user
+        var therapistEmail = "therapist@spabooker.com";
+        var therapistUser = await userManager.FindByEmailAsync(therapistEmail);
+
+        if (therapistUser == null)
+        {
+            therapistUser = new ApplicationUser
+            {
+                UserName = therapistEmail,
+                Email = therapistEmail,
+                FirstName = "Sarah",
+                LastName = "Johnson",
+                PhoneNumber = "(555) 987-6543",
+                Specialties = "Swedish, Deep Tissue, Hot Stone",
+                YearsExperience = 8,
+                Bio = "Licensed massage therapist with 8 years of experience specializing in therapeutic and relaxation techniques.",
+                EmailConfirmed = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await userManager.CreateAsync(therapistUser, "Therapist123!");
+
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(therapistUser, "Therapist");
+            }
+        }
+
+        // Seed mock client user
+        var clientEmail = "client@spabooker.com";
+        var clientUser = await userManager.FindByEmailAsync(clientEmail);
+
+        if (clientUser == null)
+        {
+            clientUser = new ApplicationUser
+            {
+                UserName = clientEmail,
+                Email = clientEmail,
+                FirstName = "Emma",
+                LastName = "Williams",
+                PhoneNumber = "(555) 123-9876",
+                EmailConfirmed = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await userManager.CreateAsync(clientUser, "Client123!");
+
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(clientUser, "Client");
+            }
+        }
     }
 
     public static async Task SeedLocationsAsync(ApplicationDbContext context)
