@@ -8,6 +8,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject ApplicationDbContext DbContext
 @inject IStripeService StripeService
+@inject IGiftCertificateService GiftCertificateService
 @inject IOptions<BookingSettings> BookingSettings
 @inject IConfiguration Configuration
 @inject NavigationManager NavigationManager
@@ -85,13 +86,78 @@
                                 <strong>Total Service Cost:</strong>
                                 <strong>$@booking.TotalPrice.ToString("F2")</strong>
                             </div>
-                            <div class="d-flex justify-content-between mb-2 text-primary">
-                                <strong>Deposit Due Today (@depositPercentage%):</strong>
-                                <strong class="fs-4">$@depositAmount.ToString("F2")</strong>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Deposit Due (@depositPercentage%):</span>
+                                <span>$@depositAmount.ToString("F2")</span>
                             </div>
-                            <div class="d-flex justify-content-between text-muted small">
-                                <span>Remaining Balance (pay at spa):</span>
-                                <span>$@(booking.TotalPrice - depositAmount).ToString("F2")</span>
+                            @if (giftCertificateApplied > 0)
+                            {
+                                <div class="d-flex justify-content-between mb-2 text-success">
+                                    <span><i class="bi bi-gift me-1"></i>Gift Certificate:</span>
+                                    <span>-$@giftCertificateApplied.ToString("F2")</span>
+                                </div>
+                                <hr />
+                            }
+                            <div class="d-flex justify-content-between mb-2 text-primary">
+                                <strong>@(finalAmountDue > 0 ? "Amount Due Today:" : "Fully Paid!")</strong>
+                                <strong class="fs-4">$@finalAmountDue.ToString("F2")</strong>
+                            </div>
+                            @if (finalAmountDue > 0)
+                            {
+                                <div class="d-flex justify-content-between text-muted small">
+                                    <span>Remaining Balance (pay at spa):</span>
+                                    <span>$@(booking.TotalPrice - depositAmount).ToString("F2")</span>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Gift Certificate Redemption -->
+                        <div class="card bg-light mt-4">
+                            <div class="card-body">
+                                <h6 class="text-rose-gold mb-3">
+                                    <i class="bi bi-gift me-2"></i>Have a Gift Certificate?
+                                </h6>
+                                
+                                @if (appliedGiftCertificate == null)
+                                {
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" 
+                                               @bind="giftCertificateCode" 
+                                               placeholder="Enter gift certificate code"
+                                               @bind:event="oninput"/>
+                                        <button class="btn btn-outline-primary" 
+                                                @onclick="ApplyGiftCertificate"
+                                                disabled="@isApplyingGiftCert">
+                                            @if (isApplyingGiftCert)
+                                            {
+                                                <span class="spinner-border spinner-border-sm"></span>
+                                            }
+                                            else
+                                            {
+                                                <span>Apply</span>
+                                            }
+                                        </button>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(giftCertError))
+                                    {
+                                        <small class="text-danger mt-2 d-block">@giftCertError</small>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="alert alert-success mb-0">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="bi bi-check-circle me-2"></i>
+                                                <strong>@appliedGiftCertificate.Code</strong> applied
+                                                <div class="small">Using $@giftCertificateApplied.ToString("F2") from certificate</div>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="RemoveGiftCertificate">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         </div>
 
@@ -112,17 +178,34 @@
                         @if (!paymentProcessed)
                         {
                             <div class="d-grid gap-2 mt-4">
-                                <button class="btn btn-primary btn-lg" @onclick="ProcessPayment" disabled="@isProcessing">
-                                    @if (isProcessing)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-2"></span>
-                                        <span>Processing Payment...</span>
-                                    }
-                                    else
-                                    {
-                                        <span><i class="bi bi-credit-card me-2"></i>Pay $@depositAmount.ToString("F2")</span>
-                                    }
-                                </button>
+                                @if (finalAmountDue > 0)
+                                {
+                                    <button class="btn btn-primary btn-lg" @onclick="ProcessPayment" disabled="@isProcessing">
+                                        @if (isProcessing)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            <span>Processing Payment...</span>
+                                        }
+                                        else
+                                        {
+                                            <span><i class="bi bi-credit-card me-2"></i>Pay $@finalAmountDue.ToString("F2")</span>
+                                        }
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-success btn-lg" @onclick="ConfirmBookingWithGiftCert" disabled="@isProcessing">
+                                        @if (isProcessing)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            <span>Confirming Booking...</span>
+                                        }
+                                        else
+                                        {
+                                            <span><i class="bi bi-check-circle me-2"></i>Confirm Booking (Fully Paid)</span>
+                                        }
+                                    </button>
+                                }
                                 <button class="btn btn-outline-secondary" @onclick="CancelBooking" disabled="@isProcessing">
                                     Cancel Booking
                                 </button>
@@ -172,6 +255,14 @@
     private bool paymentProcessed = false;
     private string? errorMessage;
 
+    // Gift certificate variables
+    private string giftCertificateCode = string.Empty;
+    private GiftCertificate? appliedGiftCertificate;
+    private decimal giftCertificateApplied = 0;
+    private decimal finalAmountDue = 0;
+    private bool isApplyingGiftCert = false;
+    private string? giftCertError;
+
     protected override async Task OnInitializedAsync()
     {
         depositPercentage = BookingSettings.Value.DepositPercentage;
@@ -196,9 +287,89 @@
             // Calculate deposit amount
             depositAmount = Math.Round(booking.TotalPrice * (depositPercentage / 100), 2);
             booking.DepositAmount = depositAmount;
+            CalculateFinalAmount();
         }
 
         isLoading = false;
+    }
+
+    private void CalculateFinalAmount()
+    {
+        finalAmountDue = depositAmount - giftCertificateApplied;
+        if (finalAmountDue < 0) finalAmountDue = 0;
+    }
+
+    private async Task ApplyGiftCertificate()
+    {
+        if (string.IsNullOrWhiteSpace(giftCertificateCode))
+        {
+            giftCertError = "Please enter a gift certificate code";
+            return;
+        }
+
+        isApplyingGiftCert = true;
+        giftCertError = null;
+
+        try
+        {
+            var giftCert = await GiftCertificateService.GetGiftCertificateByCodeAsync(giftCertificateCode.Trim().ToUpper());
+
+            if (giftCert == null)
+            {
+                giftCertError = "Gift certificate not found";
+                return;
+            }
+
+            if (giftCert.Status != "Active" && giftCert.Status != "PartiallyUsed")
+            {
+                giftCertError = $"Gift certificate is {giftCert.Status.ToLower()} and cannot be used";
+                return;
+            }
+
+            if (giftCert.ExpiresAt.HasValue && giftCert.ExpiresAt.Value < DateTime.UtcNow)
+            {
+                giftCertError = "Gift certificate has expired";
+                return;
+            }
+
+            if (giftCert.RemainingBalance <= 0)
+            {
+                giftCertError = "Gift certificate has no remaining balance";
+                return;
+            }
+
+            // Check location restriction
+            if (giftCert.RestrictedToLocationId.HasValue && booking != null)
+            {
+                if (giftCert.RestrictedToLocationId.Value != booking.LocationId)
+                {
+                    giftCertError = $"This gift certificate is only valid at {giftCert.RestrictedToLocation?.Name}";
+                    return;
+                }
+            }
+
+            // Apply gift certificate
+            appliedGiftCertificate = giftCert;
+            giftCertificateApplied = Math.Min(giftCert.RemainingBalance, depositAmount);
+            CalculateFinalAmount();
+            giftCertificateCode = string.Empty;
+        }
+        catch (Exception)
+        {
+            giftCertError = "An error occurred while validating the gift certificate";
+        }
+        finally
+        {
+            isApplyingGiftCert = false;
+        }
+    }
+
+    private void RemoveGiftCertificate()
+    {
+        appliedGiftCertificate = null;
+        giftCertificateApplied = 0;
+        giftCertError = null;
+        CalculateFinalAmount();
     }
 
     private async Task ProcessPayment()
@@ -210,7 +381,25 @@
 
         try
         {
-            // Create Stripe Checkout Session
+            // Redeem gift certificate if applied
+            if (appliedGiftCertificate != null && giftCertificateApplied > 0)
+            {
+                var amountRedeemed = await GiftCertificateService.RedeemGiftCertificateAsync(
+                    appliedGiftCertificate.Code,
+                    booking.ClientId,
+                    giftCertificateApplied,
+                    booking.Id
+                );
+
+                if (amountRedeemed <= 0)
+                {
+                    errorMessage = "Failed to apply gift certificate. Please try again.";
+                    isProcessing = false;
+                    return;
+                }
+            }
+
+            // Create Stripe Checkout Session for remaining amount
             var baseUrl = NavigationManager.BaseUri.TrimEnd('/');
             var successUrl = $"{baseUrl}/payment/success?booking_id={booking.Id}";
             var cancelUrl = $"{baseUrl}/bookings/payment/{booking.Id}";
@@ -222,9 +411,15 @@
                 { "service_id", booking.ServiceId.ToString() }
             };
 
+            if (appliedGiftCertificate != null)
+            {
+                metadata.Add("gift_certificate_id", appliedGiftCertificate.Id.ToString());
+                metadata.Add("gift_certificate_applied", giftCertificateApplied.ToString("F2"));
+            }
+
             var checkoutUrl = await StripeService.CreateCheckoutSessionAsync(
                 booking.Client.Email!,
-                depositAmount,
+                finalAmountDue,
                 "usd",
                 $"Booking Deposit - {booking.Service.Name} on {booking.StartTime:MMM dd, yyyy}",
                 successUrl,
@@ -235,9 +430,52 @@
             // Redirect to Stripe Checkout
             NavigationManager.NavigateTo(checkoutUrl, true);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             errorMessage = "Unable to initiate payment. Please try again or contact support.";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task ConfirmBookingWithGiftCert()
+    {
+        if (booking == null || appliedGiftCertificate == null) return;
+
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            // Redeem gift certificate
+            var amountRedeemed = await GiftCertificateService.RedeemGiftCertificateAsync(
+                appliedGiftCertificate.Code,
+                booking.ClientId,
+                giftCertificateApplied,
+                booking.Id
+            );
+
+            if (amountRedeemed <= 0)
+            {
+                errorMessage = "Failed to apply gift certificate. Please try again.";
+                return;
+            }
+
+            // Update booking status
+            booking.Status = BookingStatus.Confirmed;
+            booking.StripePaymentIntentId = $"GIFT-CERT-{appliedGiftCertificate.Code}";
+            booking.UpdatedAt = DateTime.UtcNow;
+
+            await DbContext.SaveChangesAsync();
+
+            // Redirect to success page
+            NavigationManager.NavigateTo($"/payment/success?booking_id={booking.Id}");
+        }
+        catch (Exception)
+        {
+            errorMessage = "Unable to confirm booking. Please try again or contact support.";
         }
         finally
         {
