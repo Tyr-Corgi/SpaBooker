@@ -589,14 +589,25 @@
     {
         if (string.IsNullOrEmpty(userId)) return;
         
-        viewingUserId = userId;
-        viewingUser = therapists.FirstOrDefault(t => t.Id == userId);
-        if (viewingUser == null && userId == currentUserId)
+        try
         {
-            viewingUser = await UserManager.FindByIdAsync(currentUserId);
+            viewingUserId = userId;
+            viewingUser = therapists.FirstOrDefault(t => t.Id == userId);
+            if (viewingUser == null && userId == currentUserId)
+            {
+                viewingUser = await UserManager.FindByIdAsync(currentUserId);
+            }
+            
+            await InvokeAsync(async () =>
+            {
+                await LoadScheduleData();
+                StateHasChanged();
+            });
         }
-        
-        await LoadScheduleData();
+        catch (Exception)
+        {
+            // Silent fail
+        }
     }
 
     private async Task GetCurrentUser()
@@ -629,11 +640,14 @@
         try
         {
             isLoading = true;
+            StateHasChanged();
             
             var userIdToLoad = viewingUserId ?? currentUserId;
             var (startDate, endDate) = GetDateRange();
 
-            bookings = await DbContext.Bookings
+            // Load data in parallel
+            var bookingsTask = DbContext.Bookings
+                .AsNoTracking()
                 .Include(b => b.Service)
                 .Include(b => b.Client)
                 .Include(b => b.Location)
@@ -644,7 +658,8 @@
                 .OrderBy(b => b.StartTime)
                 .ToListAsync();
 
-            blockedTimes = await DbContext.TherapistAvailability
+            var blockedTimesTask = DbContext.TherapistAvailability
+                .AsNoTracking()
                 .Where(a => a.TherapistId == userIdToLoad 
                          && a.SpecificDate != null
                          && !a.IsAvailable
@@ -652,6 +667,17 @@
                          && a.SpecificDate < endDate.Date)
                 .OrderBy(a => a.SpecificDate)
                 .ToListAsync();
+
+            await Task.WhenAll(bookingsTask, blockedTimesTask);
+            
+            bookings = await bookingsTask;
+            blockedTimes = await blockedTimesTask;
+        }
+        catch (ObjectDisposedException)
+        {
+            // Component was disposed, ignore
+            bookings = new();
+            blockedTimes = new();
         }
         catch (Exception)
         {
@@ -661,6 +687,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
     
