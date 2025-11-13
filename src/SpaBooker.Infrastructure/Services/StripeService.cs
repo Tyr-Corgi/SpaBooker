@@ -207,5 +207,50 @@ public class StripeService : IStripeService
         var session = await service.CreateAsync(options);
         return session.Url;
     }
+
+    public async Task<string> CreateGiftCertificateCheckoutSessionAsync(int giftCertificateId, decimal amount, string purchasedByUserId)
+    {
+        var baseUrl = "https://localhost:5226"; // TODO: Make this configurable
+        var successUrl = $"{baseUrl}/gift-certificates/success?giftCertId={giftCertificateId}";
+        var cancelUrl = $"{baseUrl}/gift-certificates/purchase";
+
+        var metadata = new Dictionary<string, string>
+        {
+            { "gift_certificate_id", giftCertificateId.ToString() },
+            { "purchased_by_user_id", purchasedByUserId },
+            { "type", "gift_certificate" }
+        };
+
+        var options = new Stripe.Checkout.SessionCreateOptions
+        {
+            PaymentMethodTypes = new List<string> { "card" },
+            LineItems = new List<Stripe.Checkout.SessionLineItemOptions>
+            {
+                new Stripe.Checkout.SessionLineItemOptions
+                {
+                    PriceData = new Stripe.Checkout.SessionLineItemPriceDataOptions
+                    {
+                        Currency = "usd",
+                        ProductData = new Stripe.Checkout.SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = "SpaBooker Gift Certificate",
+                            Description = $"Gift certificate for ${amount:F2}",
+                            Images = new List<string> { } // TODO: Add gift certificate image
+                        },
+                        UnitAmount = (long)(amount * 100) // Convert to cents
+                    },
+                    Quantity = 1
+                }
+            },
+            Mode = "payment",
+            SuccessUrl = successUrl,
+            CancelUrl = cancelUrl,
+            Metadata = metadata
+        };
+
+        var service = new Stripe.Checkout.SessionService();
+        var session = await service.CreateAsync(options);
+        return session.Url;
+    }
 }
 

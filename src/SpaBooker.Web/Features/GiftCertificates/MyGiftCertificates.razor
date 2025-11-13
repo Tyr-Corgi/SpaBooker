@@ -1,0 +1,248 @@
+@page "/gift-certificates/my-certificates"
+@inject IGiftCertificateService GiftCertificateService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<PageTitle>My Gift Certificates - SpaBooker</PageTitle>
+
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="text-rose-gold mb-2">My Gift Certificates</h1>
+                <p class="text-muted">View gift certificates you've purchased or received</p>
+            </div>
+            <a href="/gift-certificates/purchase" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Purchase Gift Certificate
+            </a>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner"></div>
+            <p class="mt-3 text-muted">Loading your gift certificates...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link @(activeTab == "purchased" ? "active" : "")" 
+                   @onclick='() => activeTab = "purchased"' 
+                   style="cursor: pointer;">
+                    <i class="bi bi-cart me-2"></i>Purchased (@purchasedCertificates.Count)
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(activeTab == "received" ? "active" : "")" 
+                   @onclick='() => activeTab = "received"' 
+                   style="cursor: pointer;">
+                    <i class="bi bi-gift me-2"></i>Received (@receivedCertificates.Count)
+                </a>
+            </li>
+        </ul>
+
+        <!-- Purchased Certificates Tab -->
+        @if (activeTab == "purchased")
+        {
+            @if (purchasedCertificates.Any())
+            {
+                <div class="row g-4">
+                    @foreach (var cert in purchasedCertificates)
+                    {
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card gift-cert-card h-100 @(cert.Status == "Active" || cert.Status == "PartiallyUsed" ? "" : "inactive")">
+                                <div class="card-header @GetStatusClass(cert.Status)">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-white text-dark">@cert.Status</span>
+                                        <span class="fs-5 fw-bold">${cert.OriginalAmount:F2}</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="bi bi-person-heart me-2 text-rose-gold"></i>
+                                        @cert.RecipientName
+                                    </h5>
+                                    <p class="card-text small text-muted mb-2">
+                                        <i class="bi bi-envelope me-1"></i>@cert.RecipientEmail
+                                    </p>
+                                    <div class="code-box mb-3">
+                                        <div class="small text-muted">Redemption Code</div>
+                                        <div class="code">@cert.Code</div>
+                                    </div>
+                                    <div class="details mb-2">
+                                        <div class="detail-item">
+                                            <span class="label">Purchased:</span>
+                                            <span class="value">@cert.PurchasedAt.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Remaining:</span>
+                                            <span class="value fw-bold text-rose-gold">${cert.RemainingBalance:F2}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Expires:</span>
+                                            <span class="value">@cert.ExpiresAt?.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                                        </div>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(cert.PersonalMessage))
+                                    {
+                                        <div class="message-box">
+                                            <i class="bi bi-quote"></i>
+                                            <em>@cert.PersonalMessage</em>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="card-footer">
+                                    @if (cert.EmailSent)
+                                    {
+                                        <small class="text-success">
+                                            <i class="bi bi-check-circle me-1"></i>Email Sent
+                                        </small>
+                                    }
+                                    else if (cert.ScheduledDeliveryDate.HasValue)
+                                    {
+                                        <small class="text-info">
+                                            <i class="bi bi-clock me-1"></i>Scheduled for @cert.ScheduledDeliveryDate.Value.ToLocalTime().ToString("MMM dd")
+                                        </small>
+                                    }
+                                    else
+                                    {
+                                        <small class="text-muted">
+                                            <i class="bi bi-hourglass me-1"></i>Pending Delivery
+                                        </small>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <p class="mb-3">You haven't purchased any gift certificates yet.</p>
+                    <a href="/gift-certificates/purchase" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Purchase Your First Gift Certificate
+                    </a>
+                </div>
+            }
+        }
+
+        <!-- Received Certificates Tab -->
+        @if (activeTab == "received")
+        {
+            @if (receivedCertificates.Any())
+            {
+                <div class="row g-4">
+                    @foreach (var cert in receivedCertificates)
+                    {
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card gift-cert-card h-100">
+                                <div class="card-header bg-success text-white">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>🎁 Gift for You</span>
+                                        <span class="fs-5 fw-bold">${cert.OriginalAmount:F2}</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="bi bi-person-check me-2 text-rose-gold"></i>
+                                        From: @cert.PurchasedByUser.FirstName @cert.PurchasedByUser.LastName
+                                    </h5>
+                                    <div class="code-box mb-3">
+                                        <div class="small text-muted">Redemption Code</div>
+                                        <div class="code">@cert.Code</div>
+                                    </div>
+                                    <div class="details mb-2">
+                                        <div class="detail-item">
+                                            <span class="label">Remaining:</span>
+                                            <span class="value fw-bold text-rose-gold">${cert.RemainingBalance:F2}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Expires:</span>
+                                            <span class="value">@cert.ExpiresAt?.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                                        </div>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(cert.PersonalMessage))
+                                    {
+                                        <div class="message-box">
+                                            <i class="bi bi-quote"></i>
+                                            <em>@cert.PersonalMessage</em>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="card-footer">
+                                    <a href="/bookings/services" class="btn btn-primary w-100">
+                                        <i class="bi bi-calendar-check me-2"></i>Book Service
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <p class="mb-0">You haven't received any gift certificates yet.</p>
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    private List<GiftCertificate> purchasedCertificates = new();
+    private List<GiftCertificate> receivedCertificates = new();
+    private string activeTab = "purchased";
+    private bool isLoading = true;
+    private string? currentUserId;
+    private string? currentUserEmail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            currentUserId = appUser?.Id;
+            currentUserEmail = appUser?.Email;
+
+            if (!string.IsNullOrEmpty(currentUserId))
+            {
+                purchasedCertificates = await GiftCertificateService.GetPurchasedGiftCertificatesAsync(currentUserId);
+            }
+
+            if (!string.IsNullOrEmpty(currentUserEmail))
+            {
+                receivedCertificates = await GiftCertificateService.GetReceivedGiftCertificatesAsync(currentUserEmail);
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Active" => "bg-success text-white",
+            "PartiallyUsed" => "bg-info text-white",
+            "FullyRedeemed" => "bg-secondary text-white",
+            "Expired" => "bg-warning text-dark",
+            "Cancelled" => "bg-danger text-white",
+            "Pending" => "bg-warning text-dark",
+            _ => "bg-secondary text-white"
+        };
+    }
+}
+

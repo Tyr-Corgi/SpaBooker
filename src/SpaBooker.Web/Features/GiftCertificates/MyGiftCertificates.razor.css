@@ -1,0 +1,92 @@
+.gift-cert-card {
+    border: 2px solid var(--pink-lighter);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.gift-cert-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(183, 110, 121, 0.2);
+}
+
+.gift-cert-card.inactive {
+    opacity: 0.6;
+    filter: grayscale(50%);
+}
+
+.gift-cert-card .card-header {
+    background: linear-gradient(135deg, var(--rose-gold-primary) 0%, var(--rose-gold-light) 100%);
+    color: white;
+    border-bottom: none;
+    padding: 1rem;
+}
+
+.code-box {
+    background-color: #f8f9fa;
+    border: 2px dashed var(--rose-gold-light);
+    border-radius: 8px;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.code-box .code {
+    font-family: 'Courier New', monospace;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--rose-gold-dark);
+    letter-spacing: 2px;
+}
+
+.details .detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+}
+
+.details .detail-item .label {
+    color: #666;
+}
+
+.message-box {
+    background-color: #fff5f5;
+    border-left: 3px solid var(--rose-gold-primary);
+    padding: 0.75rem;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: #666;
+    border-radius: 4px;
+}
+
+.spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.4rem solid var(--rose-gold-light);
+    border-top-color: var(--rose-gold-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.nav-tabs .nav-link {
+    color: var(--rose-gold-dark);
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: var(--rose-gold-primary);
+    color: white;
+    border-color: var(--rose-gold-primary);
+}
+
+.nav-tabs .nav-link:hover:not(.active) {
+    background-color: #fff5f5;
+    border-color: var(--pink-lighter);
+}
+

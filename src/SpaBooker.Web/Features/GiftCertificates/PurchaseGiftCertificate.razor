@@ -1,0 +1,302 @@
+@page "/gift-certificates/purchase"
+@inject IGiftCertificateService GiftCertificateService
+@inject IStripeService StripeService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext DbContext
+@attribute [Authorize]
+
+<PageTitle>Purchase Gift Certificate - SpaBooker</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-4">
+                <h1 class="text-rose-gold mb-2">🎁 Gift the Joy of Relaxation</h1>
+                <p class="text-muted">Give someone special a memorable spa experience</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    @errorMessage
+                    <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                </div>
+            }
+
+            <EditForm Model="@purchaseModel" OnValidSubmit="HandlePurchase" FormName="purchaseGiftCert">
+                <DataAnnotationsValidator />
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Gift Certificate Amount</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Choose a preset amount or enter a custom value</p>
+                        
+                        <div class="row g-3 mb-3">
+                            @foreach (var preset in presetAmounts)
+                            {
+                                <div class="col-6 col-md-3">
+                                    <button type="button" 
+                                            class="btn btn-outline-primary w-100 @(purchaseModel.Amount == preset ? "active" : "")"
+                                            @onclick="() => SelectAmount(preset)">
+                                        $@preset
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Custom Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <InputNumber class="form-control" @bind-Value="purchaseModel.Amount" 
+                                           placeholder="Enter amount" />
+                            </div>
+                            <ValidationMessage For="@(() => purchaseModel.Amount)" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0"><i class="bi bi-person-heart me-2"></i>Recipient Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Recipient Name *</label>
+                                <InputText class="form-control" @bind-Value="purchaseModel.RecipientName" 
+                                         placeholder="Jane Doe" />
+                                <ValidationMessage For="@(() => purchaseModel.RecipientName)" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Recipient Email *</label>
+                                <InputText type="email" class="form-control" @bind-Value="purchaseModel.RecipientEmail" 
+                                         placeholder="jane@example.com" />
+                                <ValidationMessage For="@(() => purchaseModel.RecipientEmail)" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Recipient Phone (Optional)</label>
+                            <InputText class="form-control" @bind-Value="purchaseModel.RecipientPhone" 
+                                     placeholder="(555) 123-4567" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Personal Message (Optional)</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="purchaseModel.PersonalMessage"
+                                         placeholder="Add a personal message to make it extra special..." />
+                            <small class="form-text text-muted">This message will be included in the gift certificate email</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0"><i class="bi bi-calendar-event me-2"></i>Delivery Options</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" 
+                                       name="deliveryTiming" id="deliverNow"
+                                       checked="@(!purchaseModel.ScheduleDelivery)"
+                                       @onchange="() => purchaseModel.ScheduleDelivery = false">
+                                <label class="form-check-label" for="deliverNow">
+                                    <strong>Send Immediately</strong>
+                                    <div class="small text-muted">Gift certificate will be emailed right after purchase</div>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" 
+                                       name="deliveryTiming" id="deliverScheduled"
+                                       checked="@purchaseModel.ScheduleDelivery"
+                                       @onchange="() => purchaseModel.ScheduleDelivery = true">
+                                <label class="form-check-label" for="deliverScheduled">
+                                    <strong>Schedule for Later</strong>
+                                    <div class="small text-muted">Perfect for birthdays or special occasions</div>
+                                </label>
+                            </div>
+                        </div>
+
+                        @if (purchaseModel.ScheduleDelivery)
+                        {
+                            <div class="ms-4">
+                                <label class="form-label">Delivery Date</label>
+                                <InputDate class="form-control" @bind-Value="purchaseModel.ScheduledDate" 
+                                         min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                <ValidationMessage For="@(() => purchaseModel.ScheduledDate)" />
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Location (Optional)</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Restrict this gift certificate to a specific location, or leave blank for all locations</p>
+                        <InputSelect class="form-select" @bind-Value="purchaseModel.RestrictedToLocationId">
+                            <option value="">All Locations</option>
+                            @foreach (var location in locations)
+                            {
+                                <option value="@location.Id">@location.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">Order Summary</h5>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Gift Certificate Amount:</span>
+                            <strong class="text-rose-gold">${purchaseModel.Amount:F2}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Processing Fee:</span>
+                            <span>$0.00</span>
+                        </div>
+                        <hr />
+                        <div class="d-flex justify-content-between">
+                            <strong>Total:</strong>
+                            <strong class="text-rose-gold fs-4">${purchaseModel.Amount:F2}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Note:</strong> Gift certificates are valid for 1 year from purchase date and can be used for any spa service.
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Processing...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-credit-card me-2"></i>
+                            <span>Proceed to Payment</span>
+                        }
+                    </button>
+                    <a href="/" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private PurchaseGiftCertificateModel purchaseModel = new();
+    private List<Location> locations = new();
+    private decimal[] presetAmounts = { 50, 100, 150, 200 };
+    private bool isProcessing = false;
+    private string? errorMessage;
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            currentUserId = appUser?.Id;
+        }
+
+        locations = await DbContext.Locations
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.Name)
+            .ToListAsync();
+    }
+
+    private void SelectAmount(decimal amount)
+    {
+        purchaseModel.Amount = amount;
+    }
+
+    private async Task HandlePurchase()
+    {
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            errorMessage = "You must be logged in to purchase a gift certificate.";
+            return;
+        }
+
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            // Create gift certificate
+            var giftCert = await GiftCertificateService.CreateGiftCertificateAsync(
+                currentUserId,
+                purchaseModel.Amount,
+                purchaseModel.RecipientName,
+                purchaseModel.RecipientEmail,
+                purchaseModel.RecipientPhone,
+                purchaseModel.PersonalMessage,
+                purchaseModel.ScheduleDelivery ? purchaseModel.ScheduledDate : null,
+                string.IsNullOrEmpty(purchaseModel.RestrictedToLocationId) ? null : int.Parse(purchaseModel.RestrictedToLocationId)
+            );
+
+            // Create Stripe checkout session
+            var sessionUrl = await StripeService.CreateGiftCertificateCheckoutSessionAsync(
+                giftCert.Id,
+                purchaseModel.Amount,
+                currentUserId
+            );
+
+            // Redirect to Stripe
+            NavigationManager.NavigateTo(sessionUrl, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while processing your purchase: {ex.Message}";
+            isProcessing = false;
+        }
+    }
+
+    public class PurchaseGiftCertificateModel
+    {
+        [Required]
+        [Range(25, 10000, ErrorMessage = "Amount must be between $25 and $10,000")]
+        public decimal Amount { get; set; } = 100;
+
+        [Required(ErrorMessage = "Recipient name is required")]
+        [StringLength(100)]
+        public string RecipientName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Recipient email is required")]
+        [EmailAddress]
+        public string RecipientEmail { get; set; } = string.Empty;
+
+        [Phone]
+        public string? RecipientPhone { get; set; }
+
+        [StringLength(500)]
+        public string? PersonalMessage { get; set; }
+
+        public bool ScheduleDelivery { get; set; } = false;
+
+        public DateTime ScheduledDate { get; set; } = DateTime.Today.AddDays(1);
+
+        public string? RestrictedToLocationId { get; set; }
+    }
+}
+

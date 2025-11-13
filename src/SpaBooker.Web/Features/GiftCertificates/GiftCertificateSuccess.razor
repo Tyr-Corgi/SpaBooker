@@ -1,0 +1,98 @@
+@page "/gift-certificates/success"
+@inject IGiftCertificateService GiftCertificateService
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.WebUtilities
+
+<PageTitle>Purchase Complete - SpaBooker</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner"></div>
+                    <p class="mt-3 text-muted">Processing your purchase...</p>
+                </div>
+            }
+            else if (giftCertificate != null)
+            {
+                <div class="success-container text-center">
+                    <div class="success-icon mb-4">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 5rem;"></i>
+                    </div>
+                    
+                    <h1 class="text-rose-gold mb-3">🎁 Purchase Complete!</h1>
+                    <p class="lead mb-4">Your gift certificate has been created successfully</p>
+
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-body">
+                            <h5 class="text-rose-gold mb-3">Gift Certificate Details</h5>
+                            <div class="detail-row">
+                                <span class="label">Recipient:</span>
+                                <span class="value">@giftCertificate.RecipientName</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Amount:</span>
+                                <span class="value">${giftCertificate.OriginalAmount:F2}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Code:</span>
+                                <span class="value code">@giftCertificate.Code</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Expires:</span>
+                                <span class="value">@giftCertificate.ExpiresAt?.ToLocalTime().ToString("MMMM dd, yyyy")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-envelope me-2"></i>
+                        @if (giftCertificate.ScheduledDeliveryDate.HasValue)
+                        {
+                            <span>The gift certificate will be emailed to <strong>@giftCertificate.RecipientEmail</strong> on <strong>@giftCertificate.ScheduledDeliveryDate.Value.ToLocalTime().ToString("MMMM dd, yyyy")</strong></span>
+                        }
+                        else
+                        {
+                            <span>The gift certificate has been sent to <strong>@giftCertificate.RecipientEmail</strong></span>
+                        }
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <a href="/gift-certificates/my-certificates" class="btn btn-primary">
+                            <i class="bi bi-gift me-2"></i>View My Gift Certificates
+                        </a>
+                        <a href="/" class="btn btn-outline-secondary">Return to Home</a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-danger text-center">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <p class="mb-0">Unable to load gift certificate details. Please contact support if you've been charged.</p>
+                    <a href="/" class="btn btn-primary mt-3">Return to Home</a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private GiftCertificate? giftCertificate;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("giftCertId", out var giftCertIdString) 
+            && int.TryParse(giftCertIdString, out var giftCertId))
+        {
+            giftCertificate = await GiftCertificateService.GetGiftCertificateByIdAsync(giftCertId);
+        }
+
+        isLoading = false;
+    }
+}
+

@@ -13,5 +13,6 @@ public interface IStripeService
     // Stripe Checkout
     Task<string> CreateCheckoutSessionAsync(string customerEmail, decimal amount, string currency, string description, string successUrl, string cancelUrl, Dictionary<string, string>? metadata = null);
     Task<string> CreateSubscriptionCheckoutSessionAsync(string customerEmail, string priceId, string successUrl, string cancelUrl, Dictionary<string, string>? metadata = null);
+    Task<string> CreateGiftCertificateCheckoutSessionAsync(int giftCertificateId, decimal amount, string purchasedByUserId);
 }
 
