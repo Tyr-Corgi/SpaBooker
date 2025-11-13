@@ -64,6 +64,9 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Register gift certificate service
 builder.Services.AddScoped<IGiftCertificateService, GiftCertificateService>();
 
+// Register analytics service
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+
 // Register background services
 builder.Services.AddHostedService<BookingReminderService>();
 
