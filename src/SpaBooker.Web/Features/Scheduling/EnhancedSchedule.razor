@@ -92,15 +92,161 @@
         <!-- Calendar View -->
         @if (viewMode == ViewMode.Day)
         {
-            @RenderDayView()
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-center mb-4">@currentDate.ToString("dddd, dd/MM/yyyy")</h5>
+                            <div class="day-view-grid">
+                                @foreach (var timeSlot in timeSlots)
+                                {
+                                    var slotEnd = timeSlot.Add(TimeSpan.FromHours(1));
+                                    var slotBookings = bookings.Where(b => 
+                                        b.StartTime.Date == currentDate.Date && 
+                                        b.StartTime.TimeOfDay >= timeSlot && 
+                                        b.StartTime.TimeOfDay < slotEnd).ToList();
+                                    
+                                    var slotBlocks = blockedTimes.Where(bt => 
+                                        bt.SpecificDate == currentDate.Date &&
+                                        ((bt.StartTime == TimeSpan.Zero && bt.EndTime.TotalSeconds >= 86399) ||
+                                         (bt.StartTime <= timeSlot && bt.EndTime > timeSlot))).ToList();
+                                    
+                                    <div class="time-slot-row">
+                                        <div class="time-label">@($"{timeSlot.Hours:00}:00")</div>
+                                        <div class="time-content">
+                                            @foreach (var block in slotBlocks)
+                                            {
+                                                <div class="blocked-time-item" @onclick="() => SelectBlockedTime(block)">
+                                                    <div class="fw-bold text-danger">🚫 Blocked</div>
+                                                    <div class="small text-muted">@block.Notes</div>
+                                                </div>
+                                            }
+                                            
+                                            @foreach (var booking in slotBookings)
+                                            {
+                                                <div class="booking-card status-@booking.Status.ToString().ToLower()" @onclick="() => SelectBooking(booking)">
+                                                    <div class="booking-time fw-bold">@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</div>
+                                                    <div class="booking-service">@booking.Service.Name</div>
+                                                    <div class="booking-client small">@booking.Client.FirstName @booking.Client.LastName</div>
+                                                </div>
+                                            }
+                                            
+                                            @if (!slotBookings.Any() && !slotBlocks.Any())
+                                            {
+                                                <div class="text-muted small">Available</div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
         else if (viewMode == ViewMode.Week || viewMode == ViewMode.Fortnight)
         {
-            @RenderWeekView()
+            var weekStart = GetWeekStart(currentDate);
+            var days = viewMode == ViewMode.Fortnight ? 14 : 7;
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body p-0">
+                            <div class="week-grid">
+                                @for (int i = 0; i < days; i++)
+                                {
+                                    var day = weekStart.AddDays(i);
+                                    var isToday = day.Date == DateTime.Today;
+                                    var dayBookings = bookings.Where(b => b.StartTime.Date == day.Date).OrderBy(b => b.StartTime).ToList();
+                                    var dayBlocks = blockedTimes.Where(bt => bt.SpecificDate == day.Date).ToList();
+                                    
+                                    <div class="week-day @(isToday ? "today" : "")">
+                                        <div class="day-header">
+                                            <div class="day-name">@day.ToString("ddd")</div>
+                                            <div class="day-date @(isToday ? "fw-bold text-primary" : "")">@day.ToString("dd/MM")</div>
+                                        </div>
+                                        
+                                        <div class="day-content">
+                                            @foreach (var block in dayBlocks)
+                                            {
+                                                var isAllDay = block.StartTime == TimeSpan.Zero && block.EndTime.TotalSeconds >= 86399;
+                                                <div class="blocked-time-item" @onclick="() => SelectBlockedTime(block)">
+                                                    <div class="text-danger small fw-bold">
+                                                        @(isAllDay ? "🚫 Blocked (All Day)" : $"🚫 {block.StartTime:hh\\:mm}-{block.EndTime:hh\\:mm}")
+                                                    </div>
+                                                    <div class="text-muted small">
+                                                        @(block.Notes?.Length > 30 ? block.Notes.Substring(0, 30) + "..." : block.Notes)
+                                                    </div>
+                                                </div>
+                                            }
+                                            
+                                            @foreach (var booking in dayBookings)
+                                            {
+                                                <div class="booking-item status-@booking.Status.ToString().ToLower()" @onclick="() => SelectBooking(booking)">
+                                                    <div class="booking-time small">@booking.StartTime.ToString("HH:mm")</div>
+                                                    <div class="booking-service small fw-bold">@booking.Service.Name</div>
+                                                    <div class="booking-client small text-muted">@booking.Client.FirstName @booking.Client.LastName</div>
+                                                </div>
+                                            }
+                                            
+                                            @if (!dayBookings.Any() && !dayBlocks.Any())
+                                            {
+                                                <div class="text-center text-muted py-3 small">No appointments</div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
         else if (viewMode == ViewMode.Month)
         {
-            @RenderMonthView()
+            var monthStart = new DateTime(currentDate.Year, currentDate.Month, 1);
+            var firstDayOfWeek = GetWeekStart(monthStart);
+            var daysToShow = 35;
+            var dayNames = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body p-0">
+                            <div class="month-grid">
+                                @foreach (var dayName in dayNames)
+                                {
+                                    <div class="month-day-header">@dayName</div>
+                                }
+                                
+                                @for (int i = 0; i < daysToShow; i++)
+                                {
+                                    var day = firstDayOfWeek.AddDays(i);
+                                    var isToday = day.Date == DateTime.Today;
+                                    var isCurrentMonth = day.Month == currentDate.Month;
+                                    var dayBookings = bookings.Where(b => b.StartTime.Date == day.Date).ToList();
+                                    var dayBlocks = blockedTimes.Where(bt => bt.SpecificDate == day.Date).ToList();
+                                    
+                                    <div class="month-day @(isToday ? "today" : "") @(!isCurrentMonth ? "other-month" : "")">
+                                        <div class="day-number">@day.Day</div>
+                                        <div class="day-indicators">
+                                            @if (dayBlocks.Any())
+                                            {
+                                                <div class="indicator blocked" title="@string.Join(", ", dayBlocks.Select(b => b.Notes))">🚫</div>
+                                            }
+                                            @if (dayBookings.Any())
+                                            {
+                                                <div class="indicator bookings" title="@($"{dayBookings.Count} appointment(s)")">@dayBookings.Count</div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
     }
 </div>
