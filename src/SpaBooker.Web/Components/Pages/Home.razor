@@ -1,39 +1,68 @@
 ﻿@page "/"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@inject ApplicationDbContext DbContext
+@inject IJSRuntime JS
 
 <PageTitle>Home - SpaBooker</PageTitle>
 
-<div class="hero-section">
-    <div class="container py-5">
-        <div class="row align-items-center">
-            <div class="col-lg-6">
-                <h1 class="display-4 text-rose-gold mb-4">Welcome to SpaBooker</h1>
-                <p class="lead mb-4">
-                    Experience ultimate relaxation and rejuvenation at our luxury spa facilities. 
-                    Book your perfect wellness journey today.
-                </p>
-                <div class="d-flex gap-3 flex-wrap">
-                    <a href="/select-location" class="btn btn-primary btn-lg">
-                        <i class="bi bi-geo-alt me-2"></i>Find Your Spa
-                    </a>
-                    <AuthorizeView>
-                        <NotAuthorized>
-                            <a href="/auth/register" class="btn btn-outline-primary btn-lg">Sign Up</a>
-                        </NotAuthorized>
-                        <Authorized>
-                            <a href="/bookings/my-bookings" class="btn btn-outline-primary btn-lg">My Bookings</a>
-                        </Authorized>
-                    </AuthorizeView>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="text-center mt-5 mt-lg-0">
-                    <div class="feature-icon">✨</div>
-                </div>
-            </div>
-        </div>
+<!-- Hero Carousel -->
+<div id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel">
+    <div class="carousel-indicators">
+        @for (int i = 0; i < banners.Count; i++)
+        {
+            var index = i;
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="@index" 
+                    class="@(index == 0 ? "active" : "")" aria-current="@(index == 0 ? "true" : "false")" 
+                    aria-label="Slide @(index + 1)"></button>
+        }
     </div>
+    
+    <div class="carousel-inner">
+        @for (int i = 0; i < banners.Count; i++)
+        {
+            var banner = banners[i];
+            var index = i;
+            <div class="carousel-item @(index == 0 ? "active" : "")">
+                <div class="carousel-image" style="background-image: url('@banner.ImageUrl');">
+                    <div class="carousel-overlay"></div>
+                </div>
+                <div class="carousel-caption-custom">
+                    <div class="container">
+                        <div class="row justify-content-center">
+                            <div class="col-lg-8 text-center">
+                                <h1 class="display-3 fw-bold text-white mb-3 animate-slide-up">@banner.Title</h1>
+                                <p class="lead text-white mb-4 animate-slide-up-delay">@banner.Subtitle</p>
+                                @if (!string.IsNullOrEmpty(banner.Description))
+                                {
+                                    <p class="text-white mb-4 animate-fade-in">@banner.Description</p>
+                                }
+                                @if (!string.IsNullOrEmpty(banner.ButtonText) && !string.IsNullOrEmpty(banner.ButtonLink))
+                                {
+                                    <a href="@banner.ButtonLink" class="btn btn-primary btn-lg px-5 py-3 animate-bounce">
+                                        @banner.ButtonText
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+    
+    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Next</span>
+    </button>
 </div>
 
+<!-- Features Section -->
 <div class="container py-5">
     <div class="row text-center mb-5">
         <div class="col-12">
@@ -44,45 +73,105 @@
 
     <div class="row g-4">
         <div class="col-md-4">
-            <div class="card h-100 text-center">
-                <div class="card-body">
-                    <div class="feature-icon-small mb-3">💆</div>
-                    <h5 class="card-title text-rose-gold">Expert Therapists</h5>
-                    <p class="card-text">Our licensed professionals provide personalized care tailored to your needs.</p>
+            <div class="feature-card card h-100 text-center border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="feature-icon-large mb-3">💆</div>
+                    <h5 class="card-title text-rose-gold mb-3">Expert Therapists</h5>
+                    <p class="card-text text-muted">Our licensed professionals provide personalized care tailored to your needs.</p>
                 </div>
             </div>
         </div>
 
         <div class="col-md-4">
-            <div class="card h-100 text-center">
-                <div class="card-body">
-                    <div class="feature-icon-small mb-3">📅</div>
-                    <h5 class="card-title text-rose-gold">Easy Booking</h5>
-                    <p class="card-text">Simple online booking with real-time availability and instant confirmation.</p>
+            <div class="feature-card card h-100 text-center border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="feature-icon-large mb-3">📅</div>
+                    <h5 class="card-title text-rose-gold mb-3">Easy Booking</h5>
+                    <p class="card-text text-muted">Simple online booking with real-time availability and instant confirmation.</p>
                 </div>
             </div>
         </div>
 
         <div class="col-md-4">
-            <div class="card h-100 text-center">
-                <div class="card-body">
-                    <div class="feature-icon-small mb-3">💎</div>
-                    <h5 class="card-title text-rose-gold">Membership Benefits</h5>
-                    <p class="card-text">Save with our exclusive membership plans and enjoy special perks.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mt-5">
-        <div class="col-12 text-center">
-            <div class="card shadow-md">
-                <div class="card-body py-5">
-                    <h3 class="text-rose-gold mb-3">Ready to Experience Luxury?</h3>
-                    <p class="mb-4">Book your appointment today and discover the ultimate in spa relaxation.</p>
-                    <a href="/services" class="btn btn-primary btn-lg">View All Services</a>
+            <div class="feature-card card h-100 text-center border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="feature-icon-large mb-3">💎</div>
+                    <h5 class="card-title text-rose-gold mb-3">Membership Benefits</h5>
+                    <p class="card-text text-muted">Save with our exclusive membership plans and enjoy special perks.</p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Call to Action -->
+<div class="cta-section py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center text-white">
+                <h3 class="display-5 mb-3">Ready to Experience Luxury?</h3>
+                <p class="lead mb-4">Book your appointment today and discover the ultimate in spa relaxation.</p>
+                <div class="d-flex gap-3 justify-content-center flex-wrap">
+                    <a href="/services" class="btn btn-light btn-lg px-5">View Services</a>
+                    <a href="/gift-certificates/purchase" class="btn btn-outline-light btn-lg px-5">
+                        <i class="bi bi-gift me-2"></i>Buy Gift Certificate
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Banner> banners = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load active banners from database
+        banners = await DbContext.Banners
+            .Where(b => b.IsActive)
+            .OrderBy(b => b.DisplayOrder)
+            .ToListAsync();
+
+        // If no banners exist, create default ones with placeholder images
+        if (!banners.Any())
+        {
+            banners = new List<Banner>
+            {
+                new Banner
+                {
+                    Title = "Relax & Rejuvenate",
+                    Subtitle = "Experience the ultimate in spa luxury",
+                    Description = "Immerse yourself in tranquility with our signature treatments",
+                    ImageUrl = "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1920&h=1080&fit=crop",
+                    ButtonText = "Book Now",
+                    ButtonLink = "/select-location",
+                    DisplayOrder = 1,
+                    IsActive = true
+                },
+                new Banner
+                {
+                    Title = "Special Packages",
+                    Subtitle = "Save 20% on our premium spa packages",
+                    Description = "Treat yourself to a complete wellness experience",
+                    ImageUrl = "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=1920&h=1080&fit=crop",
+                    ButtonText = "View Packages",
+                    ButtonLink = "/services",
+                    DisplayOrder = 2,
+                    IsActive = true
+                },
+                new Banner
+                {
+                    Title = "Gift of Wellness",
+                    Subtitle = "Perfect gift for someone special",
+                    Description = "Share the joy of relaxation with our gift certificates",
+                    ImageUrl = "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1920&h=1080&fit=crop",
+                    ButtonText = "Buy Gift Certificate",
+                    ButtonLink = "/gift-certificates/purchase",
+                    DisplayOrder = 3,
+                    IsActive = true
+                }
+            };
+        }
+    }
+}

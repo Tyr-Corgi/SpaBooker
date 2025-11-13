@@ -23,6 +23,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ServiceTherapist> ServiceTherapists => Set<ServiceTherapist>();
     public DbSet<GiftCertificate> GiftCertificates => Set<GiftCertificate>();
     public DbSet<GiftCertificateTransaction> GiftCertificateTransactions => Set<GiftCertificateTransaction>();
+    public DbSet<Banner> Banners => Set<Banner>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -249,6 +250,16 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany()
                 .HasForeignKey(e => e.PerformedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Banner configuration
+        builder.Entity<Banner>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Subtitle).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.ImageUrl).IsRequired().HasMaxLength(500);
+            entity.HasIndex(e => new { e.DisplayOrder, e.IsActive });
         });
     }
 }
