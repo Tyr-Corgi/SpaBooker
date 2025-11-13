@@ -98,42 +98,62 @@
                         <div class="card-body">
                             <h5 class="card-title text-center mb-4">@currentDate.ToString("dddd, dd/MM/yyyy")</h5>
                             <div class="day-view-grid">
+                                <!-- Header Row -->
+                                <div class="time-slot-row header-row">
+                                    <div class="time-label">Time</div>
+                                    <div class="client-column">Client</div>
+                                    <div class="service-column">Service</div>
+                                    <div class="status-column">Status</div>
+                                </div>
+                                
                                 @foreach (var timeSlot in timeSlots)
                                 {
-                                    var slotEnd = timeSlot.Add(TimeSpan.FromHours(1));
-                                    var slotBookings = bookings.Where(b => 
+                                    var slotEnd = timeSlot.Add(TimeSpan.FromMinutes(15));
+                                    var slotBooking = bookings.FirstOrDefault(b => 
                                         b.StartTime.Date == currentDate.Date && 
-                                        b.StartTime.TimeOfDay >= timeSlot && 
-                                        b.StartTime.TimeOfDay < slotEnd).ToList();
+                                        b.StartTime.TimeOfDay <= timeSlot && 
+                                        b.EndTime.TimeOfDay > timeSlot);
                                     
-                                    var slotBlocks = blockedTimes.Where(bt => 
+                                    var slotBlock = blockedTimes.FirstOrDefault(bt => 
                                         bt.SpecificDate == currentDate.Date &&
                                         ((bt.StartTime == TimeSpan.Zero && bt.EndTime.TotalSeconds >= 86399) ||
-                                         (bt.StartTime <= timeSlot && bt.EndTime > timeSlot))).ToList();
+                                         (bt.StartTime <= timeSlot && bt.EndTime > timeSlot)));
                                     
-                                    <div class="time-slot-row">
-                                        <div class="time-label">@($"{timeSlot.Hours:00}:00")</div>
-                                        <div class="time-content">
-                                            @foreach (var block in slotBlocks)
+                                    var isBooked = slotBooking != null;
+                                    var isBlocked = slotBlock != null;
+                                    var statusClass = isBooked ? $"booked status-{slotBooking.Status.ToString().ToLower()}" : 
+                                                     isBlocked ? "blocked" : "open";
+                                    
+                                    <div class="time-slot-row @statusClass" @onclick="() => HandleSlotClick(slotBooking, slotBlock)">
+                                        <div class="time-label">@timeSlot.ToString(@"hh\:mm")</div>
+                                        <div class="client-column">
+                                            @if (isBlocked)
                                             {
-                                                <div class="blocked-time-item" @onclick="() => SelectBlockedTime(block)">
-                                                    <div class="fw-bold text-danger">🚫 Blocked</div>
-                                                    <div class="small text-muted">@block.Notes</div>
-                                                </div>
+                                                <span class="text-danger fw-bold">🚫 Blocked</span>
                                             }
-                                            
-                                            @foreach (var booking in slotBookings)
+                                            else if (isBooked)
                                             {
-                                                <div class="booking-card status-@booking.Status.ToString().ToLower()" @onclick="() => SelectBooking(booking)">
-                                                    <div class="booking-time fw-bold">@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</div>
-                                                    <div class="booking-service">@booking.Service.Name</div>
-                                                    <div class="booking-client small">@booking.Client.FirstName @booking.Client.LastName</div>
-                                                </div>
+                                                <span class="fw-bold">Client: @slotBooking.Client.FirstName @slotBooking.Client.LastName</span>
                                             }
-                                            
-                                            @if (!slotBookings.Any() && !slotBlocks.Any())
+                                            else
                                             {
-                                                <div class="text-muted small">Available</div>
+                                                <span class="text-muted">Client: Open</span>
+                                            }
+                                        </div>
+                                        <div class="service-column">
+                                            @if (isBooked)
+                                            {
+                                                <span>@slotBooking.Service.Name</span>
+                                            }
+                                        </div>
+                                        <div class="status-column">
+                                            @if (isBlocked)
+                                            {
+                                                <span class="badge bg-danger">Blocked</span>
+                                            }
+                                            else if (isBooked)
+                                            {
+                                                <span class="badge @GetStatusBadgeClass(slotBooking.Status)">@slotBooking.Status</span>
                                             }
                                         </div>
                                     </div>
@@ -148,54 +168,68 @@
         {
             var weekStart = GetWeekStart(currentDate);
             var days = viewMode == ViewMode.Fortnight ? 14 : 7;
+            var hourlySlots = Enumerable.Range(8, 13).Select(h => new TimeSpan(h, 0, 0)).ToArray();
             
             <div class="row">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-body p-0">
-                            <div class="week-grid">
+                            <div class="week-time-grid" style="grid-template-columns: 100px repeat(@days, 1fr);">
+                                <!-- Header Row -->
+                                <div class="week-time-cell header-cell">Time</div>
                                 @for (int i = 0; i < days; i++)
                                 {
                                     var day = weekStart.AddDays(i);
                                     var isToday = day.Date == DateTime.Today;
-                                    var dayBookings = bookings.Where(b => b.StartTime.Date == day.Date).OrderBy(b => b.StartTime).ToList();
-                                    var dayBlocks = blockedTimes.Where(bt => bt.SpecificDate == day.Date).ToList();
-                                    
-                                    <div class="week-day @(isToday ? "today" : "")">
-                                        <div class="day-header">
-                                            <div class="day-name">@day.ToString("ddd")</div>
-                                            <div class="day-date @(isToday ? "fw-bold text-primary" : "")">@day.ToString("dd/MM")</div>
-                                        </div>
-                                        
-                                        <div class="day-content">
-                                            @foreach (var block in dayBlocks)
-                                            {
-                                                var isAllDay = block.StartTime == TimeSpan.Zero && block.EndTime.TotalSeconds >= 86399;
-                                                <div class="blocked-time-item" @onclick="() => SelectBlockedTime(block)">
-                                                    <div class="text-danger small fw-bold">
-                                                        @(isAllDay ? "🚫 Blocked (All Day)" : $"🚫 {block.StartTime:hh\\:mm}-{block.EndTime:hh\\:mm}")
-                                                    </div>
-                                                    <div class="text-muted small">
-                                                        @(block.Notes?.Length > 30 ? block.Notes.Substring(0, 30) + "..." : block.Notes)
-                                                    </div>
-                                                </div>
-                                            }
-                                            
-                                            @foreach (var booking in dayBookings)
-                                            {
-                                                <div class="booking-item status-@booking.Status.ToString().ToLower()" @onclick="() => SelectBooking(booking)">
-                                                    <div class="booking-time small">@booking.StartTime.ToString("HH:mm")</div>
-                                                    <div class="booking-service small fw-bold">@booking.Service.Name</div>
-                                                    <div class="booking-client small text-muted">@booking.Client.FirstName @booking.Client.LastName</div>
-                                                </div>
-                                            }
-                                            
-                                            @if (!dayBookings.Any() && !dayBlocks.Any())
-                                            {
-                                                <div class="text-center text-muted py-3 small">No appointments</div>
-                                            }
-                                        </div>
+                                    <div class="week-time-cell header-cell @(isToday ? "today" : "")">
+                                        <div class="fw-bold">@day.ToString("ddd")</div>
+                                        <div class="small">@day.ToString("dd/MM")</div>
                                     </div>
+                                }
+                                
+                                <!-- Time Slot Rows -->
+                                @foreach (var hourSlot in hourlySlots)
+                                {
+                                    <div class="week-time-cell time-label-cell">@hourSlot.ToString(@"hh\:mm")</div>
+                                    
+                                    @for (int i = 0; i < days; i++)
+                                    {
+                                        var day = weekStart.AddDays(i);
+                                        var slotBookings = bookings.Where(b => 
+                                            b.StartTime.Date == day.Date && 
+                                            b.StartTime.TimeOfDay >= hourSlot && 
+                                            b.StartTime.TimeOfDay < hourSlot.Add(TimeSpan.FromHours(1))).ToList();
+                                        
+                                        var slotBlocks = blockedTimes.Any(bt => 
+                                            bt.SpecificDate == day.Date &&
+                                            ((bt.StartTime == TimeSpan.Zero && bt.EndTime.TotalSeconds >= 86399) ||
+                                             (bt.StartTime <= hourSlot && bt.EndTime > hourSlot)));
+                                        
+                                        var hasBookings = slotBookings.Any();
+                                        var cellClass = slotBlocks ? "week-time-cell blocked-cell" : 
+                                                       hasBookings ? "week-time-cell booked-cell" : "week-time-cell";
+                                        
+                                        <div class="@cellClass">
+                                            @if (slotBlocks)
+                                            {
+                                                <span class="text-danger small fw-bold">🚫 Blocked</span>
+                                            }
+                                            else if (hasBookings)
+                                            {
+                                                @foreach (var booking in slotBookings)
+                                                {
+                                                    <div class="week-booking-item" @onclick="() => SelectBooking(booking)">
+                                                        <div class="small fw-bold">@booking.StartTime.ToString("HH:mm")</div>
+                                                        <div class="small">@booking.Client.FirstName @booking.Client.LastName</div>
+                                                    </div>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">Open</span>
+                                            }
+                                        </div>
+                                    }
                                 }
                             </div>
                         </div>
@@ -471,8 +505,8 @@
     private TherapistAvailability? selectedBlockedTime;
     private BlockTimeModel blockModel = new();
     
-    // Time slots for day view (8 AM to 8 PM)
-    private readonly TimeSpan[] timeSlots = Enumerable.Range(8, 13).Select(h => new TimeSpan(h, 0, 0)).ToArray();
+    // Time slots for day view (8 AM to 8 PM in 15-minute intervals)
+    private readonly TimeSpan[] timeSlots = Enumerable.Range(0, 49).Select(i => new TimeSpan(8, i * 15, 0)).ToArray();
 
     protected override async Task OnInitializedAsync()
     {
@@ -620,6 +654,18 @@
     {
         currentDate = DateTime.Today;
         await LoadScheduleData();
+    }
+
+    private void HandleSlotClick(Booking? booking, TherapistAvailability? block)
+    {
+        if (booking != null)
+        {
+            SelectBooking(booking);
+        }
+        else if (block != null)
+        {
+            SelectBlockedTime(block);
+        }
     }
 
     private void ShowBlockTimeModal()

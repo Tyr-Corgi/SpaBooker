@@ -1,181 +1,193 @@
-/* Day View Styling */
+/* Day View Styling - Professional Table Layout */
 .day-view-grid {
     display: flex;
     flex-direction: column;
-    gap: 0;
     border: 1px solid #dee2e6;
     border-radius: 8px;
     overflow: hidden;
+    background-color: #fff;
 }
 
 .time-slot-row {
     display: grid;
-    grid-template-columns: 80px 1fr;
-    min-height: 80px;
+    grid-template-columns: 100px 1fr 200px 120px;
+    min-height: 50px;
     border-bottom: 1px solid #e9ecef;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
 }
 
 .time-slot-row:last-child {
     border-bottom: none;
 }
 
-.time-label {
-    padding: 1rem;
-    background-color: #f8f9fa;
-    border-right: 1px solid #dee2e6;
+.time-slot-row.header-row {
+    background: linear-gradient(135deg, #B76E79 0%, #C19A6B 100%);
+    color: white;
     font-weight: 600;
-    color: #6c757d;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    cursor: default;
+    min-height: 45px;
 }
 
-.time-content {
-    padding: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    background-color: #fff;
+.time-slot-row.header-row:hover {
+    background: linear-gradient(135deg, #B76E79 0%, #C19A6B 100%);
+    box-shadow: none;
 }
 
-.booking-card {
-    padding: 0.75rem;
-    border-radius: 6px;
-    border-left: 4px solid;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background-color: #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+.time-slot-row:hover:not(.header-row) {
+    background-color: #f8f9fa;
+    box-shadow: inset 0 0 0 1px #C19A6B;
 }
 
-.booking-card:hover {
-    transform: translateX(4px);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
-
-.booking-card.status-pending {
-    border-left-color: #ffc107;
-    background-color: #fff9e6;
-}
-
-.booking-card.status-confirmed {
-    border-left-color: #28a745;
+/* Booked slot colors */
+.time-slot-row.booked.status-confirmed {
     background-color: #e8f5e9;
 }
 
-.booking-card.status-completed {
-    border-left-color: #6c757d;
-    background-color: #f8f9fa;
+.time-slot-row.booked.status-confirmed:hover {
+    background-color: #c8e6c9;
 }
 
-.blocked-time-item {
+.time-slot-row.booked.status-pending {
+    background-color: #fff9e6;
+}
+
+.time-slot-row.booked.status-pending:hover {
+    background-color: #fff3cd;
+}
+
+.time-slot-row.booked.status-completed {
+    background-color: #f5f5f5;
+}
+
+.time-slot-row.booked.status-completed:hover {
+    background-color: #e0e0e0;
+}
+
+.time-slot-row.blocked {
+    background-color: #fee;
+}
+
+.time-slot-row.blocked:hover {
+    background-color: #fdd;
+}
+
+.time-label {
     padding: 0.75rem;
-    border-radius: 6px;
-    border: 2px dashed #dc3545;
-    background-color: #f8d7da;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    background-color: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
 }
 
-.blocked-time-item:hover {
-    background-color: #f1aeb5;
+.time-slot-row.header-row .time-label {
+    background-color: transparent;
+    color: white;
+    border-right: 1px solid rgba(255,255,255,0.3);
 }
 
-/* Week/Fortnight View Styling */
-.week-grid {
+.client-column,
+.service-column,
+.status-column {
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid #e9ecef;
+}
+
+.time-slot-row.header-row .client-column,
+.time-slot-row.header-row .service-column,
+.time-slot-row.header-row .status-column {
+    border-right: 1px solid rgba(255,255,255,0.3);
+    color: white;
+}
+
+.status-column {
+    border-right: none;
+    justify-content: center;
+}
+
+.client-column {
+    font-size: 0.95rem;
+}
+
+.service-column {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+/* Week Time Grid Styling */
+.week-time-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 0;
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
     border-radius: 8px;
     overflow: hidden;
 }
 
-.week-day {
+.week-time-cell {
+    padding: 0.75rem;
+    background-color: #fff;
     border-right: 1px solid #e9ecef;
     border-bottom: 1px solid #e9ecef;
-    min-height: 400px;
+    min-height: 60px;
     display: flex;
+    align-items: center;
+    justify-content: center;
     flex-direction: column;
+    transition: background-color 0.2s ease;
 }
 
-.week-day:last-child {
-    border-right: none;
-}
-
-.week-day.today {
-    background-color: #fff9e6;
-}
-
-.day-header {
-    padding: 1rem;
+.week-time-cell.header-cell {
     background: linear-gradient(135deg, #B76E79 0%, #C19A6B 100%);
     color: white;
-    text-align: center;
     font-weight: 600;
+    border-bottom: 2px solid #B76E79;
+    min-height: 50px;
 }
 
-.day-header .day-name {
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+.week-time-cell.header-cell.today {
+    background: linear-gradient(135deg, #9d5a64 0%, #a8895d 100%);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5);
 }
 
-.day-header .day-date {
-    font-size: 1.25rem;
-    margin-top: 0.25rem;
-}
-
-.day-content {
-    padding: 0.75rem;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    overflow-y: auto;
-}
-
-.booking-item {
-    padding: 0.5rem;
-    border-radius: 6px;
-    border-left: 3px solid;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background-color: #fff;
-}
-
-.booking-item:hover {
-    transform: translateX(2px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.booking-item.status-pending {
-    border-left-color: #ffc107;
-    background-color: #fff9e6;
-}
-
-.booking-item.status-confirmed {
-    border-left-color: #28a745;
-    background-color: #e8f5e9;
-}
-
-.booking-item.status-completed {
-    border-left-color: #6c757d;
+.week-time-cell.time-label-cell {
     background-color: #f8f9fa;
-}
-
-.booking-time {
     font-weight: 600;
     color: #495057;
+    font-size: 0.9rem;
 }
 
-.booking-service {
-    color: #212529;
-    margin-top: 0.25rem;
+.week-time-cell.booked-cell {
+    background-color: #e8f5e9;
+    cursor: pointer;
 }
 
-.booking-client {
-    color: #6c757d;
-    margin-top: 0.25rem;
+.week-time-cell.booked-cell:hover {
+    background-color: #c8e6c9;
+}
+
+.week-time-cell.blocked-cell {
+    background-color: #fee;
+}
+
+.week-booking-item {
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    margin: 0.125rem 0;
+    transition: background-color 0.2s ease;
+    width: 100%;
+    text-align: center;
+}
+
+.week-booking-item:hover {
+    background-color: rgba(255,255,255,0.5);
 }
 
 /* Month View Styling */
@@ -274,45 +286,62 @@
     z-index: 1050;
 }
 
+/* Badge Styling */
+.badge {
+    padding: 0.35em 0.65em;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
 /* Responsive Design */
 @media (max-width: 992px) {
-    .week-grid {
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    .time-slot-row {
+        grid-template-columns: 80px 1fr 150px 100px;
+        font-size: 0.9rem;
     }
     
-    .time-slot-row {
-        grid-template-columns: 60px 1fr;
+    .week-time-grid {
+        font-size: 0.85rem;
+    }
+    
+    .week-time-cell {
+        padding: 0.5rem;
+        min-height: 50px;
     }
 }
 
 @media (max-width: 768px) {
-    .week-grid {
-        grid-template-columns: 1fr;
+    .time-slot-row {
+        grid-template-columns: 70px 1fr;
+        min-height: 40px;
     }
     
-    .week-day {
-        border-right: none;
-        border-bottom: 1px solid #e9ecef;
+    .service-column,
+    .status-column {
+        display: none;
+    }
+    
+    .week-time-grid {
+        overflow-x: auto;
     }
     
     .month-day {
         min-height: 80px;
         padding: 0.5rem;
     }
-    
-    .day-view-grid {
-        font-size: 0.875rem;
-    }
 }
 
 @media (max-width: 576px) {
-    .booking-card, .booking-item {
-        font-size: 0.875rem;
-        padding: 0.5rem;
+    .time-slot-row {
+        font-size: 0.85rem;
     }
     
     .time-label {
-        font-size: 0.75rem;
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .client-column {
         padding: 0.5rem;
     }
     
@@ -327,3 +356,9 @@
     height: 3rem;
 }
 
+/* Smooth transitions */
+* {
+    transition-property: background-color, box-shadow, transform;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+}
