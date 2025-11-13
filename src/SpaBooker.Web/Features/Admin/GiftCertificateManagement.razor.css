@@ -1,0 +1,61 @@
+.spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.4rem solid var(--rose-gold-light);
+    border-top-color: var(--rose-gold-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.table {
+    font-size: 0.9rem;
+}
+
+.table thead th {
+    background-color: var(--bg-cream);
+    color: var(--rose-gold-dark);
+    border-bottom: 2px solid var(--rose-gold-light);
+    font-weight: 600;
+}
+
+.table tbody tr:hover {
+    background-color: #fff5f5;
+}
+
+.font-monospace {
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 1px;
+}
+
+.modal.show {
+    display: block;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.card.border-success {
+    border-width: 2px !important;
+}
+
+.card.border-primary {
+    border-width: 2px !important;
+}
+
+.card.border-info {
+    border-width: 2px !important;
+}
+
+.card.border-warning {
+    border-width: 2px !important;
+}
+
