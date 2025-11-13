@@ -1,0 +1,66 @@
+@page "/auth/login"
+@model SpaBooker.Web.Pages.LoginModel
+@{
+    ViewData["Title"] = "Login";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - SpaBooker</title>
+    <link rel="stylesheet" href="~/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/app.css" />
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h1 class="h3 text-rose-gold">Welcome Back</h1>
+                    <p class="text-muted">Sign in to your account</p>
+                </div>
+
+                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                {
+                    <div class="alert alert-danger">
+                        @Model.ErrorMessage
+                    </div>
+                }
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="Input.Email" value="@Model.Input.Email" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="Input.Password" required />
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="rememberMe" name="Input.RememberMe" />
+                        <label class="form-check-label" for="rememberMe">
+                            Remember me
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        Sign In
+                    </button>
+                </form>
+
+                <div class="mt-4 text-center">
+                    <p class="mb-0">
+                        Don't have an account? 
+                        <a href="/auth/register" class="text-rose-gold fw-bold">Sign up</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
