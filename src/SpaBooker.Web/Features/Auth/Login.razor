@@ -85,7 +85,7 @@
 
             if (result.Succeeded)
             {
-                NavigationManager.NavigateTo("/");
+                NavigationManager.NavigateTo("/", forceLoad: true);
             }
             else if (result.IsLockedOut)
             {
@@ -98,7 +98,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = "An error occurred during login. Please try again.";
+            errorMessage = $"An error occurred during login: {ex.Message}";
         }
         finally
         {

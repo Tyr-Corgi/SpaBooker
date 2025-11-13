@@ -130,7 +130,7 @@
                 // Sign in the user
                 await SignInManager.SignInAsync(user, isPersistent: false);
                 
-                NavigationManager.NavigateTo("/");
+                NavigationManager.NavigateTo("/", forceLoad: true);
             }
             else
             {
