@@ -1,6 +1,8 @@
 @page "/auth/login"
+@using Microsoft.JSInterop
 @inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 
 <PageTitle>Login - SpaBooker</PageTitle>
@@ -85,7 +87,9 @@
 
             if (result.Succeeded)
             {
-                NavigationManager.NavigateTo("/", forceLoad: true);
+                // Use JavaScript to redirect to avoid "Headers are read-only" error
+                await JSRuntime.InvokeVoidAsync("location.replace", "/");
+                return;
             }
             else if (result.IsLockedOut)
             {
