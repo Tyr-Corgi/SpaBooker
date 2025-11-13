@@ -66,6 +66,16 @@
                     <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
                 </div>
 
+                <div class="mb-3">
+                    <div class="form-check">
+                        <InputCheckbox id="acceptTerms" class="form-check-input" @bind-Value="registerModel.AcceptTerms" />
+                        <label class="form-check-label" for="acceptTerms">
+                            I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>
+                        </label>
+                    </div>
+                    <ValidationMessage For="@(() => registerModel.AcceptTerms)" />
+                </div>
+
                 <button type="submit" class="btn btn-primary w-100" disabled="@isSubmitting">
                     @if (isSubmitting)
                     {
@@ -162,6 +172,9 @@
         [Required(ErrorMessage = "Please confirm your password")]
         [Compare(nameof(Password), ErrorMessage = "Passwords do not match")]
         public string ConfirmPassword { get; set; } = string.Empty;
+
+        [Range(typeof(bool), "true", "true", ErrorMessage = "You must accept the Terms of Service and Privacy Policy")]
+        public bool AcceptTerms { get; set; } = false;
     }
 }
 

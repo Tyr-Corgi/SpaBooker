@@ -111,3 +111,43 @@ main {
         text-decoration: underline;
         font-weight: 600;
     }
+
+/* Footer Styles */
+.app-footer {
+    background-color: var(--bg-cream);
+    border-top: 1px solid var(--pink-lighter);
+    margin-top: auto;
+    padding: 0;
+}
+
+.app-footer p {
+    margin: 0;
+    color: var(--rose-gold-dark);
+}
+
+.footer-link {
+    color: var(--rose-gold-primary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s ease;
+}
+
+.footer-link:hover {
+    color: var(--rose-gold-dark);
+    text-decoration: underline;
+}
+
+.footer-divider {
+    margin: 0 0.75rem;
+    color: var(--pink-lighter);
+}
+
+@media (max-width: 768px) {
+    .footer-link {
+        font-size: 0.85rem;
+    }
+    
+    .footer-divider {
+        margin: 0 0.5rem;
+    }
+}

@@ -1,0 +1,83 @@
+/* Reuse the same styles as Terms of Service */
+.privacy-header h1 {
+    font-weight: 700;
+    font-size: 2.5rem;
+}
+
+.section-title {
+    color: var(--rose-gold-dark);
+    font-weight: 600;
+    font-size: 1.5rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--pink-lighter);
+}
+
+.card-body h3 {
+    color: var(--rose-gold-primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.card-body p {
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.card-body ul {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.card-body li {
+    line-height: 1.8;
+    margin-bottom: 0.5rem;
+}
+
+.card-body a {
+    color: var(--rose-gold-primary);
+    text-decoration: none;
+}
+
+.card-body a:hover {
+    color: var(--rose-gold-dark);
+    text-decoration: underline;
+}
+
+.card-body address {
+    font-style: normal;
+    padding: 1rem;
+    background-color: var(--bg-cream);
+    border-left: 4px solid var(--rose-gold-primary);
+    border-radius: 4px;
+}
+
+.alert-success {
+    background-color: #e8f8f0;
+    border-color: var(--rose-gold-light);
+    color: #333;
+}
+
+section {
+    scroll-margin-top: 2rem;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .privacy-header h1 {
+        font-size: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.3rem;
+    }
+
+    .card-body {
+        padding: 1.5rem !important;
+    }
+}
+

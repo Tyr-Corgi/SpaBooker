@@ -1,0 +1,362 @@
+@page "/terms"
+@using Microsoft.AspNetCore.Components
+
+<PageTitle>Terms of Service - SpaBooker</PageTitle>
+
+<div class="container py-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="terms-header text-center mb-5">
+                <h1 class="text-rose-gold mb-3">Terms of Service</h1>
+                <p class="text-muted">Last Updated: @DateTime.Now.ToString("MMMM dd, yyyy")</p>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4 p-lg-5">
+                    
+                    <section class="mb-5">
+                        <h2 class="section-title">1. Acceptance of Terms</h2>
+                        <p>
+                            By accessing and using the SpaBooker platform ("Service"), you accept and agree to be bound by the terms 
+                            and provision of this agreement. If you do not agree to abide by the above, please do not use this Service.
+                        </p>
+                        <p>
+                            These Terms of Service apply to all users of the Service, including without limitation users who are browsers, 
+                            clients, therapists, and/or contributors of content.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">2. Account Registration</h2>
+                        <h3>2.1 Account Creation</h3>
+                        <p>
+                            To access certain features of the Service, you must register for an account. You agree to:
+                        </p>
+                        <ul>
+                            <li>Provide accurate, current, and complete information during registration</li>
+                            <li>Maintain the security of your password and account</li>
+                            <li>Promptly update your account information if it changes</li>
+                            <li>Accept responsibility for all activities that occur under your account</li>
+                        </ul>
+
+                        <h3>2.2 Account Types</h3>
+                        <p>The Service offers different account types:</p>
+                        <ul>
+                            <li><strong>Client Accounts:</strong> For booking and managing spa appointments</li>
+                            <li><strong>Therapist Accounts:</strong> For viewing schedules and managing availability</li>
+                            <li><strong>Admin Accounts:</strong> For managing spa operations and settings</li>
+                        </ul>
+
+                        <h3>2.3 Age Requirement</h3>
+                        <p>
+                            You must be at least 18 years old to create an account and use this Service. 
+                            Minors under 18 must have appointments booked by a parent or legal guardian.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">3. Booking and Appointments</h2>
+                        <h3>3.1 Booking Process</h3>
+                        <p>
+                            When you book an appointment through our Service:
+                        </p>
+                        <ul>
+                            <li>You agree to arrive on time for your scheduled appointment</li>
+                            <li>A deposit payment is required at the time of booking (typically 50% of service price)</li>
+                            <li>The remaining balance is due at the time of service</li>
+                            <li>You will receive confirmation via email</li>
+                        </ul>
+
+                        <h3>3.2 Cancellation Policy</h3>
+                        <p>
+                            <strong>Cancellations made 24 hours or more before appointment:</strong>
+                        </p>
+                        <ul>
+                            <li>Full refund of deposit</li>
+                            <li>No cancellation fee</li>
+                        </ul>
+
+                        <p>
+                            <strong>Cancellations made less than 24 hours before appointment:</strong>
+                        </p>
+                        <ul>
+                            <li>Deposit is forfeited</li>
+                            <li>No refund will be issued</li>
+                        </ul>
+
+                        <p>
+                            <strong>No-Show Policy:</strong>
+                        </p>
+                        <ul>
+                            <li>Failure to appear for appointment results in forfeiture of full deposit</li>
+                            <li>Repeated no-shows may result in booking restrictions</li>
+                        </ul>
+
+                        <h3>3.3 Rescheduling</h3>
+                        <p>
+                            You may reschedule appointments subject to availability. Rescheduling is treated as a cancellation 
+                            followed by a new booking and is subject to our cancellation policy timeframes.
+                        </p>
+
+                        <h3>3.4 Late Arrivals</h3>
+                        <p>
+                            If you arrive late for your appointment:
+                        </p>
+                        <ul>
+                            <li>Your service time may be shortened to accommodate other scheduled clients</li>
+                            <li>You will be charged the full price of the originally scheduled service</li>
+                            <li>Services ending late may incur additional fees</li>
+                        </ul>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">4. Payment Terms</h2>
+                        <h3>4.1 Pricing</h3>
+                        <p>
+                            All prices are listed in USD and are subject to change without notice. The price at the time 
+                            of booking will be honored for that specific appointment.
+                        </p>
+
+                        <h3>4.2 Payment Methods</h3>
+                        <p>
+                            We accept payment via credit card, debit card, and membership credits. All payments are 
+                            processed securely through Stripe, our third-party payment processor.
+                        </p>
+
+                        <h3>4.3 Deposits</h3>
+                        <p>
+                            A deposit (typically 50% of service price) is required at booking. This secures your appointment 
+                            and is applied toward your service total. Deposits are refundable only in accordance with our 
+                            cancellation policy.
+                        </p>
+
+                        <h3>4.4 Refunds</h3>
+                        <p>
+                            Refunds will be processed to the original payment method within 5-10 business days. 
+                            Refunds are issued only in accordance with our cancellation policy.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">5. Membership Plans</h2>
+                        <h3>5.1 Membership Benefits</h3>
+                        <p>
+                            Monthly membership plans provide:
+                        </p>
+                        <ul>
+                            <li>Monthly spa credits for services</li>
+                            <li>Discounted service pricing</li>
+                            <li>Access to members-only services</li>
+                            <li>Priority booking access</li>
+                        </ul>
+
+                        <h3>5.2 Membership Billing</h3>
+                        <p>
+                            Memberships are billed monthly on a recurring basis. By subscribing, you authorize us to 
+                            automatically charge your payment method on file each month.
+                        </p>
+
+                        <h3>5.3 Membership Credits</h3>
+                        <p>
+                            <strong>Credit Allocation:</strong> Credits are added to your account on your monthly billing date.
+                        </p>
+                        <p>
+                            <strong>Credit Expiration:</strong> Credits expire 12 months from the date they are issued.
+                        </p>
+                        <p>
+                            <strong>Credit Rollover:</strong> Unused credits roll over month-to-month up until their expiration date.
+                        </p>
+                        <p>
+                            <strong>Non-Refundable:</strong> Membership fees and credits are non-refundable upon cancellation.
+                        </p>
+
+                        <h3>5.4 Membership Cancellation</h3>
+                        <p>
+                            You may cancel your membership at any time. Upon cancellation:
+                        </p>
+                        <ul>
+                            <li>You will continue to have access until the end of your current billing period</li>
+                            <li>No refund will be issued for the current billing period</li>
+                            <li>Unused credits will remain available until their expiration date</li>
+                            <li>You will lose access to members-only pricing and services after your billing period ends</li>
+                        </ul>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">6. Health and Safety</h2>
+                        <h3>6.1 Health Disclosure</h3>
+                        <p>
+                            You agree to disclose any health conditions, injuries, allergies, or concerns that may affect 
+                            your spa treatment. This includes but is not limited to:
+                        </p>
+                        <ul>
+                            <li>Pregnancy</li>
+                            <li>Recent surgeries or injuries</li>
+                            <li>Chronic medical conditions</li>
+                            <li>Allergies (especially to oils, lotions, or fragrances)</li>
+                            <li>Medications that may affect treatment</li>
+                        </ul>
+
+                        <h3>6.2 Medical Advice</h3>
+                        <p>
+                            Our services are not a substitute for medical care. If you have a medical condition, consult 
+                            your physician before booking treatments. We reserve the right to refuse service if we believe 
+                            a treatment may be contraindicated.
+                        </p>
+
+                        <h3>6.3 COVID-19 and Illness</h3>
+                        <p>
+                            If you are experiencing symptoms of illness, please do not come to your appointment. Contact us 
+                            to reschedule. We reserve the right to refuse service to clients who appear ill.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">7. Conduct and Behavior</h2>
+                        <h3>7.1 Client Conduct</h3>
+                        <p>
+                            You agree to:
+                        </p>
+                        <ul>
+                            <li>Treat therapists and staff with respect and courtesy</li>
+                            <li>Maintain appropriate conduct during services</li>
+                            <li>Follow spa policies and therapist instructions</li>
+                            <li>Respect the privacy and comfort of other clients</li>
+                        </ul>
+
+                        <h3>7.2 Prohibited Behavior</h3>
+                        <p>
+                            We have zero tolerance for:
+                        </p>
+                        <ul>
+                            <li>Sexual harassment or inappropriate behavior</li>
+                            <li>Verbal abuse or threats</li>
+                            <li>Intoxication or drug use</li>
+                            <li>Damage to property</li>
+                            <li>Disruptive behavior</li>
+                        </ul>
+                        <p>
+                            <strong>Violation of these policies will result in immediate termination of service without refund 
+                            and may result in permanent ban from our facilities.</strong>
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">8. Privacy and Data Protection</h2>
+                        <p>
+                            Your privacy is important to us. Our use of your personal information is governed by our 
+                            <a href="/privacy">Privacy Policy</a>, which is incorporated into these Terms by reference.
+                        </p>
+                        <p>
+                            By using our Service, you consent to the collection and use of your information as described in 
+                            our Privacy Policy.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">9. Intellectual Property</h2>
+                        <p>
+                            The Service and its original content, features, and functionality are owned by SpaBooker and are 
+                            protected by international copyright, trademark, patent, trade secret, and other intellectual 
+                            property laws.
+                        </p>
+                        <p>
+                            You may not copy, modify, distribute, sell, or lease any part of our Service without express 
+                            written permission.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">10. Limitation of Liability</h2>
+                        <p>
+                            To the fullest extent permitted by law, SpaBooker shall not be liable for any indirect, incidental, 
+                            special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred 
+                            directly or indirectly, or any loss of data, use, goodwill, or other intangible losses resulting from:
+                        </p>
+                        <ul>
+                            <li>Your use or inability to use the Service</li>
+                            <li>Any unauthorized access to or use of our servers and/or any personal information stored therein</li>
+                            <li>Any interruption or cessation of transmission to or from the Service</li>
+                            <li>Any bugs, viruses, trojan horses, or the like that may be transmitted through the Service</li>
+                            <li>Any errors or omissions in any content or for any loss or damage incurred as a result of the use of any content</li>
+                        </ul>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">11. Disclaimer of Warranties</h2>
+                        <p>
+                            The Service is provided on an "AS IS" and "AS AVAILABLE" basis. We make no warranties, expressed or 
+                            implied, regarding the Service, including but not limited to warranties of merchantability, fitness 
+                            for a particular purpose, or non-infringement.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">12. Changes to Terms</h2>
+                        <p>
+                            We reserve the right to modify these Terms at any time. We will notify users of material changes 
+                            via email or through a notice on our Service. Your continued use of the Service after such 
+                            modifications constitutes acceptance of the updated Terms.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">13. Termination</h2>
+                        <p>
+                            We may terminate or suspend your account and access to the Service immediately, without prior notice 
+                            or liability, for any reason, including without limitation if you breach these Terms.
+                        </p>
+                        <p>
+                            Upon termination, your right to use the Service will immediately cease. All provisions of these Terms 
+                            which by their nature should survive termination shall survive, including ownership provisions, 
+                            warranty disclaimers, indemnity, and limitations of liability.
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">14. Governing Law</h2>
+                        <p>
+                            These Terms shall be governed by and construed in accordance with the laws of [Your State/Country], 
+                            without regard to its conflict of law provisions.
+                        </p>
+                        <p>
+                            Any disputes arising from these Terms or the Service shall be resolved in the courts located in 
+                            [Your Jurisdiction].
+                        </p>
+                    </section>
+
+                    <section class="mb-5">
+                        <h2 class="section-title">15. Contact Information</h2>
+                        <p>
+                            If you have any questions about these Terms, please contact us:
+                        </p>
+                        <address class="mt-3">
+                            <strong>SpaBooker</strong><br />
+                            Email: <a href="mailto:support@spabooker.com">support@spabooker.com</a><br />
+                            Phone: [Your Phone Number]<br />
+                            Address: [Your Physical Address]
+                        </address>
+                    </section>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Acknowledgment:</strong> By using SpaBooker, you acknowledge that you have read, understood, 
+                        and agree to be bound by these Terms of Service.
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="/" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // No code-behind needed for static content
+}
+
