@@ -46,9 +46,14 @@ A comprehensive spa booking and management system built with ASP.NET Core 8, Bla
   - Supports Gmail, SendGrid, Amazon SES, and other SMTP providers
 - **Responsive Design**: Pink/rose gold themed UI that works on desktop and mobile
 
+- **Admin Management**:
+  - User management (CRUD operations, role assignment, account locking)
+  - Service management (create, edit, activate/deactivate services)
+  - Therapist assignment to services
+  - Location-based filtering
+  - Search and filtering capabilities
+
 ### 🚧 In Progress
-- Admin user management interface
-- Admin service management interface
 - Inventory tracking system
 
 ## Project Structure

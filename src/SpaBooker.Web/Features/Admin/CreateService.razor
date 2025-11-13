@@ -1,0 +1,323 @@
+@page "/admin/services/create"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Create Service - SpaBooker</PageTitle>
+
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="/admin/services" class="btn btn-outline-secondary mb-3">
+                <i class="bi bi-arrow-left me-2"></i>Back to Services
+            </a>
+            <h1 class="text-rose-gold mb-2">Create New Service</h1>
+            <p class="text-muted">Add a new spa service</p>
+        </div>
+    </div>
+
+    <EditForm Model="@createModel" OnValidSubmit="SubmitCreateService" FormName="createService">
+        <DataAnnotationsValidator />
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-circle me-2"></i>
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        <div class="row">
+            <!-- Service Information -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0">Service Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Service Name *</label>
+                            <InputText class="form-control" @bind-Value="createModel.Name" 
+                                      placeholder="e.g., Swedish Massage" />
+                            <ValidationMessage For="@(() => createModel.Name)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Description *</label>
+                            <InputTextArea class="form-control" rows="4" @bind-Value="createModel.Description" 
+                                          placeholder="Describe the service, benefits, and what clients can expect..." />
+                            <ValidationMessage For="@(() => createModel.Description)" />
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Duration (minutes) *</label>
+                                <InputNumber class="form-control" @bind-Value="createModel.DurationMinutes" />
+                                <ValidationMessage For="@(() => createModel.DurationMinutes)" />
+                                <small class="form-text text-muted">Typical: 30, 60, 90, or 120 minutes</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Base Price ($) *</label>
+                                <InputNumber class="form-control" @bind-Value="createModel.BasePrice" />
+                                <ValidationMessage For="@(() => createModel.BasePrice)" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Location *</label>
+                            <InputSelect class="form-select" @bind-Value="createModel.LocationId">
+                                <option value="">-- Select Location --</option>
+                                @foreach (var location in locations)
+                                {
+                                    <option value="@location.Id">@location.Name</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => createModel.LocationId)" />
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="requiresMembership" @bind="createModel.RequiresMembership">
+                            <label class="form-check-label" for="requiresMembership">
+                                Requires Membership
+                            </label>
+                            <div class="form-text">Check if this service is only available to members</div>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="isActive" @bind="createModel.IsActive">
+                            <label class="form-check-label" for="isActive">
+                                Active
+                            </label>
+                            <div class="form-text">Uncheck to create as inactive (not visible to clients)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Therapist Assignments -->
+                <div class="card shadow-sm">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0">Assign Therapists (Optional)</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">Select which therapists can perform this service. Leave all unchecked to allow any therapist.</p>
+                        
+                        @if (availableTherapists.Any())
+                        {
+                            <div class="row">
+                                @foreach (var therapist in availableTherapists)
+                                {
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="therapist-@therapist.Id"
+                                                   checked="@assignedTherapistIds.Contains(therapist.Id)"
+                                                   @onchange="@(e => ToggleTherapist(therapist.Id, (bool)e.Value!))">
+                                            <label class="form-check-label" for="therapist-@therapist.Id">
+                                                @therapist.FirstName @therapist.LastName
+                                                @if (!string.IsNullOrEmpty(therapist.Specialties))
+                                                {
+                                                    <br/>
+                                                    <small class="text-muted">@therapist.Specialties</small>
+                                                }
+                                            </label>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                No therapists available. You can assign therapists later.
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Examples Sidebar -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0">Service Examples</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Swedish Massage</strong>
+                            <div class="small text-muted">60 min | $95</div>
+                            <p class="small mt-1">Gentle, relaxing full-body massage using long strokes.</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <strong>Deep Tissue Massage</strong>
+                            <div class="small text-muted">90 min | $135</div>
+                            <p class="small mt-1">Intense pressure targeting deep muscle layers.</p>
+                        </div>
+
+                        <div class="mb-0">
+                            <strong>Hot Stone Therapy</strong>
+                            <div class="small text-muted">75 min | $125</div>
+                            <p class="small mt-1">Heated stones placed on key points to ease tension.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0">Best Practices</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="small mb-0">
+                            <li>Use clear, descriptive names</li>
+                            <li>Write compelling descriptions (2-3 sentences)</li>
+                            <li>Price competitively</li>
+                            <li>Set realistic durations</li>
+                            <li>Assign therapists with relevant skills</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-plus-circle me-2"></i>Create Service
+                    </button>
+                    <a href="/admin/services" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private CreateServiceModel createModel = new();
+    private List<Location> locations = new();
+    private List<ApplicationUser> availableTherapists = new();
+    private List<string> assignedTherapistIds = new();
+    private bool isSaving = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        locations = await DbContext.Locations
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.Name)
+            .ToListAsync();
+
+        // Load all therapists
+        var therapistRole = await DbContext.Roles.FirstOrDefaultAsync(r => r.Name == "Therapist");
+        if (therapistRole != null)
+        {
+            var therapistUserIds = await DbContext.UserRoles
+                .Where(ur => ur.RoleId == therapistRole.Id)
+                .Select(ur => ur.UserId)
+                .ToListAsync();
+
+            availableTherapists = await DbContext.Users
+                .Where(u => therapistUserIds.Contains(u.Id))
+                .OrderBy(u => u.FirstName)
+                .ToListAsync();
+        }
+    }
+
+    private void ToggleTherapist(string therapistId, bool isChecked)
+    {
+        if (isChecked && !assignedTherapistIds.Contains(therapistId))
+        {
+            assignedTherapistIds.Add(therapistId);
+        }
+        else if (!isChecked && assignedTherapistIds.Contains(therapistId))
+        {
+            assignedTherapistIds.Remove(therapistId);
+        }
+    }
+
+    private async Task SubmitCreateService()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var service = new SpaService
+            {
+                Name = createModel.Name,
+                Description = createModel.Description,
+                DurationMinutes = createModel.DurationMinutes,
+                BasePrice = createModel.BasePrice,
+                LocationId = int.Parse(createModel.LocationId),
+                RequiresMembership = createModel.RequiresMembership,
+                IsActive = createModel.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            DbContext.SpaServices.Add(service);
+            await DbContext.SaveChangesAsync();
+
+            // Add therapist assignments
+            if (assignedTherapistIds.Any())
+            {
+                var assignments = assignedTherapistIds.Select(therapistId => new ServiceTherapist
+                {
+                    ServiceId = service.Id,
+                    TherapistId = therapistId,
+                    AssignedAt = DateTime.UtcNow
+                });
+
+                DbContext.ServiceTherapists.AddRange(assignments);
+                await DbContext.SaveChangesAsync();
+            }
+
+            NavigationManager.NavigateTo($"/admin/services?success=Service '{service.Name}' created successfully");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred while creating the service. Please try again.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    public class CreateServiceModel
+    {
+        [Required]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        public string Description { get; set; } = string.Empty;
+
+        [Required]
+        [Range(1, 480, ErrorMessage = "Duration must be between 1 and 480 minutes")]
+        public int DurationMinutes { get; set; } = 60;
+
+        [Required]
+        [Range(0.01, 10000, ErrorMessage = "Price must be between $0.01 and $10,000")]
+        public decimal BasePrice { get; set; } = 95.00m;
+
+        [Required]
+        public string LocationId { get; set; } = string.Empty;
+
+        public bool RequiresMembership { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}
+

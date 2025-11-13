@@ -1,0 +1,95 @@
+.spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.4rem solid var(--rose-gold-light);
+    border-top-color: var(--rose-gold-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.service-card {
+    border: 1px solid var(--pink-lighter);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(183, 110, 121, 0.15);
+}
+
+.service-card.inactive {
+    opacity: 0.6;
+    background-color: #f8f9fa;
+}
+
+.service-card .card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.service-details {
+    border-top: 1px solid var(--pink-lighter);
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.detail-item i {
+    font-size: 1rem;
+}
+
+.detail-item .price {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--rose-gold-primary);
+}
+
+.nav-tabs .nav-link {
+    color: var(--rose-gold-dark);
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: var(--rose-gold-primary);
+    color: white;
+    border-color: var(--rose-gold-primary);
+}
+
+.nav-tabs .nav-link:hover:not(.active) {
+    background-color: #fff5f5;
+    border-color: var(--pink-lighter);
+}
+
+.input-group-text {
+    background-color: white;
+    border-right: none;
+}
+
+.input-group .form-control {
+    border-left: none;
+}
+
+.input-group .form-control:focus {
+    box-shadow: none;
+    border-color: var(--rose-gold-primary);
+}
+
+.card-footer {
+    padding: 1rem;
+}
+
