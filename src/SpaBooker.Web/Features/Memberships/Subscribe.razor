@@ -1,0 +1,223 @@
+@page "/memberships/subscribe/{PlanId:int}"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@using SpaBooker.Core.Entities
+@using SpaBooker.Core.Interfaces
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@inject ApplicationDbContext DbContext
+@inject IStripeService StripeService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Client")]
+
+<PageTitle>Subscribe to Membership - SpaBooker</PageTitle>
+
+<div class="container py-4">
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner"></div>
+            <p class="mt-3 text-muted">Loading membership details...</p>
+        </div>
+    }
+    else if (plan == null)
+    {
+        <div class="alert alert-danger">
+            Membership plan not found. <a href="/memberships/plans">View all plans</a>
+        </div>
+    }
+    else if (hasActiveMembership)
+    {
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="card shadow-lg">
+                    <div class="card-body text-center p-5">
+                        <i class="bi bi-info-circle display-1 text-primary mb-3"></i>
+                        <h3 class="mb-3">You Already Have an Active Membership</h3>
+                        <p>You can only have one active membership at a time. Please cancel your current membership before subscribing to a new plan.</p>
+                        <div class="d-grid gap-2 mt-4">
+                            <a href="/memberships/my-membership" class="btn btn-primary">View My Membership</a>
+                            <a href="/memberships/plans" class="btn btn-outline-secondary">View All Plans</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="card shadow-lg">
+                    <div class="card-header bg-rose-gold text-white text-center">
+                        <h3 class="mb-0">Subscribe to @plan.Name</h3>
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- Plan Summary -->
+                        <div class="text-center mb-4">
+                            <div class="display-4 text-rose-gold fw-bold">
+                                $@plan.MonthlyPrice.ToString("F0")
+                            </div>
+                            <div class="text-muted">per month</div>
+                        </div>
+
+                        <p class="text-center mb-4">@plan.Description</p>
+
+                        <!-- Benefits -->
+                        <h5 class="text-rose-gold mb-3">What's Included:</h5>
+                        <div class="benefits-summary">
+                            <div class="benefit-item">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                <strong>@plan.MonthlyCredits.ToString("F0")</strong> spa credits per month
+                            </div>
+                            <div class="benefit-item">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                <strong>@plan.DiscountPercentage.ToString("F0")%</strong> discount on all services
+                            </div>
+                            <div class="benefit-item">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                Priority booking access
+                            </div>
+                            <div class="benefit-item">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                Access to member-only services
+                            </div>
+                            <div class="benefit-item">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                Credits never expire (12-month rollover)
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <!-- Billing Info -->
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-info-circle me-2"></i>Billing Information</h6>
+                            <ul class="mb-0 small">
+                                <li>You'll be charged $@plan.MonthlyPrice.ToString("F2") every month</li>
+                                <li>Your membership renews automatically</li>
+                                <li>Cancel anytime - no long-term commitment</li>
+                                <li>Credits are added immediately upon subscription</li>
+                            </ul>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger mt-3">
+                                @errorMessage
+                            </div>
+                        }
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button class="btn btn-primary btn-lg" @onclick="ProcessSubscription" disabled="@isProcessing">
+                                @if (isProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Processing...</span>
+                                }
+                                else
+                                {
+                                    <span><i class="bi bi-credit-card me-2"></i>Subscribe Now</span>
+                                }
+                            </button>
+                            <a href="/memberships/plans" class="btn btn-outline-secondary">
+                                View Other Plans
+                            </a>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-lock"></i> Secure payment powered by Stripe
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int PlanId { get; set; }
+
+    private MembershipPlan? plan;
+    private ApplicationUser? currentUser;
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private bool hasActiveMembership = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get current user
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUser = await UserManager.GetUserAsync(authState.User);
+
+        if (currentUser != null)
+        {
+            // Check for active membership
+            hasActiveMembership = await DbContext.UserMemberships
+                .AnyAsync(m => m.UserId == currentUser.Id && m.Status == Core.Enums.MembershipStatus.Active);
+        }
+
+        // Load plan
+        plan = await DbContext.MembershipPlans
+            .FirstOrDefaultAsync(p => p.Id == PlanId && p.IsActive);
+
+        isLoading = false;
+    }
+
+    private async Task ProcessSubscription()
+    {
+        if (plan == null || currentUser == null) return;
+
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            // Check if plan has Stripe Price ID configured
+            if (string.IsNullOrEmpty(plan.StripePriceId))
+            {
+                errorMessage = "This membership plan is not properly configured for online subscription. Please contact support.";
+                isProcessing = false;
+                return;
+            }
+
+            // Create Stripe Checkout Session for subscription
+            var baseUrl = NavigationManager.BaseUri.TrimEnd('/');
+            var successUrl = $"{baseUrl}/memberships/subscription/success?plan_id={plan.Id}";
+            var cancelUrl = $"{baseUrl}/memberships/subscribe/{plan.Id}";
+
+            var metadata = new Dictionary<string, string>
+            {
+                { "user_id", currentUser.Id },
+                { "plan_id", plan.Id.ToString() },
+                { "plan_name", plan.Name }
+            };
+
+            var checkoutUrl = await StripeService.CreateSubscriptionCheckoutSessionAsync(
+                currentUser.Email!,
+                plan.StripePriceId,
+                successUrl,
+                cancelUrl,
+                metadata
+            );
+
+            // Redirect to Stripe Checkout
+            NavigationManager.NavigateTo(checkoutUrl, true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to start subscription process. Please try again or contact support.";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+}
+

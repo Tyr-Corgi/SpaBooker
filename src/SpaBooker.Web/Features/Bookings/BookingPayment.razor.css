@@ -1,0 +1,25 @@
+.booking-summary {
+    background-color: #F8F9FA;
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.pricing-summary {
+    background-color: #FFF9F9;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 2px solid var(--pink-lighter);
+}
+
+.bg-rose-gold {
+    background: linear-gradient(135deg, var(--rose-gold-dark) 0%, var(--rose-gold-medium) 100%);
+}
+
+.card {
+    border: none;
+}
+
+.shadow-lg {
+    box-shadow: 0 10px 30px rgba(183, 110, 121, 0.15);
+}
+

@@ -1,0 +1,328 @@
+@page "/memberships/my-membership"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Core.Interfaces
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IStripeService StripeService
+@inject IMembershipCreditService CreditService
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<PageTitle>My Membership - SpaBooker</PageTitle>
+
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="text-rose-gold mb-2">My Membership</h1>
+            <p class="text-muted">Manage your spa membership and credits</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner"></div>
+            <p class="mt-3 text-muted">Loading membership...</p>
+        </div>
+    }
+    else if (activeMembership == null)
+    {
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <div class="card text-center">
+                    <div class="card-body py-5">
+                        <div class="mb-4">
+                            <i class="bi bi-star display-1 text-rose-gold"></i>
+                        </div>
+                        <h3 class="mb-3">You Don't Have an Active Membership</h3>
+                        <p class="text-muted mb-4">
+                            Join our membership program to enjoy exclusive benefits, monthly credits, and discounts!
+                        </p>
+                        <a href="/memberships/plans" class="btn btn-primary btn-lg">
+                            View Membership Plans
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Membership Overview -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h4 class="mb-0">@activeMembership.MembershipPlan.Name</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="text-muted small">Status</label>
+                                <div>
+                                    <span class="badge @GetStatusBadgeClass(activeMembership.Status)">
+                                        @activeMembership.Status
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-muted small">Monthly Price</label>
+                                <div class="h5 mb-0">$@activeMembership.MembershipPlan.MonthlyPrice.ToString("F2")</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-muted small">Start Date</label>
+                                <div>@activeMembership.StartDate.ToString("MMM dd, yyyy")</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-muted small">Next Billing Date</label>
+                                <div>
+                                    @(activeMembership.NextBillingDate?.ToString("MMM dd, yyyy") ?? "N/A")
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (activeMembership.Status == MembershipStatus.Active)
+                        {
+                            <div class="mt-3">
+                                <button class="btn btn-outline-danger" @onclick="ShowCancelModal">
+                                    Cancel Membership
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Credit Transactions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Credit History</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (creditTransactions.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Description</th>
+                                            <th>Type</th>
+                                            <th class="text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var transaction in creditTransactions.Take(10))
+                                        {
+                                            <tr>
+                                                <td>@transaction.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                                <td>@transaction.Description</td>
+                                                <td>
+                                                    <span class="badge @(transaction.Type == "Credit" ? "badge-success" : "badge-warning")">
+                                                        @transaction.Type
+                                                    </span>
+                                                </td>
+                                                <td class="text-end @(transaction.Type == "Credit" ? "text-success" : "text-danger")">
+                                                    @(transaction.Type == "Credit" ? "+" : "-")@Math.Abs(transaction.Amount).ToString("F2")
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No transactions yet</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Credits Sidebar -->
+            <div class="col-lg-4">
+                <div class="card mb-4 shadow-md">
+                    <div class="card-body text-center py-4">
+                        <div class="mb-3">
+                            <i class="bi bi-coin display-3 text-rose-gold"></i>
+                        </div>
+                        <h2 class="display-4 text-rose-gold mb-2">
+                            @activeMembership.CurrentCredits.ToString("F0")
+                        </h2>
+                        <p class="text-muted mb-0">Available Credits</p>
+                        <small class="text-muted">Never expire if used within 12 months</small>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Membership Benefits</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                @activeMembership.MembershipPlan.MonthlyCredits.ToString("F0") credits/month
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                @activeMembership.MembershipPlan.DiscountPercentage.ToString("F0")% discount
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                Priority booking
+                            </li>
+                            <li class="mb-0">
+                                <i class="bi bi-check-circle text-success"></i>
+                                Exclusive services
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Cancel Confirmation Modal -->
+@if (showCancelModal)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cancel Membership</h5>
+                    <button type="button" class="btn-close" @onclick="() => showCancelModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to cancel your membership?</p>
+                    <p class="text-muted">Your membership will remain active until the end of your current billing period.</p>
+                    @if (!string.IsNullOrEmpty(cancelError))
+                    {
+                        <div class="alert alert-danger">@cancelError</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showCancelModal = false">
+                        Keep Membership
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="CancelMembership" disabled="@isCancelling">
+                        @if (isCancelling)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Yes, Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserMembership? activeMembership;
+    private List<MembershipCreditTransaction> creditTransactions = new();
+    private bool isLoading = true;
+    private bool showCancelModal = false;
+    private bool isCancelling = false;
+    private string? cancelError;
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetCurrentUser();
+        await LoadMembership();
+    }
+
+    private async Task GetCurrentUser()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            currentUserId = appUser?.Id;
+        }
+    }
+
+    private async Task LoadMembership()
+    {
+        if (string.IsNullOrEmpty(currentUserId)) return;
+
+        isLoading = true;
+
+        activeMembership = await DbContext.UserMemberships
+            .Include(m => m.MembershipPlan)
+            .FirstOrDefaultAsync(m => m.UserId == currentUserId && m.Status == MembershipStatus.Active);
+
+        if (activeMembership != null)
+        {
+            creditTransactions = await DbContext.MembershipCreditTransactions
+                .Where(t => t.UserMembershipId == activeMembership.Id)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
+        isLoading = false;
+    }
+
+    private string GetStatusBadgeClass(MembershipStatus status)
+    {
+        return status switch
+        {
+            MembershipStatus.Active => "badge-success",
+            MembershipStatus.Inactive => "badge-warning",
+            MembershipStatus.Cancelled => "badge-danger",
+            MembershipStatus.Expired => "badge-secondary",
+            _ => "badge-secondary"
+        };
+    }
+
+    private void ShowCancelModal()
+    {
+        showCancelModal = true;
+        cancelError = null;
+    }
+
+    private async Task CancelMembership()
+    {
+        if (activeMembership == null || string.IsNullOrEmpty(activeMembership.StripeSubscriptionId)) return;
+
+        isCancelling = true;
+        cancelError = null;
+
+        try
+        {
+            var success = await StripeService.CancelSubscriptionAsync(activeMembership.StripeSubscriptionId);
+            
+            if (success)
+            {
+                activeMembership.Status = MembershipStatus.Cancelled;
+                activeMembership.EndDate = activeMembership.NextBillingDate;
+                activeMembership.UpdatedAt = DateTime.UtcNow;
+                await DbContext.SaveChangesAsync();
+
+                showCancelModal = false;
+                await LoadMembership();
+            }
+            else
+            {
+                cancelError = "Failed to cancel subscription. Please try again.";
+            }
+        }
+        catch (Exception)
+        {
+            cancelError = "An error occurred while cancelling your membership.";
+        }
+        finally
+        {
+            isCancelling = false;
+        }
+    }
+}
+

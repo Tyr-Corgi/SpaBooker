@@ -1,0 +1,362 @@
+@page "/bookings/my-bookings"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Options
+@using SpaBooker.Core.Entities
+@using SpaBooker.Core.Interfaces
+@using SpaBooker.Core.Settings
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IStripeService StripeService
+@inject IEmailService EmailService
+@inject IOptions<BookingSettings> BookingSettings
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<PageTitle>My Bookings - SpaBooker</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="text-rose-gold mb-2">My Appointments</h1>
+            <p class="text-muted">View and manage your spa bookings</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner"></div>
+            <p class="mt-3 text-muted">Loading bookings...</p>
+        </div>
+    }
+    else
+    {
+        @if (successMessage != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        <!-- Upcoming Bookings -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3 class="mb-3">Upcoming Appointments</h3>
+                @if (upcomingBookings.Any())
+                {
+                    <div class="row g-3">
+                        @foreach (var booking in upcomingBookings)
+                        {
+                            <div class="col-md-6 col-lg-4">
+                                <div class="card h-100 booking-card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <h5 class="card-title text-rose-gold mb-0">@booking.Service.Name</h5>
+                                            <span class="badge @GetStatusBadgeClass(booking.Status)">
+                                                @booking.Status
+                                            </span>
+                                        </div>
+
+                                        <div class="booking-details">
+                                            <div class="mb-2">
+                                                <i class="bi bi-calendar3"></i>
+                                                <strong>@booking.StartTime.ToString("MMMM dd, yyyy")</strong>
+                                            </div>
+                                            <div class="mb-2">
+                                                <i class="bi bi-clock"></i>
+                                                @booking.StartTime.ToString("h:mm tt") - @booking.EndTime.ToString("h:mm tt")
+                                            </div>
+                                            <div class="mb-2">
+                                                <i class="bi bi-person"></i>
+                                                @booking.Therapist.FirstName @booking.Therapist.LastName
+                                            </div>
+                                            <div class="mb-2">
+                                                <i class="bi bi-geo-alt"></i>
+                                                @booking.Location.Name
+                                            </div>
+                                            <div class="mb-2">
+                                                <i class="bi bi-currency-dollar"></i>
+                                                <strong>$@booking.TotalPrice.ToString("F2")</strong>
+                                            </div>
+                                        </div>
+
+                                        @if (!string.IsNullOrEmpty(booking.Notes))
+                                        {
+                                            <div class="mt-3 p-2 bg-light rounded">
+                                                <small class="text-muted">
+                                                    <strong>Notes:</strong> @booking.Notes
+                                                </small>
+                                            </div>
+                                        }
+
+                                        @if (booking.Status == BookingStatus.Pending || booking.Status == BookingStatus.Confirmed)
+                                        {
+                                            <div class="mt-3 d-flex gap-2">
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => CancelBooking(booking.Id)">
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <p class="text-muted mb-3">You don't have any upcoming appointments.</p>
+                            <a href="/services" class="btn btn-primary">Browse Services</a>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Past Bookings -->
+        @if (pastBookings.Any())
+        {
+            <div class="row">
+                <div class="col-12">
+                    <h3 class="mb-3">Past Appointments</h3>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Date</th>
+                                    <th>Therapist</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var booking in pastBookings.Take(10))
+                                {
+                                    <tr>
+                                        <td>@booking.Service.Name</td>
+                                        <td>@booking.StartTime.ToString("MMM dd, yyyy")</td>
+                                        <td>@booking.Therapist.FirstName @booking.Therapist.LastName</td>
+                                        <td>@booking.Location.Name</td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(booking.Status)">
+                                                @booking.Status
+                                            </span>
+                                        </td>
+                                        <td>$@booking.TotalPrice.ToString("F2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Cancel Confirmation Modal -->
+@if (showCancelModal)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cancel Appointment</h5>
+                    <button type="button" class="btn-close" @onclick="() => showCancelModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to cancel this appointment?</p>
+                    @if (!string.IsNullOrEmpty(cancelError))
+                    {
+                        <div class="alert alert-danger">@cancelError</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showCancelModal = false">
+                        Keep Appointment
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmCancel" disabled="@isCancelling">
+                        @if (isCancelling)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Yes, Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Booking> upcomingBookings = new();
+    private List<Booking> pastBookings = new();
+    private bool isLoading = true;
+    private string? successMessage;
+    private bool showCancelModal = false;
+    private int? bookingToCancel;
+    private bool isCancelling = false;
+    private string? cancelError;
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetCurrentUser();
+        await LoadBookings();
+
+        // Check for success message from query string
+        var uri = new Uri(NavigationManager.Uri);
+        if (uri.Query.Contains("success=true"))
+        {
+            successMessage = "Your appointment has been successfully booked!";
+        }
+    }
+
+    private async Task GetCurrentUser()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            currentUserId = appUser?.Id;
+        }
+    }
+
+    private async Task LoadBookings()
+    {
+        if (string.IsNullOrEmpty(currentUserId)) return;
+
+        isLoading = true;
+
+        var now = DateTime.UtcNow;
+
+        var allBookings = await DbContext.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.Therapist)
+            .Include(b => b.Location)
+            .Where(b => b.ClientId == currentUserId)
+            .OrderByDescending(b => b.StartTime)
+            .ToListAsync();
+
+        upcomingBookings = allBookings
+            .Where(b => b.StartTime >= now && b.Status != BookingStatus.Cancelled)
+            .OrderBy(b => b.StartTime)
+            .ToList();
+
+        pastBookings = allBookings
+            .Where(b => b.StartTime < now || b.Status == BookingStatus.Cancelled || b.Status == BookingStatus.Completed)
+            .OrderByDescending(b => b.StartTime)
+            .ToList();
+
+        isLoading = false;
+    }
+
+    private string GetStatusBadgeClass(BookingStatus status)
+    {
+        return status switch
+        {
+            BookingStatus.Pending => "badge-warning",
+            BookingStatus.Confirmed => "badge-success",
+            BookingStatus.Completed => "badge-secondary",
+            BookingStatus.Cancelled => "badge-danger",
+            BookingStatus.NoShow => "badge-danger",
+            _ => "badge-secondary"
+        };
+    }
+
+    private void CancelBooking(int bookingId)
+    {
+        bookingToCancel = bookingId;
+        showCancelModal = true;
+        cancelError = null;
+    }
+
+    private async Task ConfirmCancel()
+    {
+        if (bookingToCancel == null) return;
+
+        isCancelling = true;
+        cancelError = null;
+
+        try
+        {
+            var booking = await DbContext.Bookings.FindAsync(bookingToCancel);
+            if (booking != null)
+            {
+                var cancellationWindowHours = BookingSettings.Value.CancellationWindowHours;
+                var hoursUntilAppointment = (booking.StartTime - DateTime.UtcNow).TotalHours;
+
+                // Check if eligible for refund based on cancellation policy
+                bool isEligibleForRefund = hoursUntilAppointment >= cancellationWindowHours;
+
+                // Process refund if eligible and payment was made
+                if (isEligibleForRefund && !string.IsNullOrEmpty(booking.StripePaymentIntentId))
+                {
+                    try
+                    {
+                        // Issue refund through Stripe
+                        var refundId = await StripeService.CreateRefundAsync(booking.StripePaymentIntentId);
+                        booking.StripeRefundId = refundId;
+                        successMessage = $"Your appointment has been cancelled and ${booking.DepositAmount:F2} has been refunded.";
+                    }
+                    catch
+                    {
+                        // Refund failed, but still cancel the booking
+                        cancelError = "Booking cancelled, but refund failed. Please contact support for assistance.";
+                    }
+                }
+                else if (!isEligibleForRefund && !string.IsNullOrEmpty(booking.StripePaymentIntentId))
+                {
+                    // Outside cancellation window - deposit forfeited
+                    successMessage = $"Your appointment has been cancelled. Deposit of ${booking.DepositAmount:F2} has been forfeited per cancellation policy.";
+                }
+                else
+                {
+                    // No payment was made
+                    successMessage = "Your appointment has been cancelled.";
+                }
+
+                booking.Status = BookingStatus.Cancelled;
+                booking.CancelledAt = DateTime.UtcNow;
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.CancellationReason = isEligibleForRefund ? "Cancelled by client" : "Late cancellation";
+
+                await DbContext.SaveChangesAsync();
+
+                // Send cancellation email
+                try
+                {
+                    await EmailService.SendBookingCancellationAsync(bookingToCancel.Value);
+                }
+                catch (Exception ex)
+                {
+                    // Log but don't fail - email failure shouldn't block cancellation
+                    Console.WriteLine($"Failed to send cancellation email: {ex.Message}");
+                }
+
+                showCancelModal = false;
+                await LoadBookings();
+            }
+        }
+        catch (Exception ex)
+        {
+            cancelError = "An error occurred while cancelling the booking. Please try again.";
+        }
+        finally
+        {
+            isCancelling = false;
+        }
+    }
+}
+

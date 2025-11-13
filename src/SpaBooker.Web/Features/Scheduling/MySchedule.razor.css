@@ -1,0 +1,114 @@
+.schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: var(--border-color);
+    border: 1px solid var(--border-color);
+}
+
+.schedule-day {
+    background-color: var(--bg-white);
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+.schedule-day.today {
+    background-color: #FFF5F5;
+}
+
+.day-header {
+    background: linear-gradient(135deg, var(--rose-gold-dark) 0%, var(--rose-gold-medium) 100%);
+    color: white;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.day-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.day-date {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.day-content {
+    flex: 1;
+    padding: 0.5rem;
+    overflow-y: auto;
+}
+
+.booking-item {
+    background-color: var(--bg-white);
+    border-left: 4px solid var(--rose-gold-dark);
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.booking-item:hover {
+    transform: translateX(3px);
+    box-shadow: 0 2px 8px rgba(183, 110, 121, 0.3);
+}
+
+.booking-item.status-pending {
+    border-left-color: var(--warning);
+    background-color: #FFF9E6;
+}
+
+.booking-item.status-confirmed {
+    border-left-color: var(--success);
+    background-color: #F0FFF4;
+}
+
+.booking-item.status-completed {
+    border-left-color: var(--text-light);
+    background-color: #F5F5F5;
+    opacity: 0.8;
+}
+
+.booking-time {
+    font-weight: 600;
+    color: var(--rose-gold-dark);
+    font-size: 0.875rem;
+}
+
+.booking-service {
+    font-weight: 500;
+    margin-top: 0.25rem;
+    font-size: 0.813rem;
+}
+
+.booking-client {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.booking-duration {
+    margin-top: 0.25rem;
+}
+
+@media (max-width: 1200px) {
+    .schedule-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .schedule-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .schedule-day {
+        min-height: 200px;
+    }
+}
+

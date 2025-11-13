@@ -1,0 +1,31 @@
+@using Microsoft.AspNetCore.Identity
+@using SpaBooker.Core.Entities
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+
+<AuthorizeView>
+    <Authorized>
+        <div class="user-display">
+            <span class="user-name">Hello, @context.User.Identity?.Name</span>
+            <button class="btn btn-sm btn-outline-primary ms-2" @onclick="LogoutAsync">
+                Logout
+            </button>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="auth-links">
+            <a href="/auth/login" class="btn btn-sm btn-outline-primary me-2">Login</a>
+            <a href="/auth/register" class="btn btn-sm btn-primary">Sign Up</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await SignInManager.SignOutAsync();
+        NavigationManager.NavigateTo("/", forceLoad: true);
+    }
+}
+

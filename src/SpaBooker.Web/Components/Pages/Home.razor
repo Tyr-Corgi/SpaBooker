@@ -1,0 +1,88 @@
+﻿@page "/"
+
+<PageTitle>Home - SpaBooker</PageTitle>
+
+<div class="hero-section">
+    <div class="container py-5">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 text-rose-gold mb-4">Welcome to SpaBooker</h1>
+                <p class="lead mb-4">
+                    Experience ultimate relaxation and rejuvenation at our luxury spa facilities. 
+                    Book your perfect wellness journey today.
+                </p>
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="/select-location" class="btn btn-primary btn-lg">
+                        <i class="bi bi-geo-alt me-2"></i>Find Your Spa
+                    </a>
+                    <AuthorizeView>
+                        <NotAuthorized>
+                            <a href="/auth/register" class="btn btn-outline-primary btn-lg">Sign Up</a>
+                        </NotAuthorized>
+                        <Authorized>
+                            <a href="/bookings/my-bookings" class="btn btn-outline-primary btn-lg">My Bookings</a>
+                        </Authorized>
+                    </AuthorizeView>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="text-center mt-5 mt-lg-0">
+                    <div class="feature-icon">✨</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container py-5">
+    <div class="row text-center mb-5">
+        <div class="col-12">
+            <h2 class="text-rose-gold mb-3">Why Choose Us?</h2>
+            <p class="text-muted">Experience the best in spa and wellness services</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <div class="feature-icon-small mb-3">💆</div>
+                    <h5 class="card-title text-rose-gold">Expert Therapists</h5>
+                    <p class="card-text">Our licensed professionals provide personalized care tailored to your needs.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <div class="feature-icon-small mb-3">📅</div>
+                    <h5 class="card-title text-rose-gold">Easy Booking</h5>
+                    <p class="card-text">Simple online booking with real-time availability and instant confirmation.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <div class="feature-icon-small mb-3">💎</div>
+                    <h5 class="card-title text-rose-gold">Membership Benefits</h5>
+                    <p class="card-text">Save with our exclusive membership plans and enjoy special perks.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12 text-center">
+            <div class="card shadow-md">
+                <div class="card-body py-5">
+                    <h3 class="text-rose-gold mb-3">Ready to Experience Luxury?</h3>
+                    <p class="mb-4">Book your appointment today and discover the ultimate in spa relaxation.</p>
+                    <a href="/services" class="btn btn-primary btn-lg">View All Services</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

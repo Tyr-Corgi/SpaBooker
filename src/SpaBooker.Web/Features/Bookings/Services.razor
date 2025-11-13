@@ -1,0 +1,232 @@
+@page "/services"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Our Services - SpaBooker</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="text-rose-gold mb-2">Our Spa Services</h1>
+            <p class="text-muted">Discover our range of rejuvenating treatments designed for your wellness</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner"></div>
+            <p class="mt-3 text-muted">Loading services...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Selected Location Display -->
+        @if (selectedLocation != null)
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-info border-0 shadow-sm">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="location-badge">
+                                    <i class="bi bi-shop"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1 fw-bold">Your Selected Spa</h6>
+                                    <p class="mb-0">
+                                        <strong>@selectedLocation.Name</strong><br/>
+                                        <small class="text-muted">
+                                            @selectedLocation.Address, @selectedLocation.City, @selectedLocation.State @selectedLocation.ZipCode
+                                        </small>
+                                    </p>
+                                </div>
+                            </div>
+                            <button class="btn btn-outline-primary btn-sm" @onclick="ChangeLocation">
+                                <i class="bi bi-geo-alt me-1"></i> Change Location
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-warning border-0">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div>
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>No location selected.</strong> Please select a spa location to view available services.
+                            </div>
+                            <button class="btn btn-primary btn-sm" @onclick="ChangeLocation">
+                                <i class="bi bi-geo-alt me-1"></i> Select Location
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Services Grid -->
+        <div class="row g-4">
+            @foreach (var service in filteredServices)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 service-card">
+                        <div class="card-body d-flex flex-column">
+                            <div class="mb-3">
+                                <h5 class="card-title text-rose-gold mb-2">@service.Name</h5>
+                                @if (service.RequiresMembership)
+                                {
+                                    <span class="badge badge-primary">Members Only</span>
+                                }
+                            </div>
+                            
+                            <p class="card-text flex-grow-1">@service.Description</p>
+                            
+                            <div class="service-details mt-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted">
+                                        <i class="bi bi-clock"></i> @service.DurationMinutes minutes
+                                    </span>
+                                    <span class="fw-bold text-rose-gold fs-5">
+                                        $@service.BasePrice.ToString("F2")
+                                    </span>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-geo-alt"></i> @GetLocationName(service.LocationId)
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <AuthorizeView>
+                                <Authorized>
+                                    <button class="btn btn-primary w-100 mt-3" @onclick="() => BookService(service.Id)">
+                                        Book Now
+                                    </button>
+                                </Authorized>
+                                <NotAuthorized>
+                                    <a href="/auth/login" class="btn btn-outline-primary w-100 mt-3">
+                                        Sign in to Book
+                                    </a>
+                                </NotAuthorized>
+                            </AuthorizeView>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (!filteredServices.Any())
+        {
+            <div class="text-center py-5">
+                <h3 class="text-muted">No services available</h3>
+                <p>Please check back later or select a different location.</p>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<SpaService> services = new();
+    private List<SpaService> filteredServices = new();
+    private List<Location> locations = new();
+    private Location? selectedLocation;
+    private bool isLoading = true;
+    private int? selectedLocationId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Check for stored location preference after first render
+            var storedLocationId = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "selectedLocationId");
+            if (!string.IsNullOrEmpty(storedLocationId) && int.TryParse(storedLocationId, out var locationId))
+            {
+                selectedLocationId = locationId;
+                
+                // Load selected location details
+                selectedLocation = locations.FirstOrDefault(l => l.Id == selectedLocationId.Value);
+                if (selectedLocation != null)
+                {
+                    // Filter services by selected location
+                    filteredServices = services.Where(s => s.LocationId == selectedLocationId.Value).ToList();
+                }
+                
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+
+        locations = await DbContext.Locations
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.Name)
+            .ToListAsync();
+
+        services = await DbContext.SpaServices
+            .Include(s => s.Location)
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        filteredServices = services;
+        isLoading = false;
+    }
+
+    private async Task ChangeLocation()
+    {
+        // Clear stored location
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "selectedLocationId");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "selectedLocationName");
+        
+        // Navigate to location selection
+        NavigationManager.NavigateTo("/select-location");
+    }
+
+    private Task OnLocationChanged(ChangeEventArgs e)
+    {
+        var locationIdString = e.Value?.ToString();
+        
+        if (string.IsNullOrEmpty(locationIdString))
+        {
+            selectedLocationId = null;
+            filteredServices = services;
+        }
+        else if (int.TryParse(locationIdString, out var locationId))
+        {
+            selectedLocationId = locationId;
+            filteredServices = services.Where(s => s.LocationId == locationId).ToList();
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private string GetLocationName(int locationId)
+    {
+        return locations.FirstOrDefault(l => l.Id == locationId)?.Name ?? "Unknown Location";
+    }
+
+    private void BookService(int serviceId)
+    {
+        NavigationManager.NavigateTo($"/bookings/create/{serviceId}");
+    }
+}
+

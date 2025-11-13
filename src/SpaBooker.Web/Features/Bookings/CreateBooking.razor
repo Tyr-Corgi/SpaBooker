@@ -1,0 +1,454 @@
+@page "/bookings/create/{ServiceId:int}"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Core.Interfaces
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject IEmailService EmailService
+@attribute [Authorize]
+
+<PageTitle>Book Appointment - SpaBooker</PageTitle>
+
+<div class="container py-4">
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner"></div>
+            <p class="mt-3 text-muted">Loading...</p>
+        </div>
+    }
+    else if (service == null)
+    {
+        <div class="alert alert-danger">
+            Service not found. <a href="/services">Browse services</a>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4 class="mb-0">Book Your Appointment</h4>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@bookingModel" OnValidSubmit="HandleSubmit" FormName="bookingForm">
+                            <DataAnnotationsValidator />
+                            
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger">
+                                    @errorMessage
+                                </div>
+                            }
+
+                            <!-- Therapist Selection -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Select Therapist</label>
+                                <select class="form-select" @bind="bookingModel.TherapistId" @bind:after="OnTherapistChanged">
+                                    <option value="">-- Select a therapist --</option>
+                                    @foreach (var therapist in availableTherapists)
+                                    {
+                                        <option value="@therapist.Id">
+                                            @therapist.FirstName @therapist.LastName
+                                            @if (!string.IsNullOrEmpty(therapist.Specialties))
+                                            {
+                                                <text> - @therapist.Specialties</text>
+                                            }
+                                        </option>
+                                    }
+                                </select>
+                                <ValidationMessage For="@(() => bookingModel.TherapistId)" />
+                            </div>
+
+                            <!-- Date Selection -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Select Date</label>
+                                <InputDate class="form-control" @bind-Value="bookingModel.AppointmentDate" 
+                                          min="@DateTime.Now.ToString("yyyy-MM-dd")" 
+                                          @bind-Value:after="OnDateChanged" />
+                                <ValidationMessage For="@(() => bookingModel.AppointmentDate)" />
+                            </div>
+
+                            <!-- Time Selection -->
+                            @if (!string.IsNullOrEmpty(bookingModel.TherapistId) && bookingModel.AppointmentDate != default)
+                            {
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">Select Time</label>
+                                    
+                                    @if (loadingTimeSlots)
+                                    {
+                                        <p class="text-muted">Loading available times...</p>
+                                    }
+                                    else if (!availableTimeSlots.Any())
+                                    {
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle me-2"></i>
+                                            <strong>No available time slots for this date.</strong>
+                                            <p class="mb-0 mt-2 small">
+                                                This could be because the therapist is not working on this day, 
+                                                has blocked this date, or all time slots are already booked. 
+                                                Please try a different date or therapist.
+                                            </p>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="time-slots-grid">
+                                            @foreach (var slot in availableTimeSlots)
+                                            {
+                                                <button type="button" 
+                                                        class="btn @(bookingModel.StartTime == slot ? "btn-primary" : "btn-outline-primary") time-slot-btn"
+                                                        @onclick="() => SelectTimeSlot(slot)">
+                                                    @slot.ToString("h:mm tt")
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+                                    <ValidationMessage For="@(() => bookingModel.StartTime)" />
+                                </div>
+                            }
+
+                            <!-- Notes -->
+                            <div class="mb-4">
+                                <label class="form-label">Special Requests or Notes (Optional)</label>
+                                <InputTextArea class="form-control" @bind-Value="bookingModel.Notes" rows="3" 
+                                              placeholder="Any special requests, preferences, or health concerns..." />
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                    @if (isSubmitting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                        <span>Creating Booking...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Confirm Booking</span>
+                                    }
+                                </button>
+                                <a href="/services" class="btn btn-secondary">Cancel</a>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Summary Sidebar -->
+            <div class="col-lg-4">
+                <div class="card shadow-md">
+                    <div class="card-header bg-rose-gold text-white">
+                        <h5 class="mb-0">Booking Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="text-rose-gold">@service.Name</h6>
+                        <p class="small text-muted mb-3">@service.Description</p>
+                        
+                        <div class="mb-2">
+                            <strong>Duration:</strong> @service.DurationMinutes minutes
+                        </div>
+                        <div class="mb-2">
+                            <strong>Location:</strong> @service.Location?.Name
+                        </div>
+                        <div class="mb-3">
+                            <strong>Price:</strong> 
+                            <span class="text-rose-gold fw-bold fs-5">$@service.BasePrice.ToString("F2")</span>
+                        </div>
+
+                        @if (bookingModel.StartTime != default)
+                        {
+                            <hr />
+                            <div class="mt-3">
+                                <h6 class="text-rose-gold">Your Appointment</h6>
+                                <div class="mb-1">
+                                    <strong>Date:</strong> @bookingModel.AppointmentDate.ToString("MMMM dd, yyyy")
+                                </div>
+                                <div class="mb-1">
+                                    <strong>Time:</strong> @bookingModel.StartTime.ToString("h\\:mm\\ tt")
+                                </div>
+                                <div class="mb-1">
+                                    <strong>Ends:</strong> @(bookingModel.AppointmentDate.Date.Add(bookingModel.StartTime).AddMinutes(service.DurationMinutes).ToString("h:mm tt"))
+                                </div>
+                            </div>
+                        }
+
+                        <div class="alert alert-info mt-3">
+                            <small>
+                                <strong>Note:</strong> A deposit may be required to confirm your booking.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int ServiceId { get; set; }
+
+    private SpaService? service;
+    private List<ApplicationUser> availableTherapists = new();
+    private List<TimeSpan> availableTimeSlots = new();
+    private BookingModel bookingModel = new();
+    private bool isLoading = true;
+    private bool loadingTimeSlots = false;
+    private bool isSubmitting = false;
+    private string? errorMessage;
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadServiceAndTherapists();
+        await GetCurrentUser();
+    }
+
+    private async Task GetCurrentUser()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            currentUserId = appUser?.Id;
+        }
+    }
+
+    private async Task LoadServiceAndTherapists()
+    {
+        isLoading = true;
+
+        service = await DbContext.SpaServices
+            .Include(s => s.Location)
+            .FirstOrDefaultAsync(s => s.Id == ServiceId && s.IsActive);
+
+        if (service != null)
+        {
+            // Get therapists who can perform this service at this location
+            var therapistIds = await DbContext.ServiceTherapists
+                .Where(st => st.ServiceId == ServiceId)
+                .Select(st => st.TherapistId)
+                .ToListAsync();
+
+            if (therapistIds.Any())
+            {
+                availableTherapists = await DbContext.Users
+                    .Where(u => therapistIds.Contains(u.Id) && u.LocationId == service.LocationId)
+                    .OrderBy(u => u.FirstName)
+                    .ToListAsync();
+            }
+            else
+            {
+                // If no specific therapists assigned, get all therapists at this location
+                var therapistRole = await DbContext.Roles.FirstOrDefaultAsync(r => r.Name == "Therapist");
+                if (therapistRole != null)
+                {
+                    var therapistUserIds = await DbContext.UserRoles
+                        .Where(ur => ur.RoleId == therapistRole.Id)
+                        .Select(ur => ur.UserId)
+                        .ToListAsync();
+
+                    availableTherapists = await DbContext.Users
+                        .Where(u => therapistUserIds.Contains(u.Id) && u.LocationId == service.LocationId)
+                        .OrderBy(u => u.FirstName)
+                        .ToListAsync();
+                }
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task OnTherapistChanged()
+    {
+        if (!string.IsNullOrEmpty(bookingModel.TherapistId) && bookingModel.AppointmentDate != default)
+        {
+            await LoadAvailableTimeSlots();
+        }
+    }
+
+    private async Task OnDateChanged()
+    {
+        if (!string.IsNullOrEmpty(bookingModel.TherapistId) && bookingModel.AppointmentDate != default)
+        {
+            await LoadAvailableTimeSlots();
+        }
+    }
+
+    private async Task LoadAvailableTimeSlots()
+    {
+        loadingTimeSlots = true;
+        availableTimeSlots.Clear();
+        bookingModel.StartTime = default;
+
+        if (service == null || string.IsNullOrEmpty(bookingModel.TherapistId)) return;
+
+        // Get existing bookings for this therapist on this date
+        var dateStart = bookingModel.AppointmentDate.Date;
+        var dateEnd = dateStart.AddDays(1);
+
+        var existingBookings = await DbContext.Bookings
+            .Where(b => b.TherapistId == bookingModel.TherapistId 
+                     && b.StartTime >= dateStart 
+                     && b.StartTime < dateEnd
+                     && b.Status != BookingStatus.Cancelled)
+            .Select(b => new { b.StartTime, b.EndTime })
+            .ToListAsync();
+
+        // Check if therapist has blocked this specific date
+        var dayOfWeek = bookingModel.AppointmentDate.DayOfWeek;
+        var specificDateBlock = await DbContext.TherapistAvailability
+            .FirstOrDefaultAsync(a => a.TherapistId == bookingModel.TherapistId 
+                                   && a.SpecificDate == dateStart 
+                                   && !a.IsAvailable);
+
+        if (specificDateBlock != null)
+        {
+            // Therapist is not available on this date
+            loadingTimeSlots = false;
+            return;
+        }
+
+        // Get therapist's availability for this day of week
+        var availability = await DbContext.TherapistAvailability
+            .FirstOrDefaultAsync(a => a.TherapistId == bookingModel.TherapistId 
+                                   && a.DayOfWeek == dayOfWeek 
+                                   && a.SpecificDate == null);
+
+        // Use therapist's availability or default to 9 AM - 5 PM
+        TimeSpan startTime = availability?.StartTime ?? new TimeSpan(9, 0, 0);
+        TimeSpan endTime = availability?.EndTime ?? new TimeSpan(17, 0, 0);
+        bool isAvailable = availability?.IsAvailable ?? true;
+
+        if (!isAvailable)
+        {
+            // Therapist doesn't work on this day
+            loadingTimeSlots = false;
+            return;
+        }
+
+        // Generate time slots based on therapist availability (30-minute intervals)
+        var slots = new List<TimeSpan>();
+        var currentSlot = startTime;
+        
+        while (currentSlot < endTime)
+        {
+            // Make sure the appointment can finish within therapist's hours
+            var appointmentEnd = currentSlot.Add(TimeSpan.FromMinutes(service.DurationMinutes));
+            if (appointmentEnd <= endTime)
+            {
+                slots.Add(currentSlot);
+            }
+            currentSlot = currentSlot.Add(TimeSpan.FromMinutes(30));
+        }
+
+        // Filter out slots that conflict with existing bookings
+        foreach (var slot in slots)
+        {
+            var slotStart = bookingModel.AppointmentDate.Date + slot;
+            var slotEnd = slotStart.AddMinutes(service.DurationMinutes);
+
+            // Check if this slot overlaps with any existing booking
+            bool hasConflict = existingBookings.Any(b => 
+                (slotStart >= b.StartTime && slotStart < b.EndTime) ||
+                (slotEnd > b.StartTime && slotEnd <= b.EndTime) ||
+                (slotStart <= b.StartTime && slotEnd >= b.EndTime)
+            );
+
+            if (!hasConflict && slotStart > DateTime.Now)
+            {
+                availableTimeSlots.Add(slot);
+            }
+        }
+
+        loadingTimeSlots = false;
+    }
+
+    private void SelectTimeSlot(TimeSpan time)
+    {
+        bookingModel.StartTime = time;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (service == null || string.IsNullOrEmpty(currentUserId)) return;
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var startDateTime = bookingModel.AppointmentDate.Date + bookingModel.StartTime;
+            var endDateTime = startDateTime.AddMinutes(service.DurationMinutes);
+
+            // Double-check for conflicts
+            var hasConflict = await DbContext.Bookings
+                .AnyAsync(b => b.TherapistId == bookingModel.TherapistId
+                            && b.Status != BookingStatus.Cancelled
+                            && ((startDateTime >= b.StartTime && startDateTime < b.EndTime) ||
+                                (endDateTime > b.StartTime && endDateTime <= b.EndTime) ||
+                                (startDateTime <= b.StartTime && endDateTime >= b.EndTime)));
+
+            if (hasConflict)
+            {
+                errorMessage = "This time slot is no longer available. Please select a different time.";
+                await LoadAvailableTimeSlots();
+                isSubmitting = false;
+                return;
+            }
+
+            var booking = new Booking
+            {
+                ClientId = currentUserId,
+                TherapistId = bookingModel.TherapistId,
+                ServiceId = service.Id,
+                LocationId = service.LocationId,
+                StartTime = startDateTime,
+                EndTime = endDateTime,
+                Status = BookingStatus.Pending,
+                ServicePrice = service.BasePrice,
+                DepositAmount = 0, // Will be calculated when we add payment processing
+                TotalPrice = service.BasePrice,
+                UsedMembershipCredits = false,
+                Notes = bookingModel.Notes,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            DbContext.Bookings.Add(booking);
+            await DbContext.SaveChangesAsync();
+
+            // Redirect to payment page
+            NavigationManager.NavigateTo($"/bookings/payment/{booking.Id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred while creating your booking. Please try again.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    public class BookingModel
+    {
+        [Required(ErrorMessage = "Please select a therapist")]
+        public string TherapistId { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please select a date")]
+        public DateTime AppointmentDate { get; set; } = DateTime.Today.AddDays(1);
+
+        [Required(ErrorMessage = "Please select a time")]
+        public TimeSpan StartTime { get; set; }
+
+        public string? Notes { get; set; }
+    }
+}
+

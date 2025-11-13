@@ -1,0 +1,366 @@
+@page "/schedule/availability"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize(Roles = "Therapist,Admin")]
+
+<PageTitle>Manage Availability - SpaBooker</PageTitle>
+
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="text-rose-gold mb-2">Manage Availability</h1>
+            <p class="text-muted">Set your regular working hours and block off specific dates</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner"></div>
+            <p class="mt-3 text-muted">Loading availability...</p>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        <!-- Regular Weekly Schedule -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Regular Weekly Schedule</h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@weeklyScheduleModel" OnValidSubmit="SaveWeeklySchedule" FormName="weeklySchedule">
+                            <DataAnnotationsValidator />
+                            
+                            @foreach (var day in Enum.GetValues<DayOfWeek>())
+                            {
+                                var dayAvailability = GetDayAvailability(day);
+                                
+                                <div class="row mb-3 align-items-center">
+                                    <div class="col-md-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="day-@day" 
+                                                   checked="@dayAvailability.IsAvailable"
+                                                   @onchange="@(e => ToggleDayAvailability(day, (bool)e.Value!))" />
+                                            <label class="form-check-label fw-bold" for="day-@day">
+                                                @day
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    @if (dayAvailability.IsAvailable)
+                                    {
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Start Time</label>
+                                            <input type="time" class="form-control" 
+                                                   value="@dayAvailability.StartTime.ToString(@"hh\:mm")"
+                                                   @onchange="@(e => UpdateStartTime(day, e.Value?.ToString()))" />
+                                        </div>
+                                        
+                                        <div class="col-md-4">
+                                            <label class="form-label small">End Time</label>
+                                            <input type="time" class="form-control" 
+                                                   value="@dayAvailability.EndTime.ToString(@"hh\:mm")"
+                                                   @onchange="@(e => UpdateEndTime(day, e.Value?.ToString()))" />
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="col-md-8">
+                                            <span class="text-muted">Not available</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            
+                            <div class="mt-3">
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                    @if (isSaving)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    Save Weekly Schedule
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Block Specific Dates -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Block Specific Date</h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@blockDateModel" OnValidSubmit="BlockDate" FormName="blockDate">
+                            <DataAnnotationsValidator />
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Date to Block</label>
+                                <InputDate class="form-control" @bind-Value="blockDateModel.SpecificDate" 
+                                          min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                <ValidationMessage For="@(() => blockDateModel.SpecificDate)" />
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Reason (Optional)</label>
+                                <InputText class="form-control" @bind-Value="blockDateModel.Reason" 
+                                          placeholder="e.g., Vacation, Personal Day" />
+                            </div>
+                            
+                            <button type="submit" class="btn btn-warning" disabled="@isSaving">
+                                Block Date
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Blocked Dates</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (blockedDates.Any())
+                        {
+                            <div class="list-group">
+                                @foreach (var blocked in blockedDates.OrderBy(b => b.SpecificDate))
+                                {
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>@blocked.SpecificDate?.ToString("MMMM dd, yyyy")</strong>
+                                            @if (!string.IsNullOrEmpty(blocked.Notes))
+                                            {
+                                                <br />
+                                                <small class="text-muted">@blocked.Notes</small>
+                                            }
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                @onclick="() => UnblockDate(blocked.Id)">
+                                            Remove
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No blocked dates</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? successMessage;
+    private string? currentUserId;
+    private List<TherapistAvailability> availabilities = new();
+    private List<TherapistAvailability> blockedDates = new();
+    private Dictionary<DayOfWeek, DayAvailabilityModel> weeklyScheduleModel = new();
+    private BlockDateModel blockDateModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetCurrentUser();
+        await LoadAvailability();
+        InitializeWeeklyScheduleModel();
+    }
+
+    private async Task GetCurrentUser()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            currentUserId = appUser?.Id;
+        }
+    }
+
+    private async Task LoadAvailability()
+    {
+        if (string.IsNullOrEmpty(currentUserId)) return;
+
+        isLoading = true;
+
+        availabilities = await DbContext.TherapistAvailability
+            .Where(a => a.TherapistId == currentUserId && a.SpecificDate == null)
+            .ToListAsync();
+
+        blockedDates = await DbContext.TherapistAvailability
+            .Where(a => a.TherapistId == currentUserId 
+                     && a.SpecificDate != null 
+                     && !a.IsAvailable
+                     && a.SpecificDate >= DateTime.Today)
+            .ToListAsync();
+
+        isLoading = false;
+    }
+
+    private void InitializeWeeklyScheduleModel()
+    {
+        foreach (DayOfWeek day in Enum.GetValues<DayOfWeek>())
+        {
+            var existing = availabilities.FirstOrDefault(a => a.DayOfWeek == day);
+            weeklyScheduleModel[day] = new DayAvailabilityModel
+            {
+                DayOfWeek = day,
+                IsAvailable = existing?.IsAvailable ?? true,
+                StartTime = existing?.StartTime ?? new TimeSpan(9, 0, 0),
+                EndTime = existing?.EndTime ?? new TimeSpan(17, 0, 0)
+            };
+        }
+    }
+
+    private DayAvailabilityModel GetDayAvailability(DayOfWeek day)
+    {
+        return weeklyScheduleModel.GetValueOrDefault(day) ?? new DayAvailabilityModel 
+        { 
+            DayOfWeek = day,
+            IsAvailable = true,
+            StartTime = new TimeSpan(9, 0, 0),
+            EndTime = new TimeSpan(17, 0, 0)
+        };
+    }
+
+    private void ToggleDayAvailability(DayOfWeek day, bool isAvailable)
+    {
+        if (weeklyScheduleModel.ContainsKey(day))
+        {
+            weeklyScheduleModel[day].IsAvailable = isAvailable;
+        }
+    }
+
+    private void UpdateStartTime(DayOfWeek day, string? timeString)
+    {
+        if (!string.IsNullOrEmpty(timeString) && TimeSpan.TryParse(timeString, out var time))
+        {
+            weeklyScheduleModel[day].StartTime = time;
+        }
+    }
+
+    private void UpdateEndTime(DayOfWeek day, string? timeString)
+    {
+        if (!string.IsNullOrEmpty(timeString) && TimeSpan.TryParse(timeString, out var time))
+        {
+            weeklyScheduleModel[day].EndTime = time;
+        }
+    }
+
+    private async Task SaveWeeklySchedule()
+    {
+        if (string.IsNullOrEmpty(currentUserId)) return;
+
+        isSaving = true;
+
+        // Remove existing weekly schedule
+        var existing = await DbContext.TherapistAvailability
+            .Where(a => a.TherapistId == currentUserId && a.SpecificDate == null)
+            .ToListAsync();
+        DbContext.TherapistAvailability.RemoveRange(existing);
+
+        // Add new schedule
+        foreach (var daySchedule in weeklyScheduleModel.Values)
+        {
+            var availability = new TherapistAvailability
+            {
+                TherapistId = currentUserId,
+                DayOfWeek = daySchedule.DayOfWeek,
+                StartTime = daySchedule.StartTime,
+                EndTime = daySchedule.EndTime,
+                IsAvailable = daySchedule.IsAvailable,
+                CreatedAt = DateTime.UtcNow
+            };
+            DbContext.TherapistAvailability.Add(availability);
+        }
+
+        await DbContext.SaveChangesAsync();
+        successMessage = "Weekly schedule updated successfully!";
+        
+        await LoadAvailability();
+        isSaving = false;
+    }
+
+    private async Task BlockDate()
+    {
+        if (string.IsNullOrEmpty(currentUserId)) return;
+
+        isSaving = true;
+
+        var blocked = new TherapistAvailability
+        {
+            TherapistId = currentUserId,
+            DayOfWeek = blockDateModel.SpecificDate.DayOfWeek,
+            StartTime = TimeSpan.Zero,
+            EndTime = TimeSpan.Zero,
+            IsAvailable = false,
+            SpecificDate = blockDateModel.SpecificDate.Date,
+            Notes = blockDateModel.Reason,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        DbContext.TherapistAvailability.Add(blocked);
+        await DbContext.SaveChangesAsync();
+
+        successMessage = $"Date {blockDateModel.SpecificDate:MMMM dd, yyyy} blocked successfully!";
+        blockDateModel = new BlockDateModel();
+        
+        await LoadAvailability();
+        isSaving = false;
+    }
+
+    private async Task UnblockDate(int availabilityId)
+    {
+        var availability = await DbContext.TherapistAvailability.FindAsync(availabilityId);
+        if (availability != null)
+        {
+            DbContext.TherapistAvailability.Remove(availability);
+            await DbContext.SaveChangesAsync();
+            successMessage = "Date unblocked successfully!";
+            await LoadAvailability();
+        }
+    }
+
+    public class DayAvailabilityModel
+    {
+        public DayOfWeek DayOfWeek { get; set; }
+        public bool IsAvailable { get; set; }
+        public TimeSpan StartTime { get; set; }
+        public TimeSpan EndTime { get; set; }
+    }
+
+    public class BlockDateModel
+    {
+        [Required(ErrorMessage = "Please select a date to block")]
+        public DateTime SpecificDate { get; set; } = DateTime.Today.AddDays(1);
+
+        public string? Reason { get; set; }
+    }
+}
+

@@ -1,0 +1,21 @@
+.time-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.time-slot-btn {
+    padding: 0.75rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.time-slot-btn:hover {
+    transform: translateY(-2px);
+}
+
+.bg-rose-gold {
+    background: linear-gradient(135deg, var(--rose-gold-dark) 0%, var(--rose-gold-medium) 100%);
+}
+

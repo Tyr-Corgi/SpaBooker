@@ -1,0 +1,282 @@
+@page "/select-location"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Select Your Spa Location - SpaBooker</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-5">
+                <h1 class="display-5 text-rose-gold mb-3">Find Your Spa</h1>
+                <p class="lead text-muted">Enter your location to discover our spa locations near you</p>
+            </div>
+
+            @if (!showResults)
+            {
+                <!-- Location Search Form -->
+                <div class="card shadow-lg border-0">
+                    <div class="card-body p-5">
+                        <EditForm Model="@searchModel" OnValidSubmit="SearchLocations">
+                            <DataAnnotationsValidator />
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">City or ZIP Code</label>
+                                <InputText @bind-Value="searchModel.SearchQuery" 
+                                          class="form-control form-control-lg" 
+                                          placeholder="Enter city name or ZIP code" />
+                                <ValidationMessage For="@(() => searchModel.SearchQuery)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">State (Optional)</label>
+                                <InputText @bind-Value="searchModel.State" 
+                                          class="form-control form-control-lg" 
+                                          placeholder="e.g., CA, NY, TX" />
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-lg w-100" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Searching...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-search me-2"></i>
+                                    <span>Find Spas Near Me</span>
+                                }
+                            </button>
+                        </EditForm>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-warning mt-4">
+                                <i class="bi bi-exclamation-triangle me-2"></i>@errorMessage
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Quick Location Buttons -->
+                <div class="text-center mt-4">
+                    <p class="text-muted mb-3">Or choose a region:</p>
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <button class="btn btn-outline-secondary" @onclick="@(() => QuickSearch("Downtown"))">
+                            <i class="bi bi-building me-1"></i> Downtown
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="@(() => QuickSearch("Seaside"))">
+                            <i class="bi bi-water me-1"></i> Seaside
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- Search Results -->
+                <div class="card shadow-lg border-0 mb-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="mb-0">
+                                <i class="bi bi-geo-alt-fill text-rose-gold me-2"></i>
+                                Spas near <strong>@searchModel.SearchQuery</strong>
+                            </h5>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="ResetSearch">
+                                <i class="bi bi-arrow-left me-1"></i> Change Location
+                            </button>
+                        </div>
+
+                        @if (nearbyLocations.Any())
+                        {
+                            <div class="location-results">
+                                @foreach (var location in nearbyLocations)
+                                {
+                                    <div class="location-card @(selectedLocation?.Id == location.Id ? "selected" : "")" 
+                                         @onclick="@(() => ChooseLocation(location))">
+                                        <div class="d-flex align-items-start">
+                                            <div class="location-icon">
+                                                <i class="bi bi-shop"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-2">@location.Name</h5>
+                                                <p class="text-muted mb-2">
+                                                    <i class="bi bi-geo-alt me-1"></i>
+                                                    @location.Address<br/>
+                                                    @location.City, @location.State @location.ZipCode
+                                                </p>
+                                                @if (!string.IsNullOrEmpty(location.Phone))
+                                                {
+                                                    <p class="text-muted mb-2">
+                                                        <i class="bi bi-telephone me-1"></i>
+                                                        @location.Phone
+                                                    </p>
+                                                }
+                                                <div class="location-distance">
+                                                    <span class="badge bg-light text-dark">
+                                                        <i class="bi bi-pin-map me-1"></i>
+                                                        Available
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            @if (selectedLocation?.Id == location.Id)
+                                            {
+                                                <div class="selected-badge">
+                                                    <i class="bi bi-check-circle-fill"></i>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (selectedLocation != null)
+                            {
+                                <div class="alert alert-success mt-4">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div>
+                                            <i class="bi bi-check-circle-fill me-2"></i>
+                                            <strong>Selected Location:</strong> @selectedLocation.Name
+                                        </div>
+                                        <button class="btn btn-success" @onclick="ConfirmSelection">
+                                            Continue <i class="bi bi-arrow-right ms-1"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center py-5">
+                                <i class="bi bi-geo-alt display-1 text-muted mb-3"></i>
+                                <p class="text-muted">No spas found in this area.</p>
+                                <button class="btn btn-outline-primary" @onclick="ResetSearch">
+                                    Try Another Location
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private LocationSearchModel searchModel = new();
+    private List<Location> nearbyLocations = new();
+    private Location? selectedLocation;
+    private bool showResults = false;
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Check if user already has a location preference stored
+            var storedLocationId = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "selectedLocationId");
+            if (!string.IsNullOrEmpty(storedLocationId) && int.TryParse(storedLocationId, out var locationId))
+            {
+                var location = await DbContext.Locations.FindAsync(locationId);
+                if (location != null && location.IsActive)
+                {
+                    // Redirect to services if location is already set
+                    NavigationManager.NavigateTo("/services");
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task SearchLocations()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            // Search for locations based on city, zip, or state
+            var query = DbContext.Locations.Where(l => l.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(searchModel.SearchQuery))
+            {
+                var searchTerm = searchModel.SearchQuery.Trim().ToLower();
+                query = query.Where(l => 
+                    l.City.ToLower().Contains(searchTerm) ||
+                    l.ZipCode.Contains(searchTerm) ||
+                    l.Name.ToLower().Contains(searchTerm));
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchModel.State))
+            {
+                var stateTerm = searchModel.State.Trim().ToUpper();
+                query = query.Where(l => l.State.ToUpper() == stateTerm);
+            }
+
+            nearbyLocations = await query.OrderBy(l => l.Name).ToListAsync();
+
+            if (!nearbyLocations.Any())
+            {
+                errorMessage = "No spas found matching your search. Please try a different location.";
+            }
+            else
+            {
+                showResults = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred while searching. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task QuickSearch(string term)
+    {
+        searchModel.SearchQuery = term;
+        await SearchLocations();
+    }
+
+    private void ChooseLocation(Location location)
+    {
+        selectedLocation = location;
+    }
+
+    private async Task ConfirmSelection()
+    {
+        if (selectedLocation != null)
+        {
+            // Store selected location in browser localStorage
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "selectedLocationId", selectedLocation.Id.ToString());
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "selectedLocationName", selectedLocation.Name);
+            
+            // Navigate to services
+            NavigationManager.NavigateTo("/services");
+        }
+    }
+
+    private void ResetSearch()
+    {
+        showResults = false;
+        nearbyLocations.Clear();
+        selectedLocation = null;
+        searchModel = new();
+        errorMessage = string.Empty;
+    }
+
+    public class LocationSearchModel
+    {
+        [Required(ErrorMessage = "Please enter a city or ZIP code")]
+        public string SearchQuery { get; set; } = string.Empty;
+        
+        public string State { get; set; } = string.Empty;
+    }
+}
+

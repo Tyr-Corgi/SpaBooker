@@ -1,0 +1,44 @@
+.service-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(183, 110, 121, 0.2);
+}
+
+.service-details {
+    border-top: 2px solid var(--pink-lighter);
+    padding-top: 1rem;
+}
+
+.spinner {
+    margin: 0 auto;
+}
+
+.location-badge {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--rose-gold-primary) 0%, var(--rose-gold-light) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.location-badge i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+    border-radius: 12px;
+}
+
+.alert-warning {
+    border-radius: 12px;
+}
+

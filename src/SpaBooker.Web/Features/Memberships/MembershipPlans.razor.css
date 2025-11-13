@@ -1,0 +1,32 @@
+.membership-plan-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.membership-plan-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 12px 24px rgba(183, 110, 121, 0.3);
+    border-color: var(--rose-gold-dark);
+}
+
+.bg-rose-gold {
+    background: linear-gradient(135deg, var(--rose-gold-dark) 0%, var(--rose-gold-medium) 100%);
+}
+
+.benefits-list {
+    padding: 0;
+}
+
+.benefit-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.938rem;
+}
+
+.benefit-item i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
