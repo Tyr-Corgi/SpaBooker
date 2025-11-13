@@ -79,6 +79,16 @@
             {
                 <div class="col-md-6 col-lg-4">
                     <div class="card h-100 service-card">
+                        @if (!string.IsNullOrEmpty(service.ImageUrl))
+                        {
+                            <div class="service-image" style="background-image: url('@service.ImageUrl');"></div>
+                        }
+                        else
+                        {
+                            <div class="service-image service-image-placeholder">
+                                <i class="bi bi-spa"></i>
+                            </div>
+                        }
                         <div class="card-body d-flex flex-column">
                             <div class="mb-3">
                                 <h5 class="card-title text-rose-gold mb-2">@service.Name</h5>

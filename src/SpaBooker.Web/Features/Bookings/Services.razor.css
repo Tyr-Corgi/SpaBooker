@@ -1,44 +1,131 @@
 .service-card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    cursor: pointer;
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .service-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 16px rgba(183, 110, 121, 0.2);
+    transform: translateY(-8px);
+    box-shadow: 0 12px 24px rgba(183, 110, 121, 0.25);
 }
 
-.service-details {
-    border-top: 2px solid var(--pink-lighter);
-    padding-top: 1rem;
+.service-image {
+    width: 100%;
+    height: 240px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+    overflow: hidden;
 }
 
-.spinner {
-    margin: 0 auto;
+.service-image::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.4), transparent);
+    pointer-events: none;
 }
 
-.location-badge {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, var(--rose-gold-primary) 0%, var(--rose-gold-light) 100%);
-    border-radius: 50%;
+.service-image-placeholder {
+    background: linear-gradient(135deg, var(--rose-gold-light) 0%, var(--rose-gold-primary) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
 }
 
-.location-badge i {
-    font-size: 1.5rem;
+.service-image-placeholder i {
+    font-size: 4rem;
     color: white;
+    opacity: 0.7;
+    animation: float 3s ease-in-out infinite;
 }
 
-.alert-info {
-    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.card-title {
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+.badge-primary {
+    background-color: var(--rose-gold-primary);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.service-details {
+    border-top: 1px solid var(--pink-lighter);
+    padding-top: 1rem;
+}
+
+.location-badge {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--rose-gold-primary) 0%, var(--rose-gold-light) 100%);
     border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
 }
 
-.alert-warning {
-    border-radius: 12px;
+.spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.4rem solid var(--rose-gold-light);
+    border-top-color: var(--rose-gold-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
 }
 
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Hover effects for buttons */
+.btn-primary {
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(183, 110, 121, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .service-image {
+        height: 200px;
+    }
+}
+
+@media (max-width: 576px) {
+    .service-image {
+        height: 180px;
+    }
+    
+    .card-title {
+        font-size: 1.1rem;
+    }
+}
