@@ -1,0 +1,41 @@
+@page "/test-users"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Test Users</PageTitle>
+
+<div class="container py-5">
+    <h1>Database Users</h1>
+    
+    @if (users == null)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        <p>Found @users.Count users in database:</p>
+        <ul>
+            @foreach (var user in users)
+            {
+                <li>
+                    Email: @user.Email | 
+                    Name: @user.FirstName @user.LastName | 
+                    EmailConfirmed: @user.EmailConfirmed |
+                    HasPassword: @(!string.IsNullOrEmpty(user.PasswordHash))
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private List<ApplicationUser>? users;
+
+    protected override async Task OnInitializedAsync()
+    {
+        users = await DbContext.Users.ToListAsync();
+    }
+}
+

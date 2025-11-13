@@ -77,8 +77,16 @@
 
         try
         {
+            // Find user by email first to get the username
+            var user = await SignInManager.UserManager.FindByEmailAsync(loginModel.Email);
+            if (user == null)
+            {
+                errorMessage = "Invalid email or password.";
+                return;
+            }
+
             var result = await SignInManager.PasswordSignInAsync(
-                loginModel.Email,
+                user.UserName!,
                 loginModel.Password,
                 loginModel.RememberMe,
                 lockoutOnFailure: true);
