@@ -445,16 +445,15 @@
         try
         {
             // Lock the user account indefinitely (until manually unlocked)
-            user.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
-            await UserManager.UpdateAsync(user);
-            await DbContext.SaveChangesAsync();
+            // Use UserManager's built-in method which handles UTC correctly
+            await UserManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
             
             showLockConfirmation = false;
             await LoadData(); // Refresh the UI
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            errorMessage = "Failed to lock the user account. Please try again.";
+            errorMessage = $"Failed to lock the user account: {ex.Message}";
             showLockConfirmation = false;
         }
     }
@@ -465,16 +464,15 @@
 
         try
         {
-            // Unlock the user account
-            user.LockoutEnd = null;
-            await UserManager.UpdateAsync(user);
-            await DbContext.SaveChangesAsync();
+            // Unlock the user account by setting lockout end to null
+            // Use UserManager's built-in method which handles UTC correctly
+            await UserManager.SetLockoutEndDateAsync(user, null);
             
             await LoadData(); // Refresh the UI
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            errorMessage = "Failed to unlock the user account. Please try again.";
+            errorMessage = $"Failed to unlock the user account: {ex.Message}";
         }
     }
 

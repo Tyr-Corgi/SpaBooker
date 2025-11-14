@@ -818,8 +818,11 @@
 
         try
         {
-            var currentBlockDate = blockModel.StartDate.Date;
-            while (currentBlockDate <= blockModel.EndDate.Date)
+            // Use UTC dates to avoid PostgreSQL timezone issues
+            var currentBlockDate = DateTime.SpecifyKind(blockModel.StartDate.Date, DateTimeKind.Utc);
+            var endBlockDate = DateTime.SpecifyKind(blockModel.EndDate.Date, DateTimeKind.Utc);
+            
+            while (currentBlockDate <= endBlockDate)
             {
                 var existingBlock = await DbContext.TherapistAvailability
                     .FirstOrDefaultAsync(a => a.TherapistId == currentUserId 

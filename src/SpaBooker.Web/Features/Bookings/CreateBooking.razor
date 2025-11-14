@@ -291,7 +291,8 @@
         if (service == null || string.IsNullOrEmpty(bookingModel.TherapistId)) return;
 
         // Get existing bookings for this therapist on this date
-        var dateStart = bookingModel.AppointmentDate.Date;
+        // Use UTC to avoid PostgreSQL timezone issues
+        var dateStart = DateTime.SpecifyKind(bookingModel.AppointmentDate.Date, DateTimeKind.Utc);
         var dateEnd = dateStart.AddDays(1);
 
         var existingBookings = await DbContext.Bookings
@@ -352,7 +353,7 @@
         // Filter out slots that conflict with existing bookings
         foreach (var slot in slots)
         {
-            var slotStart = bookingModel.AppointmentDate.Date + slot;
+            var slotStart = DateTime.SpecifyKind(bookingModel.AppointmentDate.Date, DateTimeKind.Utc) + slot;
             var slotEnd = slotStart.AddMinutes(service.DurationMinutes);
 
             // Check if this slot overlaps with any existing booking
@@ -385,7 +386,8 @@
 
         try
         {
-            var startDateTime = bookingModel.AppointmentDate.Date + bookingModel.StartTime;
+            // Use UTC to avoid PostgreSQL timezone issues
+            var startDateTime = DateTime.SpecifyKind(bookingModel.AppointmentDate.Date, DateTimeKind.Utc) + bookingModel.StartTime;
             var endDateTime = startDateTime.AddMinutes(service.DurationMinutes);
 
             // Double-check for conflicts
