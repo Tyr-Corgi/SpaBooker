@@ -84,16 +84,17 @@
 
 /* Action button styling */
 .btn-warning {
-    background-color: #ffc107;
-    border-color: #ffc107;
-    color: #000;
+    background: linear-gradient(135deg, #d4a574, #c19a6b);
+    border-color: #c19a6b;
+    color: white;
     font-weight: 500;
 }
 
 .btn-warning:hover {
-    background-color: #e0a800;
-    border-color: #d39e00;
-    color: #000;
+    background: linear-gradient(135deg, #c19a6b, #b08960);
+    border-color: #b08960;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .btn-success {
