@@ -176,7 +176,7 @@
                                 }
                             </p>
 
-                            <p class="mb-2">
+                            <p class="mb-3">
                                 <strong>Account Status:</strong>
                                 @if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow)
                                 {
@@ -187,6 +187,37 @@
                                     <span class="badge bg-success">Active</span>
                                 }
                             </p>
+
+                            <hr />
+
+                            <!-- Lock/Unlock Account Section -->
+                            <div class="mt-3 mb-3">
+                                <h6 class="text-muted mb-2">Account Access Control</h6>
+                                @if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow)
+                                {
+                                    <div class="alert alert-danger mb-3">
+                                        <i class="bi bi-lock-fill me-2"></i>
+                                        <strong>Account is Locked</strong><br/>
+                                        <small>This user cannot log in until the account is unlocked.</small>
+                                    </div>
+                                    <button type="button" class="btn btn-success w-100" @onclick="UnlockUser">
+                                        <i class="bi bi-unlock-fill me-2"></i>Unlock Account
+                                    </button>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-warning mb-3">
+                                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                        <strong>Warning:</strong> Locking this account will immediately prevent the user from logging in. 
+                                        Use this to temporarily disable access without deleting the account.
+                                    </div>
+                                    <button type="button" class="btn btn-warning w-100" @onclick="ShowLockConfirmation">
+                                        <i class="bi bi-lock-fill me-2"></i>Lock Account
+                                    </button>
+                                }
+                            </div>
+
+                            <hr />
 
                             <p class="mb-2">
                                 <strong>Created:</strong><br/>
@@ -238,6 +269,49 @@
     }
 </div>
 
+<!-- Lock Confirmation Modal -->
+@if (showLockConfirmation)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Account Lock
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="() => showLockConfirmation = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">
+                        <strong>Are you sure you want to lock this user account?</strong>
+                    </p>
+                    <p class="mb-2">This action will:</p>
+                    <ul class="mb-3">
+                        <li>Immediately prevent the user from logging in</li>
+                        <li>Keep all user data intact</li>
+                        <li>Can be reversed by clicking "Unlock Account"</li>
+                    </ul>
+                    <div class="alert alert-info mb-0">
+                        <small>
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>User:</strong> @user?.FirstName @user?.LastName (@user?.Email)
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showLockConfirmation = false">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-warning" @onclick="LockUser">
+                        <i class="bi bi-lock-fill me-2"></i>Lock Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter]
     public string UserId { get; set; } = string.Empty;
@@ -248,6 +322,7 @@
     private bool isLoading = true;
     private bool isSaving = false;
     private string? errorMessage;
+    private bool showLockConfirmation = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -355,6 +430,51 @@
         finally
         {
             isSaving = false;
+        }
+    }
+
+    private void ShowLockConfirmation()
+    {
+        showLockConfirmation = true;
+    }
+
+    private async Task LockUser()
+    {
+        if (user == null) return;
+
+        try
+        {
+            // Lock the user account indefinitely (until manually unlocked)
+            user.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
+            await UserManager.UpdateAsync(user);
+            await DbContext.SaveChangesAsync();
+            
+            showLockConfirmation = false;
+            await LoadData(); // Refresh the UI
+        }
+        catch (Exception)
+        {
+            errorMessage = "Failed to lock the user account. Please try again.";
+            showLockConfirmation = false;
+        }
+    }
+
+    private async Task UnlockUser()
+    {
+        if (user == null) return;
+
+        try
+        {
+            // Unlock the user account
+            user.LockoutEnd = null;
+            await UserManager.UpdateAsync(user);
+            await DbContext.SaveChangesAsync();
+            
+            await LoadData(); // Refresh the UI
+        }
+        catch (Exception)
+        {
+            errorMessage = "Failed to unlock the user account. Please try again.";
         }
     }
 
