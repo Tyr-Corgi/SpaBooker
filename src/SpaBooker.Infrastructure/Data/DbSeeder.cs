@@ -288,5 +288,494 @@ public static class DbSeeder
             await context.SaveChangesAsync();
         }
     }
+
+    public static async Task SeedMockDataAsync(IServiceProvider serviceProvider)
+    {
+        var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
+        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        // Check if mock data already exists
+        var existingMockUser = await userManager.FindByEmailAsync("spongeb@mockdata.spabooker.com");
+        if (existingMockUser != null)
+        {
+            // Mock data already seeded
+            return;
+        }
+
+        var locations = await context.Locations.ToListAsync();
+        if (!locations.Any()) return;
+
+        var services = await context.SpaServices.ToListAsync();
+        if (!services.Any()) return;
+
+        // Get existing client for bookings
+        var existingClient = await userManager.FindByEmailAsync("client@spabooker.com");
+
+        // 1. CREATE MOCK USERS
+        var mockUsers = new List<(string email, string firstName, string lastName, string role, string? phone, string? specialties, string? bio)>
+        {
+            ("spongeb@mockdata.spabooker.com", "[MOCK] SpongeBob", "SquarePants", "Therapist", "(555) 111-1111", "Swedish, Hot Stone", "Enthusiastic massage therapist who loves making clients happy!"),
+            ("lisas@mockdata.spabooker.com", "[MOCK] Lisa", "Simpson", "Therapist", "(555) 222-2222", "Deep Tissue, Aromatherapy", "Intelligent and caring therapist with a passion for wellness."),
+            ("ashk@mockdata.spabooker.com", "[MOCK] Ash", "Ketchum", "Client", "(555) 333-3333", null, null),
+            ("dorae@mockdata.spabooker.com", "[MOCK] Dora", "Explorer", "Client", "(555) 444-4444", null, null),
+            ("bent@mockdata.spabooker.com", "[MOCK] Ben", "Tennyson", "Client", "(555) 555-5555", null, null)
+        };
+
+        var createdMockUsers = new List<ApplicationUser>();
+
+        foreach (var (email, firstName, lastName, role, phone, specialties, bio) in mockUsers)
+        {
+            var user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                FirstName = firstName,
+                LastName = lastName,
+                PhoneNumber = phone,
+                EmailConfirmed = true,
+                CreatedAt = DateTime.UtcNow,
+                LocationId = locations.First().Id
+            };
+
+            if (role == "Therapist")
+            {
+                user.Specialties = specialties;
+                user.Bio = bio;
+            }
+
+            var result = await userManager.CreateAsync(user, "MockPass123!");
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(user, role);
+                createdMockUsers.Add(user);
+            }
+        }
+
+        // Get the therapists for bookings
+        var mockTherapist1 = createdMockUsers.FirstOrDefault(u => u.Email == "spongeb@mockdata.spabooker.com");
+        var mockTherapist2 = createdMockUsers.FirstOrDefault(u => u.Email == "lisas@mockdata.spabooker.com");
+        var mockClient1 = createdMockUsers.FirstOrDefault(u => u.Email == "ashk@mockdata.spabooker.com");
+        var mockClient2 = createdMockUsers.FirstOrDefault(u => u.Email == "dorae@mockdata.spabooker.com");
+        var mockClient3 = createdMockUsers.FirstOrDefault(u => u.Email == "bent@mockdata.spabooker.com");
+
+        // 2. CREATE MOCK BOOKINGS (8-10 bookings with mixed dates)
+        var now = DateTime.UtcNow;
+        var today = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
+
+        var mockBookings = new List<Core.Entities.Booking>();
+
+        if (mockTherapist1 != null && mockClient1 != null && services.Any())
+        {
+            // Past booking - 5 days ago, completed
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0, DateTimeKind.Utc).AddDays(-5),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(-5),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services[0].BasePrice,
+                Notes = "Great relaxing session!",
+                CreatedAt = DateTime.UtcNow.AddDays(-6)
+            });
+
+            // Past booking - 3 days ago, completed
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient2?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 1 ? services[1].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 14, 0, 0, DateTimeKind.Utc).AddDays(-3),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 15, 30, 0, DateTimeKind.Utc).AddDays(-3),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services.Count > 1 ? services[1].BasePrice : services[0].BasePrice,
+                Notes = "Excellent deep tissue work",
+                CreatedAt = DateTime.UtcNow.AddDays(-4)
+            });
+
+            // Past booking - 1 day ago, cancelled
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = existingClient?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 9, 0, 0, DateTimeKind.Utc).AddDays(-1),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0, DateTimeKind.Utc).AddDays(-1),
+                Status = Core.Enums.BookingStatus.Cancelled,
+                TotalPrice = services[0].BasePrice,
+                Notes = "Client had to cancel due to emergency",
+                CreatedAt = DateTime.UtcNow.AddDays(-2)
+            });
+
+            // Today booking - morning, confirmed
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 2 ? services[2].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0, DateTimeKind.Utc),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 11, 15, 0, DateTimeKind.Utc),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services.Count > 2 ? services[2].BasePrice : services[0].BasePrice,
+                Notes = "Hot stone massage - client requested extra heat",
+                CreatedAt = DateTime.UtcNow.AddDays(-1)
+            });
+
+            // Today booking - afternoon, confirmed
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient3?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 15, 0, 0, DateTimeKind.Utc),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 16, 0, 0, DateTimeKind.Utc),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services[0].BasePrice,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // Future booking - 2 days from now
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient2?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services.Count > 1 ? services[1].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(2),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 12, 30, 0, DateTimeKind.Utc).AddDays(2),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services.Count > 1 ? services[1].BasePrice : services[0].BasePrice,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // Future booking - 5 days from now
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = existingClient?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 3 ? services[3].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 13, 0, 0, DateTimeKind.Utc).AddDays(5),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 14, 0, 0, DateTimeKind.Utc).AddDays(5),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services.Count > 3 ? services[3].BasePrice : services[0].BasePrice,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // Future booking - 7 days from now
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services[0].Id,
+                LocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0, DateTimeKind.Utc).AddDays(7),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(7),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services[0].BasePrice,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // Future booking - 10 days from now, pending
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient3?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 2 ? services[2].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 16, 0, 0, DateTimeKind.Utc).AddDays(10),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 17, 15, 0, DateTimeKind.Utc).AddDays(10),
+                Status = Core.Enums.BookingStatus.Pending,
+                TotalPrice = services.Count > 2 ? services[2].BasePrice : services[0].BasePrice,
+                Notes = "Awaiting confirmation",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        context.Bookings.AddRange(mockBookings);
+        await context.SaveChangesAsync();
+
+        // 3. CREATE MOCK INVENTORY ITEMS (10-12 items)
+        var mockInventoryItems = new List<InventoryItem>
+        {
+            new InventoryItem
+            {
+                Name = "[MOCK] Lavender Essential Oil",
+                Description = "Premium lavender oil for aromatherapy",
+                SKU = "MOCK-LAV-001",
+                CurrentStock = 15,
+                MinimumStock = 10,
+                Unit = "bottle",
+                LocationId = locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Massage Oil - Relaxing",
+                Description = "Unscented massage oil",
+                SKU = "MOCK-OIL-002",
+                CurrentStock = 25,
+                MinimumStock = 15,
+                Unit = "bottle",
+                LocationId = locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Hot Stones Set",
+                Description = "Basalt stones for hot stone therapy",
+                SKU = "MOCK-STONE-003",
+                CurrentStock = 3,
+                MinimumStock = 5,
+                Unit = "set",
+                LocationId = locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Facial Cream - Hydrating",
+                Description = "Luxury hydrating facial cream",
+                SKU = "MOCK-FACE-004",
+                CurrentStock = 8,
+                MinimumStock = 10,
+                Unit = "jar",
+                LocationId = locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Massage Table Sheets",
+                Description = "Cotton sheets for massage tables",
+                SKU = "MOCK-SHEET-005",
+                CurrentStock = 50,
+                MinimumStock = 30,
+                Unit = "sheet",
+                LocationId = locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Eucalyptus Essential Oil",
+                Description = "Refreshing eucalyptus oil",
+                SKU = "MOCK-EUC-006",
+                CurrentStock = 12,
+                MinimumStock = 8,
+                Unit = "bottle",
+                LocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Body Scrub - Sea Salt",
+                Description = "Exfoliating sea salt body scrub",
+                SKU = "MOCK-SCRUB-007",
+                CurrentStock = 6,
+                MinimumStock = 10,
+                Unit = "jar",
+                LocationId = locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Aromatherapy Candles",
+                Description = "Scented candles for ambiance",
+                SKU = "MOCK-CAND-008",
+                CurrentStock = 20,
+                MinimumStock = 15,
+                Unit = "piece",
+                LocationId = locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Massage Bolsters",
+                Description = "Support cushions for massage",
+                SKU = "MOCK-BOLS-009",
+                CurrentStock = 8,
+                MinimumStock = 6,
+                Unit = "piece",
+                LocationId = locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new InventoryItem
+            {
+                Name = "[MOCK] Peppermint Essential Oil",
+                Description = "Cooling peppermint oil",
+                SKU = "MOCK-PEPP-010",
+                CurrentStock = 4,
+                MinimumStock = 8,
+                Unit = "bottle",
+                LocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+
+        context.InventoryItems.AddRange(mockInventoryItems);
+        await context.SaveChangesAsync();
+
+        // 4. CREATE INVENTORY TRANSACTIONS (2-3 for realism)
+        var adminUser = await userManager.FindByEmailAsync("admin@spabooker.com");
+        if (adminUser != null && mockInventoryItems.Any())
+        {
+            var transactions = new List<InventoryTransaction>
+            {
+                new InventoryTransaction
+                {
+                    InventoryItemId = mockInventoryItems[0].Id,
+                    Quantity = 10,
+                    Type = "Add",
+                    Notes = "Initial stock",
+                    PerformedBy = adminUser.Id,
+                    CreatedAt = DateTime.UtcNow.AddDays(-7)
+                },
+                new InventoryTransaction
+                {
+                    InventoryItemId = mockInventoryItems[2].Id,
+                    Quantity = 2,
+                    Type = "Remove",
+                    Notes = "Used for hot stone massage",
+                    PerformedBy = mockTherapist1?.Id ?? adminUser.Id,
+                    CreatedAt = DateTime.UtcNow.AddDays(-2)
+                },
+                new InventoryTransaction
+                {
+                    InventoryItemId = mockInventoryItems[1].Id,
+                    Quantity = 5,
+                    Type = "Add",
+                    Notes = "Restocked",
+                    PerformedBy = adminUser.Id,
+                    CreatedAt = DateTime.UtcNow.AddDays(-1)
+                }
+            };
+
+            context.InventoryTransactions.AddRange(transactions);
+            await context.SaveChangesAsync();
+        }
+
+        // 5. CREATE MOCK GIFT CERTIFICATES (2-3)
+        if (adminUser != null)
+        {
+            var mockGiftCerts = new List<GiftCertificate>
+            {
+                new GiftCertificate
+                {
+                    Code = "MOCK-AANG-2024",
+                    PurchasedByUserId = adminUser.Id,
+                    RecipientName = "[MOCK] Aang Avatar",
+                    RecipientEmail = "aang@mockdata.spabooker.com",
+                    OriginalAmount = 100.00m,
+                    PurchasePrice = 100.00m,
+                    RemainingBalance = 100.00m,
+                    Status = "Active",
+                    IsActive = true,
+                    PurchasedAt = DateTime.UtcNow.AddDays(-15),
+                    ExpiresAt = DateTime.UtcNow.AddDays(45),
+                    RestrictedToLocationId = locations[0].Id,
+                    PersonalMessage = "Enjoy your spa day! From Katara",
+                    CreatedAt = DateTime.UtcNow.AddDays(-15)
+                },
+                new GiftCertificate
+                {
+                    Code = "MOCK-KIM-2024",
+                    PurchasedByUserId = adminUser.Id,
+                    RecipientName = "[MOCK] Kim Possible",
+                    RecipientEmail = "kimp@mockdata.spabooker.com",
+                    OriginalAmount = 150.00m,
+                    PurchasePrice = 150.00m,
+                    RemainingBalance = 75.00m,
+                    Status = "PartiallyUsed",
+                    IsActive = true,
+                    IsRedeemed = true,
+                    RedeemedByUserId = mockClient1?.Id ?? adminUser.Id,
+                    RedeemedAt = DateTime.UtcNow.AddDays(-15),
+                    PurchasedAt = DateTime.UtcNow.AddDays(-30),
+                    ExpiresAt = DateTime.UtcNow.AddDays(60),
+                    RestrictedToLocationId = locations[0].Id,
+                    PersonalMessage = "You deserve this! From Ron",
+                    CreatedAt = DateTime.UtcNow.AddDays(-30)
+                },
+                new GiftCertificate
+                {
+                    Code = "MOCK-STEVEN-2024",
+                    PurchasedByUserId = mockClient2?.Id ?? adminUser.Id,
+                    RecipientName = "[MOCK] Steven Universe",
+                    RecipientEmail = "steven@mockdata.spabooker.com",
+                    OriginalAmount = 50.00m,
+                    PurchasePrice = 50.00m,
+                    RemainingBalance = 50.00m,
+                    Status = "Active",
+                    IsActive = true,
+                    PurchasedAt = DateTime.UtcNow.AddDays(-5),
+                    ExpiresAt = DateTime.UtcNow.AddDays(55),
+                    RestrictedToLocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,
+                    PersonalMessage = "Relax and shine! From Garnet",
+                    CreatedAt = DateTime.UtcNow.AddDays(-5)
+                }
+            };
+
+            context.GiftCertificates.AddRange(mockGiftCerts);
+            await context.SaveChangesAsync();
+        }
+
+        // 6. CREATE THERAPIST AVAILABILITY BLOCKS (3-4)
+        if (mockTherapist1 != null)
+        {
+            var blocks = new List<TherapistAvailability>
+            {
+                new TherapistAvailability
+                {
+                    TherapistId = mockTherapist1.Id,
+                    DayOfWeek = DateTime.UtcNow.AddDays(3).DayOfWeek,
+                    StartTime = new TimeSpan(9, 0, 0),
+                    EndTime = new TimeSpan(17, 0, 0),
+                    IsAvailable = false,
+                    SpecificDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(3),
+                    Notes = "Vacation day",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new TherapistAvailability
+                {
+                    TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                    DayOfWeek = DateTime.UtcNow.AddDays(8).DayOfWeek,
+                    StartTime = new TimeSpan(13, 0, 0),
+                    EndTime = new TimeSpan(17, 0, 0),
+                    IsAvailable = false,
+                    SpecificDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(8),
+                    Notes = "Training session",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new TherapistAvailability
+                {
+                    TherapistId = mockTherapist1.Id,
+                    DayOfWeek = DateTime.UtcNow.AddDays(14).DayOfWeek,
+                    StartTime = new TimeSpan(0, 0, 0),
+                    EndTime = new TimeSpan(23, 59, 59),
+                    IsAvailable = false,
+                    SpecificDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(14),
+                    Notes = "Personal day off",
+                    CreatedAt = DateTime.UtcNow
+                }
+            };
+
+            context.TherapistAvailability.AddRange(blocks);
+            await context.SaveChangesAsync();
+        }
+    }
 }
 
