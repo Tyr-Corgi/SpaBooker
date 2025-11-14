@@ -344,7 +344,8 @@
             .Where(gc => gc.Status == "Active" || gc.Status == "PartiallyUsed")
             .SumAsync(gc => gc.RemainingBalance);
 
-        var firstDayOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        // Use UTC to avoid PostgreSQL timezone issues
+        var firstDayOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         monthCount = await DbContext.GiftCertificates
             .Where(gc => gc.PurchasedAt >= firstDayOfMonth)
             .CountAsync();
