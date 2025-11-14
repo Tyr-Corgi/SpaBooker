@@ -18,5 +18,6 @@ public class Location
     public ICollection<SpaService> Services { get; set; } = new List<SpaService>();
     public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
     public ICollection<InventoryItem> InventoryItems { get; set; } = new List<InventoryItem>();
+    public ICollection<Room> Rooms { get; set; } = new List<Room>();
 }
 

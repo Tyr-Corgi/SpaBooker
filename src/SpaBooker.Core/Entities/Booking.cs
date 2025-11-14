@@ -17,6 +17,9 @@ public class Booking
     public int LocationId { get; set; }
     public Location Location { get; set; } = null!;
     
+    public int? RoomId { get; set; }
+    public Room? Room { get; set; }
+    
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public BookingStatus Status { get; set; } = BookingStatus.Pending;

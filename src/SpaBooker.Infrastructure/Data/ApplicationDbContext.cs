@@ -24,6 +24,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<GiftCertificate> GiftCertificates => Set<GiftCertificate>();
     public DbSet<GiftCertificateTransaction> GiftCertificateTransactions => Set<GiftCertificateTransaction>();
     public DbSet<Banner> Banners => Set<Banner>();
+    public DbSet<Room> Rooms => Set<Room>();
+    public DbSet<RoomServiceCapability> RoomServiceCapabilities => Set<RoomServiceCapability>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -97,7 +99,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .HasForeignKey(e => e.LocationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            entity.HasOne(e => e.Room)
+                .WithMany(r => r.Bookings)
+                .HasForeignKey(e => e.RoomId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasIndex(e => new { e.TherapistId, e.StartTime, e.EndTime });
+            entity.HasIndex(e => new { e.RoomId, e.StartTime, e.EndTime });
             entity.HasIndex(e => e.Status);
         });
 
@@ -260,6 +268,41 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Subtitle).IsRequired().HasMaxLength(300);
             entity.Property(e => e.ImageUrl).IsRequired().HasMaxLength(500);
             entity.HasIndex(e => new { e.DisplayOrder, e.IsActive });
+        });
+
+        // Room configuration
+        builder.Entity<Room>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ColorCode).IsRequired().HasMaxLength(7); // #RRGGBB format
+
+            entity.HasOne(e => e.Location)
+                .WithMany(l => l.Rooms)
+                .HasForeignKey(e => e.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.LocationId, e.DisplayOrder });
+            entity.HasIndex(e => new { e.LocationId, e.IsActive });
+        });
+
+        // RoomServiceCapability configuration
+        builder.Entity<RoomServiceCapability>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(e => e.Room)
+                .WithMany(r => r.ServiceCapabilities)
+                .HasForeignKey(e => e.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Service)
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Unique constraint: a room can only have one capability entry per service
+            entity.HasIndex(e => new { e.RoomId, e.ServiceId }).IsUnique();
         });
     }
 }
