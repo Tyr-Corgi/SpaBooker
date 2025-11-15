@@ -25,11 +25,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"),
         npgsqlOptions => npgsqlOptions.EnableRetryOnFailure()));
 
-// Add DbContextFactory for components that need to create their own contexts
+// Add DbContextFactory for components that need to create their own contexts (Blazor Server)
 builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        npgsqlOptions => npgsqlOptions.EnableRetryOnFailure()));
+        npgsqlOptions => npgsqlOptions.EnableRetryOnFailure()),
+    ServiceLifetime.Scoped); // Use Scoped lifetime to avoid singleton/scoped conflict
 
 // Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
