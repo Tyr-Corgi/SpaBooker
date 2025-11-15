@@ -9,10 +9,69 @@
 <PageTitle>Admin Dashboard - SpaBooker</PageTitle>
 
 <div class="container-fluid py-4">
+    <!-- Compact Header with Filters -->
+    <div class="row align-items-center mb-3">
+        <div class="col-12">
+            <h1 class="text-rose-gold mb-1">Dashboard</h1>
+        </div>
+    </div>
+    
+    <!-- Location Selector -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" 
+                        class="btn btn-sm @(selectedLocationId == 0 ? "btn-rose-gold" : "btn-outline-secondary")"
+                        @onclick="() => SetLocation(0)">
+                    <i class="bi bi-bar-chart-line"></i> All Locations Summary
+                </button>
+                @foreach (var location in locations)
+                {
+                    <button type="button" 
+                            class="btn btn-sm @(selectedLocationId == location.Id ? "btn-rose-gold" : "btn-outline-secondary")"
+                            @onclick="() => SetLocation(location.Id)">
+                        <i class="bi bi-geo-alt"></i> @location.Name
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+    
+    <!-- Time Period Filter -->
     <div class="row mb-4">
         <div class="col-12">
-            <h1 class="text-rose-gold mb-2">Admin Dashboard</h1>
-            <p class="text-muted">System overview and key metrics</p>
+            <div class="btn-group flex-wrap" role="group">
+                <button type="button" 
+                        class="btn btn-sm @(timeFilter == TimeFilter.Last7Days ? "btn-primary" : "btn-outline-primary")"
+                        @onclick="() => SetTimeFilter(TimeFilter.Last7Days)">
+                    <i class="bi bi-calendar-minus"></i> Last 7 Days
+                </button>
+                <button type="button" 
+                        class="btn btn-sm @(timeFilter == TimeFilter.Last30Days ? "btn-primary" : "btn-outline-primary")"
+                        @onclick="() => SetTimeFilter(TimeFilter.Last30Days)">
+                    <i class="bi bi-calendar-week"></i> Last 30 Days
+                </button>
+                <button type="button" 
+                        class="btn btn-sm @(timeFilter == TimeFilter.Today ? "btn-primary" : "btn-outline-primary")"
+                        @onclick="() => SetTimeFilter(TimeFilter.Today)">
+                    <i class="bi bi-calendar-day"></i> Today
+                </button>
+                <button type="button" 
+                        class="btn btn-sm @(timeFilter == TimeFilter.Next7Days ? "btn-primary" : "btn-outline-primary")"
+                        @onclick="() => SetTimeFilter(TimeFilter.Next7Days)">
+                    <i class="bi bi-calendar-plus"></i> Next 7 Days
+                </button>
+                <button type="button" 
+                        class="btn btn-sm @(timeFilter == TimeFilter.Next30Days ? "btn-primary" : "btn-outline-primary")"
+                        @onclick="() => SetTimeFilter(TimeFilter.Next30Days)">
+                    <i class="bi bi-calendar-range"></i> Next 30 Days
+                </button>
+                <button type="button" 
+                        class="btn btn-sm @(timeFilter == TimeFilter.YTD ? "btn-primary" : "btn-outline-primary")"
+                        @onclick="() => SetTimeFilter(TimeFilter.YTD)">
+                    <i class="bi bi-calendar-check"></i> YTD
+                </button>
+            </div>
         </div>
     </div>
 
@@ -25,20 +84,17 @@
     }
     else
     {
-        <!-- Key Metrics -->
-        <div class="row g-4 mb-4">
-            <div class="col-lg-3 col-md-6">
-                <div class="card metric-card">
-                    <div class="card-body">
+        <!-- Compact Key Metrics -->
+        <div class="row g-2 mb-4">
+            <div class="col-lg-3 col-md-6 col-sm-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-3">
                         <div class="d-flex align-items-center">
                             <div class="flex-grow-1">
-                                <h6 class="text-muted mb-1">Total Bookings</h6>
-                                <h2 class="mb-0 text-rose-gold">@stats.TotalBookings</h2>
-                                <small class="text-success">
-                                    <i class="bi bi-arrow-up"></i> @stats.BookingsThisMonth this month
-                                </small>
+                                <div class="text-muted small mb-1">Bookings</div>
+                                <h3 class="mb-0 text-rose-gold">@filteredStats.TotalBookings</h3>
                             </div>
-                            <div class="metric-icon bg-primary">
+                            <div class="text-primary opacity-50" style="font-size: 2rem;">
                                 <i class="bi bi-calendar-check"></i>
                             </div>
                         </div>
@@ -46,18 +102,15 @@
                 </div>
             </div>
 
-            <div class="col-lg-3 col-md-6">
-                <div class="card metric-card">
-                    <div class="card-body">
+            <div class="col-lg-3 col-md-6 col-sm-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-3">
                         <div class="d-flex align-items-center">
                             <div class="flex-grow-1">
-                                <h6 class="text-muted mb-1">Revenue (Est.)</h6>
-                                <h2 class="mb-0 text-rose-gold">$@stats.TotalRevenue.ToString("N0")</h2>
-                                <small class="text-success">
-                                    <i class="bi bi-arrow-up"></i> $@stats.RevenueThisMonth.ToString("N0") this month
-                                </small>
+                                <div class="text-muted small mb-1">Revenue</div>
+                                <h3 class="mb-0 text-success">$@filteredStats.TotalRevenue.ToString("N0")</h3>
                             </div>
-                            <div class="metric-icon bg-success">
+                            <div class="text-success opacity-50" style="font-size: 2rem;">
                                 <i class="bi bi-currency-dollar"></i>
                             </div>
                         </div>
@@ -65,38 +118,32 @@
                 </div>
             </div>
 
-            <div class="col-lg-3 col-md-6">
-                <div class="card metric-card">
-                    <div class="card-body">
+            <div class="col-lg-3 col-md-6 col-sm-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-3">
                         <div class="d-flex align-items-center">
                             <div class="flex-grow-1">
-                                <h6 class="text-muted mb-1">Active Members</h6>
-                                <h2 class="mb-0 text-rose-gold">@stats.ActiveMembers</h2>
-                                <small class="text-info">
-                                    @stats.TotalMembers total memberships
-                                </small>
+                                <div class="text-muted small mb-1">Confirmed</div>
+                                <h3 class="mb-0">@filteredStats.ConfirmedCount</h3>
                             </div>
-                            <div class="metric-icon bg-warning">
-                                <i class="bi bi-star"></i>
+                            <div class="text-success opacity-50" style="font-size: 2rem;">
+                                <i class="bi bi-check-circle"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-lg-3 col-md-6">
-                <div class="card metric-card">
-                    <div class="card-body">
+            <div class="col-lg-3 col-md-6 col-sm-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-3">
                         <div class="d-flex align-items-center">
                             <div class="flex-grow-1">
-                                <h6 class="text-muted mb-1">Total Users</h6>
-                                <h2 class="mb-0 text-rose-gold">@stats.TotalUsers</h2>
-                                <small class="text-muted">
-                                    @stats.TotalClients clients • @stats.TotalTherapists therapists
-                                </small>
+                                <div class="text-muted small mb-1">Pending</div>
+                                <h3 class="mb-0">@filteredStats.PendingCount</h3>
                             </div>
-                            <div class="metric-icon bg-info">
-                                <i class="bi bi-people"></i>
+                            <div class="text-warning opacity-50" style="font-size: 2rem;">
+                                <i class="bi bi-hourglass-split"></i>
                             </div>
                         </div>
                     </div>
@@ -104,268 +151,288 @@
             </div>
         </div>
 
-        <!-- Recent Activity & Charts -->
+        <!-- Bookings List -->
         <div class="row mb-4">
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Recent Bookings</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Client</th>
-                                        <th>Service</th>
-                                        <th>Therapist</th>
-                                        <th>Date</th>
-                                        <th>Status</th>
-                                        <th>Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var booking in recentBookings)
-                                    {
-                                        <tr>
-                                            <td>@booking.Client.FirstName @booking.Client.LastName</td>
-                                            <td>@booking.Service.Name</td>
-                                            <td>@booking.Therapist.FirstName @booking.Therapist.LastName</td>
-                                            <td>@booking.StartTime.ToString("MMM dd, h:mm tt")</td>
-                                            <td>
-                                                <span class="badge @GetStatusBadgeClass(booking.Status)">
-                                                    @booking.Status
-                                                </span>
-                                            </td>
-                                            <td>$@booking.TotalPrice.ToString("F2")</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-3">
+                        <div>
+                            <h5 class="mb-0">
+                                <i class="bi @GetTimeFilterIcon()"></i> 
+                                @GetTimeFilterTitle() Bookings
+                            </h5>
                         </div>
+                        <span class="badge bg-secondary rounded-pill">@filteredBookings.Count</span>
                     </div>
-                </div>
-            </div>
-
-            <div class="col-lg-4">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Booking Status</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="status-breakdown">
-                            <div class="status-item">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span>Pending</span>
-                                    <strong>@statusBreakdown.Pending</strong>
-                                </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar bg-warning" style="width: @GetPercentage(statusBreakdown.Pending, stats.TotalBookings)%"></div>
-                                </div>
-                            </div>
-
-                            <div class="status-item">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span>Confirmed</span>
-                                    <strong>@statusBreakdown.Confirmed</strong>
-                                </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar bg-success" style="width: @GetPercentage(statusBreakdown.Confirmed, stats.TotalBookings)%"></div>
-                                </div>
-                            </div>
-
-                            <div class="status-item">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span>Completed</span>
-                                    <strong>@statusBreakdown.Completed</strong>
-                                </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar bg-secondary" style="width: @GetPercentage(statusBreakdown.Completed, stats.TotalBookings)%"></div>
-                                </div>
-                            </div>
-
-                            <div class="status-item">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span>Cancelled</span>
-                                    <strong>@statusBreakdown.Cancelled</strong>
-                                </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar bg-danger" style="width: @GetPercentage(statusBreakdown.Cancelled, stats.TotalBookings)%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Low Stock Items</h5>
-                    </div>
-                    <div class="card-body">
-                        @if (lowStockItems.Any())
+                    <div class="card-body p-0">
+                        @if (filteredBookings.Any())
                         {
-                            <div class="list-group list-group-flush">
-                                @foreach (var item in lowStockItems.Take(5))
-                                {
-                                    <div class="list-group-item px-0">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <strong>@item.Name</strong>
-                                                <br />
-                                                <small class="text-muted">@item.Location.Name</small>
-                                            </div>
-                                            <span class="badge badge-danger">@item.CurrentStock left</span>
-                                        </div>
-                                    </div>
-                                }
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="border-0">Client</th>
+                                            <th class="border-0">Service</th>
+                                            <th class="border-0">Therapist</th>
+                                            <th class="border-0">Date & Time</th>
+                                            <th class="border-0">Status</th>
+                                            <th class="border-0 text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var booking in filteredBookings.Take(15))
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-semibold">@booking.Client.FirstName @booking.Client.LastName</div>
+                                                </td>
+                                                <td>
+                                                    <div class="text-truncate" style="max-width: 200px;">@booking.Service.Name</div>
+                                                </td>
+                                                <td>@booking.Therapist.FirstName @booking.Therapist.LastName</td>
+                                                <td>
+                                                    <div class="small">@booking.StartTime.ToString("MMM dd, yyyy")</div>
+                                                    <div class="text-muted" style="font-size: 0.75rem;">@booking.StartTime.ToString("h:mm tt")</div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge @GetStatusBadgeClass(booking.Status)">
+                                                        @booking.Status
+                                                    </span>
+                                                </td>
+                                                <td class="text-end fw-semibold">${@booking.TotalPrice.ToString("F2")}</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
                             </div>
+                            @if (filteredBookings.Count > 15)
+                            {
+                                <div class="text-center py-2 border-top bg-light">
+                                    <small class="text-muted">Showing 15 of @filteredBookings.Count bookings</small>
+                                </div>
+                            }
                         }
                         else
                         {
-                            <p class="text-muted mb-0">All items sufficiently stocked</p>
+                            <div class="text-center py-5">
+                                <i class="bi bi-calendar-x text-muted opacity-25" style="font-size: 3rem;"></i>
+                                <p class="text-muted mt-3 mb-0">No bookings for this period</p>
+                            </div>
                         }
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Top Services & Locations -->
-        <div class="row">
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Top Services</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Service</th>
-                                        <th class="text-center">Bookings</th>
-                                        <th class="text-end">Revenue</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var service in topServices)
-                                    {
-                                        <tr>
-                                            <td>@service.ServiceName</td>
-                                            <td class="text-center">@service.BookingCount</td>
-                                            <td class="text-end">$@service.Revenue.ToString("N0")</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
+        <!-- Performance Summary -->
+        @if (selectedLocationId == 0)
+        {
+            <!-- Location Comparison -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h5 class="mb-0">
+                                <i class="bi bi-bar-chart-line"></i> Location Comparison
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            @if (locationPerformance.Any())
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="border-0">Location</th>
+                                                <th class="border-0 text-center">Bookings</th>
+                                                <th class="border-0 text-center">Confirmed</th>
+                                                <th class="border-0 text-center">Pending</th>
+                                                <th class="border-0 text-end">Revenue</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var location in locationPerformance)
+                                            {
+                                                <tr>
+                                                    <td class="fw-semibold">@location.LocationName</td>
+                                                    <td class="text-center">@location.BookingCount</td>
+                                                    <td class="text-center">
+                                                        <span class="badge bg-success rounded-pill">@location.ConfirmedCount</span>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <span class="badge bg-warning rounded-pill">@location.PendingCount</span>
+                                                    </td>
+                                                    <td class="text-end fw-semibold">$@location.Revenue.ToString("N0")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center py-5">
+                                    <i class="bi bi-building text-muted opacity-25" style="font-size: 3rem;"></i>
+                                    <p class="text-muted mt-3 mb-0">No location data available</p>
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>
             </div>
-
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Location Performance</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Location</th>
-                                        <th class="text-center">Bookings</th>
-                                        <th class="text-end">Revenue</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var location in locationPerformance)
-                                    {
-                                        <tr>
-                                            <td>@location.LocationName</td>
-                                            <td class="text-center">@location.BookingCount</td>
-                                            <td class="text-end">$@location.Revenue.ToString("N0")</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
+        }
+        else
+        {
+            <!-- Top Services -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h5 class="mb-0">
+                                <i class="bi bi-star"></i> Top Services
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            @if (topServices.Any())
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="border-0">Service</th>
+                                                <th class="border-0 text-center">Bookings</th>
+                                                <th class="border-0 text-end">Revenue</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var service in topServices)
+                                            {
+                                                <tr>
+                                                    <td class="fw-semibold">@service.ServiceName</td>
+                                                    <td class="text-center">@service.BookingCount</td>
+                                                    <td class="text-end fw-semibold">$@service.Revenue.ToString("N0")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center py-5">
+                                    <i class="bi bi-box text-muted opacity-25" style="font-size: 3rem;"></i>
+                                    <p class="text-muted mt-3 mb-0">No service data available</p>
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        }
     }
 </div>
 
 @code {
-    private DashboardStats stats = new();
-    private StatusBreakdown statusBreakdown = new();
-    private List<Booking> recentBookings = new();
-    private List<InventoryItem> lowStockItems = new();
+    private List<Location> locations = new();
+    private List<Booking> allBookings = new();
+    private List<Booking> filteredBookings = new();
+    private FilteredStats filteredStats = new();
     private List<TopService> topServices = new();
     private List<LocationPerformance> locationPerformance = new();
+    
+    private int selectedLocationId = 0;
+    private TimeFilter timeFilter = TimeFilter.Today;
     private bool isLoading = true;
+
+    private enum TimeFilter { Last7Days, Last30Days, Today, Next7Days, Next30Days, YTD }
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDashboardData();
+        
+        // Default to first location if available
+        if (locations.Any())
+        {
+            selectedLocationId = locations.First().Id;
+            ApplyFilters();
+        }
     }
 
     private async Task LoadDashboardData()
     {
         isLoading = true;
 
-        var now = DateTime.UtcNow;
-        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        // Load locations
+        locations = await DbContext.Locations
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.Name)
+            .ToListAsync();
 
-        // Calculate stats
-        var allBookings = await DbContext.Bookings
+        // Load all bookings with related data
+        allBookings = await DbContext.Bookings
             .Include(b => b.Service)
             .Include(b => b.Client)
             .Include(b => b.Therapist)
+            .Include(b => b.Location)
+            .OrderBy(b => b.StartTime)
             .ToListAsync();
 
-        stats = new DashboardStats
+        isLoading = false;
+    }
+
+    private async Task SetLocation(int locationId)
+    {
+        selectedLocationId = locationId;
+        ApplyFilters();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SetTimeFilter(TimeFilter filter)
+    {
+        timeFilter = filter;
+        ApplyFilters();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyFilters()
+    {
+        var now = DateTime.UtcNow;
+        var today = DateTime.Today.ToUniversalTime();
+        var tomorrow = today.AddDays(1);
+        var last7Days = today.AddDays(-7);
+        var last30Days = today.AddDays(-30);
+        var next7Days = today.AddDays(7);
+        var next30Days = today.AddDays(30);
+        var yearStart = new DateTime(today.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        // Filter by location
+        var locationFiltered = selectedLocationId == 0 
+            ? allBookings 
+            : allBookings.Where(b => b.LocationId == selectedLocationId);
+
+        // Filter by time period
+        filteredBookings = timeFilter switch
         {
-            TotalBookings = allBookings.Count,
-            BookingsThisMonth = allBookings.Count(b => b.CreatedAt >= monthStart),
-            TotalRevenue = allBookings.Where(b => b.Status != BookingStatus.Cancelled).Sum(b => b.TotalPrice),
-            RevenueThisMonth = allBookings.Where(b => b.CreatedAt >= monthStart && b.Status != BookingStatus.Cancelled).Sum(b => b.TotalPrice),
-            ActiveMembers = await DbContext.UserMemberships.CountAsync(m => m.Status == MembershipStatus.Active),
-            TotalMembers = await DbContext.UserMemberships.CountAsync(),
-            TotalUsers = await DbContext.Users.CountAsync(),
-            TotalClients = await DbContext.UserRoles
-                .Where(ur => DbContext.Roles.Any(r => r.Id == ur.RoleId && r.Name == "Client"))
-                .CountAsync(),
-            TotalTherapists = await DbContext.UserRoles
-                .Where(ur => DbContext.Roles.Any(r => r.Id == ur.RoleId && r.Name == "Therapist"))
-                .CountAsync()
+            TimeFilter.Last7Days => locationFiltered.Where(b => b.StartTime >= last7Days && b.StartTime < today).OrderByDescending(b => b.StartTime).ToList(),
+            TimeFilter.Last30Days => locationFiltered.Where(b => b.StartTime >= last30Days && b.StartTime < today).OrderByDescending(b => b.StartTime).ToList(),
+            TimeFilter.Today => locationFiltered.Where(b => b.StartTime >= today && b.StartTime < tomorrow).OrderBy(b => b.StartTime).ToList(),
+            TimeFilter.Next7Days => locationFiltered.Where(b => b.StartTime >= today && b.StartTime < next7Days).OrderBy(b => b.StartTime).ToList(),
+            TimeFilter.Next30Days => locationFiltered.Where(b => b.StartTime >= today && b.StartTime < next30Days).OrderBy(b => b.StartTime).ToList(),
+            TimeFilter.YTD => locationFiltered.Where(b => b.StartTime >= yearStart && b.StartTime <= now).OrderBy(b => b.StartTime).ToList(),
+            _ => locationFiltered.ToList()
         };
 
-        // Status breakdown
-        statusBreakdown = new StatusBreakdown
+        // Calculate filtered stats
+        filteredStats = new FilteredStats
         {
-            Pending = allBookings.Count(b => b.Status == BookingStatus.Pending),
-            Confirmed = allBookings.Count(b => b.Status == BookingStatus.Confirmed),
-            Completed = allBookings.Count(b => b.Status == BookingStatus.Completed),
-            Cancelled = allBookings.Count(b => b.Status == BookingStatus.Cancelled),
-            NoShow = allBookings.Count(b => b.Status == BookingStatus.NoShow)
+            TotalBookings = filteredBookings.Count,
+            TotalRevenue = filteredBookings.Where(b => b.Status != BookingStatus.Cancelled).Sum(b => b.TotalPrice),
+            ConfirmedCount = filteredBookings.Count(b => b.Status == BookingStatus.Confirmed),
+            PendingCount = filteredBookings.Count(b => b.Status == BookingStatus.Pending)
         };
 
-        // Recent bookings
-        recentBookings = allBookings
-            .OrderByDescending(b => b.CreatedAt)
-            .Take(10)
-            .ToList();
-
-        // Low stock items
-        lowStockItems = await DbContext.InventoryItems
-            .Include(i => i.Location)
-            .Where(i => i.CurrentStock <= i.MinimumStock && i.IsActive)
-            .OrderBy(i => i.CurrentStock)
-            .ToListAsync();
-
-        // Top services
-        topServices = allBookings
+        // Calculate top services for filtered data
+        topServices = filteredBookings
             .Where(b => b.Status != BookingStatus.Cancelled)
             .GroupBy(b => new { b.ServiceId, b.Service.Name })
             .Select(g => new TopService
@@ -375,23 +442,73 @@
                 Revenue = g.Sum(b => b.TotalPrice)
             })
             .OrderByDescending(s => s.BookingCount)
-            .Take(5)
+            .Take(10)
             .ToList();
 
-        // Location performance
-        locationPerformance = allBookings
-            .Where(b => b.Status != BookingStatus.Cancelled)
-            .GroupBy(b => new { b.LocationId, b.Location.Name })
-            .Select(g => new LocationPerformance
-            {
-                LocationName = g.Key.Name,
-                BookingCount = g.Count(),
-                Revenue = g.Sum(b => b.TotalPrice)
-            })
-            .OrderByDescending(l => l.Revenue)
-            .ToList();
+        // Calculate location performance (only when All Locations is selected)
+        if (selectedLocationId == 0)
+        {
+            locationPerformance = filteredBookings
+                .Where(b => b.Status != BookingStatus.Cancelled)
+                .GroupBy(b => new { b.LocationId, b.Location.Name })
+                .Select(g => new LocationPerformance
+                {
+                    LocationName = g.Key.Name,
+                    BookingCount = g.Count(),
+                    ConfirmedCount = g.Count(b => b.Status == BookingStatus.Confirmed),
+                    PendingCount = g.Count(b => b.Status == BookingStatus.Pending),
+                    Revenue = g.Sum(b => b.TotalPrice)
+                })
+                .OrderByDescending(l => l.Revenue)
+                .ToList();
+        }
+        else
+        {
+            // Clear location performance when viewing a specific location
+            locationPerformance = new List<LocationPerformance>();
+        }
+    }
 
-        isLoading = false;
+    private string GetTimePeriodLabel()
+    {
+        return timeFilter switch
+        {
+            TimeFilter.Last7Days => "last 7 days",
+            TimeFilter.Last30Days => "last 30 days",
+            TimeFilter.Today => "today",
+            TimeFilter.Next7Days => "next 7 days",
+            TimeFilter.Next30Days => "next 30 days",
+            TimeFilter.YTD => "year to date",
+            _ => ""
+        };
+    }
+
+    private string GetTimeFilterTitle()
+    {
+        return timeFilter switch
+        {
+            TimeFilter.Last7Days => "Last 7 Days",
+            TimeFilter.Last30Days => "Last 30 Days",
+            TimeFilter.Today => "Today's",
+            TimeFilter.Next7Days => "Next 7 Days",
+            TimeFilter.Next30Days => "Next 30 Days",
+            TimeFilter.YTD => "Year to Date",
+            _ => ""
+        };
+    }
+
+    private string GetTimeFilterIcon()
+    {
+        return timeFilter switch
+        {
+            TimeFilter.Last7Days => "bi-calendar-minus",
+            TimeFilter.Last30Days => "bi-calendar-week",
+            TimeFilter.Today => "bi-calendar-day",
+            TimeFilter.Next7Days => "bi-calendar-plus",
+            TimeFilter.Next30Days => "bi-calendar-range",
+            TimeFilter.YTD => "bi-calendar-check",
+            _ => "bi-calendar"
+        };
     }
 
     private string GetStatusBadgeClass(BookingStatus status)
@@ -407,31 +524,12 @@
         };
     }
 
-    private double GetPercentage(int value, int total)
-    {
-        return total > 0 ? (value * 100.0 / total) : 0;
-    }
-
-    public class DashboardStats
+    public class FilteredStats
     {
         public int TotalBookings { get; set; }
-        public int BookingsThisMonth { get; set; }
         public decimal TotalRevenue { get; set; }
-        public decimal RevenueThisMonth { get; set; }
-        public int ActiveMembers { get; set; }
-        public int TotalMembers { get; set; }
-        public int TotalUsers { get; set; }
-        public int TotalClients { get; set; }
-        public int TotalTherapists { get; set; }
-    }
-
-    public class StatusBreakdown
-    {
-        public int Pending { get; set; }
-        public int Confirmed { get; set; }
-        public int Completed { get; set; }
-        public int Cancelled { get; set; }
-        public int NoShow { get; set; }
+        public int ConfirmedCount { get; set; }
+        public int PendingCount { get; set; }
     }
 
     public class TopService
@@ -445,6 +543,8 @@
     {
         public string LocationName { get; set; } = string.Empty;
         public int BookingCount { get; set; }
+        public int ConfirmedCount { get; set; }
+        public int PendingCount { get; set; }
         public decimal Revenue { get; set; }
     }
 }

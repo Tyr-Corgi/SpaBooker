@@ -110,6 +110,9 @@ using (var scope = app.Services.CreateScope())
         // Seed spa services
         await DbSeeder.SeedServicesAsync(context);
         
+        // Seed rooms
+        await DbSeeder.SeedRoomsAsync(context);
+        
         // Seed mock data (Development only)
         if (app.Environment.IsDevelopment())
         {

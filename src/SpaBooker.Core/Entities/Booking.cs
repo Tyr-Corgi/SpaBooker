@@ -41,8 +41,5 @@ public class Booking
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
-    
-    // Concurrency token for preventing double-booking
-    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }
 

@@ -289,6 +289,84 @@ public static class DbSeeder
         }
     }
 
+    public static async Task SeedRoomsAsync(ApplicationDbContext context)
+    {
+        if (!context.Rooms.Any())
+        {
+            var locations = await context.Locations.ToListAsync();
+            if (!locations.Any()) return;
+
+            var services = await context.SpaServices.ToListAsync();
+            if (!services.Any()) return;
+
+            var rooms = new List<Room>();
+
+            // Define room configurations
+            var roomConfigs = new[]
+            {
+                new { Name = "Room 1", Color = "#3B82F6", Order = 1, ServiceNames = new[] { "Swedish Massage", "Deep Tissue Massage", "Hot Stone Massage", "Aromatherapy Massage", "Couples Massage", "Luxury Facial Treatment", "Body Scrub & Wrap", "Exclusive Spa Day Package" } },
+                new { Name = "Room 2", Color = "#10B981", Order = 2, ServiceNames = new[] { "Swedish Massage", "Deep Tissue Massage", "Aromatherapy Massage", "Body Scrub & Wrap" } },
+                new { Name = "Room 3", Color = "#8B5CF6", Order = 3, ServiceNames = new[] { "Hot Stone Massage", "Luxury Facial Treatment", "Body Scrub & Wrap" } },
+                new { Name = "Room 4", Color = "#F97316", Order = 4, ServiceNames = new[] { "Couples Massage", "Exclusive Spa Day Package" } }
+            };
+
+            // Create rooms for each location
+            foreach (var location in locations)
+            {
+                var locationServices = services.Where(s => s.LocationId == location.Id).ToList();
+
+                foreach (var config in roomConfigs)
+                {
+                    var room = new Room
+                    {
+                        Name = config.Name,
+                        ColorCode = config.Color,
+                        LocationId = location.Id,
+                        DisplayOrder = config.Order,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    rooms.Add(room);
+                }
+            }
+
+            context.Rooms.AddRange(rooms);
+            await context.SaveChangesAsync();
+
+            // Now create room service capabilities
+            var capabilities = new List<RoomServiceCapability>();
+
+            var allRooms = await context.Rooms.Include(r => r.Location).ToListAsync();
+
+            foreach (var room in allRooms)
+            {
+                var config = roomConfigs.FirstOrDefault(c => c.Name == room.Name);
+                if (config != null)
+                {
+                    var locationServices = services.Where(s => s.LocationId == room.LocationId).ToList();
+
+                    foreach (var serviceName in config.ServiceNames)
+                    {
+                        var service = locationServices.FirstOrDefault(s => s.Name == serviceName);
+                        if (service != null)
+                        {
+                            capabilities.Add(new RoomServiceCapability
+                            {
+                                RoomId = room.Id,
+                                ServiceId = service.Id,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+                    }
+                }
+            }
+
+            context.RoomServiceCapabilities.AddRange(capabilities);
+            await context.SaveChangesAsync();
+        }
+    }
+
     public static async Task SeedMockDataAsync(IServiceProvider serviceProvider)
     {
         var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
@@ -358,7 +436,7 @@ public static class DbSeeder
         var mockClient2 = createdMockUsers.FirstOrDefault(u => u.Email == "dorae@mockdata.spabooker.com");
         var mockClient3 = createdMockUsers.FirstOrDefault(u => u.Email == "bent@mockdata.spabooker.com");
 
-        // 2. CREATE MOCK BOOKINGS (8-10 bookings with mixed dates)
+        // 2. CREATE MOCK BOOKINGS (20+ bookings with mixed dates for comprehensive dashboard testing)
         var now = DateTime.UtcNow;
         var today = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
 
@@ -366,7 +444,113 @@ public static class DbSeeder
 
         if (mockTherapist1 != null && mockClient1 != null && services.Any())
         {
-            // Past booking - 5 days ago, completed
+            // PAST BOOKINGS - THIS MONTH (for revenue stats)
+            // 25 days ago
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0, DateTimeKind.Utc).AddDays(-25),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(-25),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services[0].BasePrice,
+                Notes = "[MOCK] Perfect Swedish massage!",
+                CreatedAt = DateTime.UtcNow.AddDays(-26)
+            });
+
+            // 20 days ago
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient2?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 1 ? services[1].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 14, 0, 0, DateTimeKind.Utc).AddDays(-20),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 15, 30, 0, DateTimeKind.Utc).AddDays(-20),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services.Count > 1 ? services[1].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Excellent deep tissue work",
+                CreatedAt = DateTime.UtcNow.AddDays(-21)
+            });
+
+            // 18 days ago
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient3?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services.Count > 2 ? services[2].Id : services[0].Id,
+                LocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(-18),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 12, 15, 0, DateTimeKind.Utc).AddDays(-18),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services.Count > 2 ? services[2].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Hot stones were perfect temperature",
+                CreatedAt = DateTime.UtcNow.AddDays(-19)
+            });
+
+            // 15 days ago
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = existingClient?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 3 ? services[3].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 15, 0, 0, DateTimeKind.Utc).AddDays(-15),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 16, 0, 0, DateTimeKind.Utc).AddDays(-15),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services.Count > 3 ? services[3].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Aromatherapy was heavenly",
+                CreatedAt = DateTime.UtcNow.AddDays(-16)
+            });
+
+            // 12 days ago
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services.Count > 4 ? services[4].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0, DateTimeKind.Utc).AddDays(-12),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(-12),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services.Count > 4 ? services[4].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Couples massage was romantic",
+                CreatedAt = DateTime.UtcNow.AddDays(-13)
+            });
+
+            // 10 days ago
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient2?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services.Count > 5 ? services[5].Id : services[0].Id,
+                LocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 13, 0, 0, DateTimeKind.Utc).AddDays(-10),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 14, 30, 0, DateTimeKind.Utc).AddDays(-10),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services.Count > 5 ? services[5].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Facial left skin glowing",
+                CreatedAt = DateTime.UtcNow.AddDays(-11)
+            });
+
+            // 8 days ago
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient3?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 9, 0, 0, DateTimeKind.Utc).AddDays(-8),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0, DateTimeKind.Utc).AddDays(-8),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services[0].BasePrice,
+                Notes = "[MOCK] Very relaxing",
+                CreatedAt = DateTime.UtcNow.AddDays(-9)
+            });
+
+            // 5 days ago, completed
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = mockClient1.Id,
@@ -377,11 +561,11 @@ public static class DbSeeder
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(-5),
                 Status = Core.Enums.BookingStatus.Completed,
                 TotalPrice = services[0].BasePrice,
-                Notes = "Great relaxing session!",
+                Notes = "[MOCK] Great relaxing session!",
                 CreatedAt = DateTime.UtcNow.AddDays(-6)
             });
 
-            // Past booking - 3 days ago, completed
+            // 3 days ago, completed
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = mockClient2?.Id ?? mockClient1.Id,
@@ -392,11 +576,26 @@ public static class DbSeeder
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 15, 30, 0, DateTimeKind.Utc).AddDays(-3),
                 Status = Core.Enums.BookingStatus.Completed,
                 TotalPrice = services.Count > 1 ? services[1].BasePrice : services[0].BasePrice,
-                Notes = "Excellent deep tissue work",
+                Notes = "[MOCK] Excellent deep tissue work",
                 CreatedAt = DateTime.UtcNow.AddDays(-4)
             });
 
-            // Past booking - 1 day ago, cancelled
+            // 2 days ago, completed
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services.Count > 6 ? services[6].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 16, 0, 0, DateTimeKind.Utc).AddDays(-2),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 17, 0, 0, DateTimeKind.Utc).AddDays(-2),
+                Status = Core.Enums.BookingStatus.Completed,
+                TotalPrice = services.Count > 6 ? services[6].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Body scrub made skin so smooth",
+                CreatedAt = DateTime.UtcNow.AddDays(-3)
+            });
+
+            // 1 day ago, cancelled
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = existingClient?.Id ?? mockClient1.Id,
@@ -407,11 +606,11 @@ public static class DbSeeder
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 10, 0, 0, DateTimeKind.Utc).AddDays(-1),
                 Status = Core.Enums.BookingStatus.Cancelled,
                 TotalPrice = services[0].BasePrice,
-                Notes = "Client had to cancel due to emergency",
+                Notes = "[MOCK] Client had to cancel due to emergency",
                 CreatedAt = DateTime.UtcNow.AddDays(-2)
             });
 
-            // Today booking - morning, confirmed
+            // TODAY - Morning booking, confirmed
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = mockClient1.Id,
@@ -422,39 +621,116 @@ public static class DbSeeder
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 11, 15, 0, DateTimeKind.Utc),
                 Status = Core.Enums.BookingStatus.Confirmed,
                 TotalPrice = services.Count > 2 ? services[2].BasePrice : services[0].BasePrice,
-                Notes = "Hot stone massage - client requested extra heat",
+                Notes = "[MOCK] Hot stone massage - client requested extra heat",
                 CreatedAt = DateTime.UtcNow.AddDays(-1)
             });
 
-            // Today booking - afternoon, confirmed
+            // TODAY - Midday booking, confirmed
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient2?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services.Count > 3 ? services[3].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 12, 30, 0, DateTimeKind.Utc),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 13, 30, 0, DateTimeKind.Utc),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services.Count > 3 ? services[3].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Aromatherapy appointment",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // TODAY - Afternoon booking, confirmed (Waterfront Spa)
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = mockClient3?.Id ?? mockClient1.Id,
                 TherapistId = mockTherapist1.Id,
                 ServiceId = services[0].Id,
-                LocationId = locations[0].Id,
+                LocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,  // Waterfront Spa
                 StartTime = new DateTime(now.Year, now.Month, now.Day, 15, 0, 0, DateTimeKind.Utc),
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 16, 0, 0, DateTimeKind.Utc),
                 Status = Core.Enums.BookingStatus.Confirmed,
                 TotalPrice = services[0].BasePrice,
+                Notes = "[MOCK] Regular Swedish massage",
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Future booking - 2 days from now
+            // TODAY - Evening booking, pending (Downtown Spa)
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = existingClient?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 1 ? services[1].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 18, 0, 0, DateTimeKind.Utc),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 19, 30, 0, DateTimeKind.Utc),
+                Status = Core.Enums.BookingStatus.Pending,
+                TotalPrice = services.Count > 1 ? services[1].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Awaiting therapist confirmation",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // TODAY - Late afternoon booking, confirmed (Waterfront Spa)
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient2?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 2 ? services[2].Id : services[0].Id,
+                LocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,  // Waterfront Spa
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 16, 30, 0, DateTimeKind.Utc),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 17, 45, 0, DateTimeKind.Utc),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services.Count > 2 ? services[2].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Hot stone massage at waterfront location",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // FUTURE - 1 day from now
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient3?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services.Count > 4 ? services[4].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 14, 0, 0, DateTimeKind.Utc).AddDays(1),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 15, 0, 0, DateTimeKind.Utc).AddDays(1),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services.Count > 4 ? services[4].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Couples massage anniversary special",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // FUTURE - 2 days from now (Waterfront Spa)
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = mockClient2?.Id ?? mockClient1.Id,
                 TherapistId = mockTherapist1.Id,
                 ServiceId = services.Count > 1 ? services[1].Id : services[0].Id,
-                LocationId = locations[0].Id,
+                LocationId = locations.Count > 1 ? locations[1].Id : locations[0].Id,  // Waterfront Spa
                 StartTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(2),
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 12, 30, 0, DateTimeKind.Utc).AddDays(2),
                 Status = Core.Enums.BookingStatus.Confirmed,
                 TotalPrice = services.Count > 1 ? services[1].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Deep tissue for sports recovery",
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Future booking - 5 days from now
+            // FUTURE - 3 days from now
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient1.Id,
+                TherapistId = mockTherapist2?.Id ?? mockTherapist1.Id,
+                ServiceId = services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 9, 30, 0, DateTimeKind.Utc).AddDays(3),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 10, 30, 0, DateTimeKind.Utc).AddDays(3),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services[0].BasePrice,
+                Notes = "[MOCK] Early morning relaxation",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // FUTURE - 5 days from now
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = existingClient?.Id ?? mockClient1.Id,
@@ -465,10 +741,11 @@ public static class DbSeeder
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 14, 0, 0, DateTimeKind.Utc).AddDays(5),
                 Status = Core.Enums.BookingStatus.Confirmed,
                 TotalPrice = services.Count > 3 ? services[3].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Aromatherapy stress relief",
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Future booking - 7 days from now
+            // FUTURE - 7 days from now
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = mockClient1.Id,
@@ -479,10 +756,11 @@ public static class DbSeeder
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(7),
                 Status = Core.Enums.BookingStatus.Confirmed,
                 TotalPrice = services[0].BasePrice,
+                Notes = "[MOCK] Waterfront location visit",
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Future booking - 10 days from now, pending
+            // FUTURE - 10 days from now, pending
             mockBookings.Add(new Core.Entities.Booking
             {
                 ClientId = mockClient3?.Id ?? mockClient1.Id,
@@ -493,13 +771,42 @@ public static class DbSeeder
                 EndTime = new DateTime(now.Year, now.Month, now.Day, 17, 15, 0, DateTimeKind.Utc).AddDays(10),
                 Status = Core.Enums.BookingStatus.Pending,
                 TotalPrice = services.Count > 2 ? services[2].BasePrice : services[0].BasePrice,
-                Notes = "Awaiting confirmation",
+                Notes = "[MOCK] Awaiting confirmation",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            // FUTURE - 14 days from now
+            mockBookings.Add(new Core.Entities.Booking
+            {
+                ClientId = mockClient2?.Id ?? mockClient1.Id,
+                TherapistId = mockTherapist1.Id,
+                ServiceId = services.Count > 5 ? services[5].Id : services[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = new DateTime(now.Year, now.Month, now.Day, 11, 0, 0, DateTimeKind.Utc).AddDays(14),
+                EndTime = new DateTime(now.Year, now.Month, now.Day, 12, 30, 0, DateTimeKind.Utc).AddDays(14),
+                Status = Core.Enums.BookingStatus.Confirmed,
+                TotalPrice = services.Count > 5 ? services[5].BasePrice : services[0].BasePrice,
+                Notes = "[MOCK] Luxury facial treatment",
                 CreatedAt = DateTime.UtcNow
             });
         }
 
         context.Bookings.AddRange(mockBookings);
         await context.SaveChangesAsync();
+
+        // Assign some bookings to rooms (leaving some as "Unassigned" to demonstrate the feature)
+        var rooms = await context.Rooms.Where(r => r.LocationId == locations[0].Id).OrderBy(r => r.DisplayOrder).ToListAsync();
+        if (rooms.Any() && mockBookings.Any())
+        {
+            // Assign first 5 bookings to rooms (leaving others unassigned)
+            for (int i = 0; i < Math.Min(5, mockBookings.Count); i++)
+            {
+                // Cycle through rooms
+                var roomIndex = i % rooms.Count;
+                mockBookings[i].RoomId = rooms[roomIndex].Id;
+            }
+            await context.SaveChangesAsync();
+        }
 
         // 3. CREATE MOCK INVENTORY ITEMS (10-12 items)
         var mockInventoryItems = new List<InventoryItem>

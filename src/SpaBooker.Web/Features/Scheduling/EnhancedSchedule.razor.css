@@ -10,7 +10,7 @@
 
 .time-slot-row {
     display: grid;
-    grid-template-columns: 100px 1fr 200px 120px;
+    grid-template-columns: 100px 1fr 200px 120px 120px;
     min-height: 50px;
     border-bottom: 1px solid #e9ecef;
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -92,6 +92,7 @@
 
 .client-column,
 .service-column,
+.room-column,
 .status-column {
     padding: 0.75rem;
     display: flex;
@@ -101,6 +102,7 @@
 
 .time-slot-row.header-row .client-column,
 .time-slot-row.header-row .service-column,
+.time-slot-row.header-row .room-column,
 .time-slot-row.header-row .status-column {
     border-right: 1px solid rgba(255,255,255,0.3);
     color: white;
@@ -423,6 +425,21 @@
 
 .employee-cell.status-cancelled {
     background-color: #ffebee;
+}
+
+/* Room Badge Styling */
+.room-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.badge-sm {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.7rem;
 }
 
 /* Smooth transitions */

@@ -77,7 +77,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.DiscountApplied).HasPrecision(18, 2);
             entity.Property(e => e.TotalPrice).HasPrecision(18, 2);
             entity.Property(e => e.CreditsUsed).HasPrecision(18, 2);
-            entity.Property(e => e.RowVersion).IsRowVersion();
 
             entity.HasOne(e => e.Client)
                 .WithMany(u => u.BookingsAsClient)

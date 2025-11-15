@@ -406,12 +406,16 @@
                 return;
             }
 
+            // Auto-assign an available room
+            var availableRoom = await FindAvailableRoom(service.Id, service.LocationId, startDateTime, endDateTime);
+
             var booking = new Booking
             {
                 ClientId = currentUserId,
                 TherapistId = bookingModel.TherapistId,
                 ServiceId = service.Id,
                 LocationId = service.LocationId,
+                RoomId = availableRoom?.Id, // Auto-assign room if available
                 StartTime = startDateTime,
                 EndTime = endDateTime,
                 Status = BookingStatus.Pending,
@@ -436,6 +440,53 @@
         finally
         {
             isSubmitting = false;
+        }
+    }
+
+    private async Task<Room?> FindAvailableRoom(int serviceId, int locationId, DateTime startTime, DateTime endTime)
+    {
+        try
+        {
+            // Get rooms that can perform this service at this location
+            var eligibleRoomIds = await DbContext.RoomServiceCapabilities
+                .Where(rsc => rsc.ServiceId == serviceId)
+                .Select(rsc => rsc.RoomId)
+                .ToListAsync();
+
+            if (!eligibleRoomIds.Any())
+            {
+                return null; // No rooms configured for this service
+            }
+
+            var eligibleRooms = await DbContext.Rooms
+                .Where(r => r.LocationId == locationId 
+                         && r.IsActive 
+                         && eligibleRoomIds.Contains(r.Id))
+                .OrderBy(r => r.DisplayOrder)
+                .ToListAsync();
+
+            // Check each room for availability
+            foreach (var room in eligibleRooms)
+            {
+                // Check if room has a conflicting booking during this time
+                var hasConflict = await DbContext.Bookings
+                    .AnyAsync(b => b.RoomId == room.Id
+                                && b.Status != BookingStatus.Cancelled
+                                && ((startTime >= b.StartTime && startTime < b.EndTime) ||
+                                    (endTime > b.StartTime && endTime <= b.EndTime) ||
+                                    (startTime <= b.StartTime && endTime >= b.EndTime)));
+
+                if (!hasConflict)
+                {
+                    return room; // Found an available room
+                }
+            }
+
+            return null; // No available rooms
+        }
+        catch
+        {
+            return null; // If there's an error, just don't assign a room
         }
     }
 

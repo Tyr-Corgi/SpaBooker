@@ -7,6 +7,7 @@
 @inject ApplicationDbContext DbContext
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
 @attribute [Authorize(Roles = "Therapist,Admin")]
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
@@ -20,39 +21,29 @@
                     <h1 class="text-rose-gold mb-2">@GetScheduleTitle()</h1>
                     <p class="text-muted mb-0">View appointments and manage availability</p>
                 </div>
-                @if (isAdmin && therapists.Any())
-                {
-                    <div class="d-flex gap-2 flex-wrap">
-                        <div class="dropdown">
-                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                <i class="bi bi-people"></i> @(viewingUserId == currentUserId ? "My Schedule" : viewingUser?.FirstName + " " + viewingUser?.LastName)
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item @(viewingUserId == currentUserId ? "active" : "")" href="#" @onclick="@(() => SwitchToUser(currentUserId))" @onclick:preventDefault>My Schedule</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li class="dropdown-header">All Staff</li>
-                                @foreach (var therapist in therapists)
-                                {
-                                    <li><a class="dropdown-item @(viewingUserId == therapist.Id ? "active" : "")" href="#" @onclick="@(() => SwitchToUser(therapist.Id))" @onclick:preventDefault>@therapist.FirstName @therapist.LastName</a></li>
-                                }
-                            </ul>
-                        </div>
-                        <button class="btn btn-primary" @onclick="() => ShowBlockTimeModal()">
-                            <i class="bi bi-calendar-x"></i> Block Time Off
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    @if (isAdmin && therapists.Any())
+                    {
+                        <button class="btn btn-outline-secondary" @onclick="ShowViewScheduleModal">
+                            <i class="bi bi-people"></i> View Another Schedule
                         </button>
-                    </div>
-                }
-                else
-                {
-                    <div>
-                        <button class="btn btn-primary" @onclick="() => ShowBlockTimeModal()">
-                            <i class="bi bi-calendar-x"></i> Block Time Off
-                        </button>
-                    </div>
-                }
+                    }
+                    <button class="btn btn-primary" @onclick="() => ShowBlockTimeModal()">
+                        <i class="bi bi-calendar-x"></i> Block Time Off
+                    </button>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Debug Info -->
+    @if (!string.IsNullOrEmpty(debugMessage))
+    {
+        <div class="alert alert-info alert-dismissible fade show">
+            <strong>Debug:</strong> @debugMessage
+            <button type="button" class="btn-close" @onclick="() => debugMessage = null"></button>
+        </div>
+    }
 
     @if (isLoading)
     {
@@ -128,6 +119,7 @@
                                     <div class="time-label">Time</div>
                                     <div class="client-column">Client</div>
                                     <div class="service-column">Service</div>
+                                    <div class="room-column">Room</div>
                                     <div class="status-column">Status</div>
                                 </div>
                                 
@@ -169,6 +161,21 @@
                                             @if (isBooked)
                                             {
                                                 <span>@slotBooking.Service.Name</span>
+                                            }
+                                        </div>
+                                        <div class="room-column">
+                                            @if (isBooked)
+                                            {
+                                                @if (slotBooking.Room != null)
+                                                {
+                                                    <span class="badge room-badge" style="background-color: @slotBooking.Room.ColorCode; color: white;">
+                                                        @slotBooking.Room.Name
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Unassigned</span>
+                                                }
                                             }
                                         </div>
                                         <div class="status-column">
@@ -246,6 +253,12 @@
                                                     <div class="week-booking-item" @onclick="() => SelectBooking(booking)">
                                                         <div class="small fw-bold">@booking.StartTime.ToString("HH:mm")</div>
                                                         <div class="small">@booking.Client.FirstName @booking.Client.LastName</div>
+                                                        @if (booking.Room != null)
+                                                        {
+                                                            <div class="badge badge-sm room-badge mt-1" style="background-color: @booking.Room.ColorCode; font-size: 0.65rem;">
+                                                                @booking.Room.Name
+                                                            </div>
+                                                        }
                                                     </div>
                                                 }
                                             }
@@ -419,6 +432,26 @@
                                         @selectedBooking.Status
                                     </span>
                                 </dd>
+                                
+                                <dt class="col-sm-4">Room:</dt>
+                                <dd class="col-sm-8">
+                                    @if (selectedBooking.Room != null)
+                                    {
+                                        <span class="badge room-badge" style="background-color: @selectedBooking.Room.ColorCode; color: white;">
+                                            @selectedBooking.Room.Name
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Unassigned</span>
+                                        @if (isAdmin)
+                                        {
+                                            <button class="btn btn-sm btn-link p-0 ms-2" @onclick="() => ShowRoomAssignmentModal()">
+                                                <i class="bi bi-pencil"></i> Assign Room
+                                            </button>
+                                        }
+                                    }
+                                </dd>
                             </dl>
                         </div>
                         
@@ -513,6 +546,116 @@
     </div>
 }
 
+<!-- View Schedule Modal -->
+@if (showViewScheduleModal)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-people me-2"></i>View Staff Schedule
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseViewScheduleModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Select a staff member to view their schedule in a new window:</p>
+                    
+                    <div class="list-group">
+                        <button type="button" 
+                                class="list-group-item list-group-item-action d-flex align-items-center justify-content-between"
+                                @onclick="() => ViewMySchedule()">
+                            <div>
+                                <i class="bi bi-person-circle me-2"></i>
+                                <strong>My Schedule</strong>
+                            </div>
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+                        
+                        @if (therapists.Any())
+                        {
+                            <div class="list-group-item bg-light">
+                                <small class="text-muted fw-bold">ALL STAFF</small>
+                            </div>
+                            @foreach (var therapist in therapists)
+                            {
+                                <button type="button" 
+                                        class="list-group-item list-group-item-action d-flex align-items-center justify-content-between"
+                                        @onclick="() => ViewTherapistSchedule(therapist.Id)">
+                                    <div>
+                                        <i class="bi bi-person me-2"></i>
+                                        @therapist.FirstName @therapist.LastName
+                                    </div>
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseViewScheduleModal">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Room Assignment Modal -->
+@if (showRoomAssignmentModal && selectedBooking != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Assign Room</h5>
+                    <button type="button" class="btn-close" @onclick="CloseRoomAssignmentModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">
+                        <strong>Service:</strong> @selectedBooking.Service.Name<br />
+                        <strong>Time:</strong> @selectedBooking.StartTime.ToString("dd/MM/yyyy HH:mm")
+                    </p>
+
+                    @if (availableRooms.Any())
+                    {
+                        <div class="list-group">
+                            @foreach (var room in availableRooms)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action d-flex align-items-center" 
+                                        @onclick="() => AssignRoom(room.Id)">
+                                        <span class="badge room-badge me-2" 
+                                              style="background-color: @room.ColorCode; color: white; width: 60px;">
+                                            @room.Name
+                                        </span>
+                                        <span class="flex-grow-1">@room.Location.Name</span>
+                                        <i class="bi bi-arrow-right"></i>
+                                    </button>
+                                }
+
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            No rooms available for this service at this location.
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseRoomAssignmentModal">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private enum ViewMode { Day, Week, Fortnight, Month }
     
@@ -521,14 +664,19 @@
     private bool isLoading = true;
     private bool isSaving = false;
     private bool showBlockModal = false;
+    private bool showRoomAssignmentModal = false;
+    private bool showUserDropdown = false;
+    private bool showViewScheduleModal = false;
     private string? currentUserId;
     private string? blockErrorMessage;
+    private string? debugMessage;
     
     private List<Booking> bookings = new();
     private List<TherapistAvailability> blockedTimes = new();
     private Booking? selectedBooking;
     private TherapistAvailability? selectedBlockedTime;
     private BlockTimeModel blockModel = new();
+    private List<Room> availableRooms = new();
     
     // User switching
     private List<ApplicationUser> therapists = new();
@@ -605,6 +753,30 @@
         return "My Schedule";
     }
     
+    private void ShowViewScheduleModal()
+    {
+        showViewScheduleModal = true;
+    }
+    
+    private void CloseViewScheduleModal()
+    {
+        showViewScheduleModal = false;
+    }
+    
+    private void ViewMySchedule()
+    {
+        NavigationManager.NavigateTo("/schedule/enhanced", forceLoad: true);
+        CloseViewScheduleModal();
+    }
+    
+    private void ViewTherapistSchedule(string therapistId)
+    {
+        // Open in new window using JavaScript
+        var url = $"/schedule/enhanced?userId={therapistId}";
+        NavigationManager.NavigateTo(url, forceLoad: true);
+        CloseViewScheduleModal();
+    }
+    
     private async Task SwitchToUser(string? userId)
     {
         if (string.IsNullOrEmpty(userId)) return;
@@ -666,6 +838,7 @@
                 .Include(b => b.Service)
                 .Include(b => b.Client)
                 .Include(b => b.Location)
+                .Include(b => b.Room)
                 .Where(b => b.TherapistId == userIdToLoad 
                          && b.StartTime >= startDate 
                          && b.StartTime < endDate
@@ -926,6 +1099,50 @@
             BookingStatus.Completed => "bg-secondary",
             _ => "bg-secondary"
         };
+    }
+
+    private async Task ShowRoomAssignmentModal()
+    {
+        if (selectedBooking == null) return;
+
+        // Load available rooms for this booking's service and location
+        var roomServiceCapabilities = await DbContext.RoomServiceCapabilities
+            .Where(rsc => rsc.ServiceId == selectedBooking.ServiceId)
+            .Select(rsc => rsc.RoomId)
+            .ToListAsync();
+
+        availableRooms = await DbContext.Rooms
+            .Include(r => r.Location)
+            .Where(r => r.LocationId == selectedBooking.LocationId 
+                     && r.IsActive 
+                     && roomServiceCapabilities.Contains(r.Id))
+            .OrderBy(r => r.DisplayOrder)
+            .ToListAsync();
+
+        showRoomAssignmentModal = true;
+    }
+
+    private void CloseRoomAssignmentModal()
+    {
+        showRoomAssignmentModal = false;
+        availableRooms.Clear();
+    }
+
+    private async Task AssignRoom(int roomId)
+    {
+        if (selectedBooking == null) return;
+
+        var booking = await DbContext.Bookings.FindAsync(selectedBooking.Id);
+        if (booking != null)
+        {
+            booking.RoomId = roomId;
+            booking.UpdatedAt = DateTime.UtcNow;
+            await DbContext.SaveChangesAsync();
+            await LoadScheduleData();
+        }
+
+        CloseRoomAssignmentModal();
+        CloseBookingModal();
     }
 
     public class BlockTimeModel
