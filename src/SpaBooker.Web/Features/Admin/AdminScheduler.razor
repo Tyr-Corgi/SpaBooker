@@ -10,9 +10,6 @@
 @inject NavigationManager NavigationManager
 @attribute [Authorize(Roles = "Admin")]
 
-<h1>HELLO FROM ADMIN SCHEDULER</h1>
-<p>If you see this, the component is rendering!</p>
-
 <PageTitle>Admin Scheduler - SpaBooker</PageTitle>
 
 <div class="container-fluid py-4">
@@ -162,7 +159,7 @@
                                         var slotEnd = timeSlot.Add(TimeSpan.FromMinutes(30));
                                         
                                         <div class="grid-cell time-cell">
-                                            @timeSlot.ToString(@"hh\:mm tt")
+                                            @timeSlot.ToString(@"hh\:mm")
                                         </div>
 
                                         @* Room Cells *@
@@ -269,7 +266,7 @@
                             <strong>Room:</strong> @selectedRoom?.Name
                         </div>
                         <div class="col-md-6">
-                            <strong>Time:</strong> @selectedTimeSlot.ToString(@"hh\:mm tt")
+                            <strong>Time:</strong> @selectedTimeSlot.ToString(@"hh\:mm")
                         </div>
                     </div>
 
@@ -449,7 +446,7 @@
     private List<ApplicationUser> availableTherapists = new();
 
     private int selectedLocationId;
-    private DateTime currentDate = DateTime.Today;
+    private DateTime currentDate = DateTime.UtcNow.Date;
     private Room? selectedRoom;
     private ApplicationUser? selectedTherapist;
     private TimeSpan selectedTimeSlot;
