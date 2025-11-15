@@ -1,0 +1,167 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  MINIMUM_COVERAGE: 70  # Minimum test coverage percentage
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release
+      
+    - name: Run unit tests
+      run: |
+        echo "🧪 Running unit tests..."
+        dotnet test tests/SpaBooker.Tests.Unit/SpaBooker.Tests.Unit.csproj \
+          --no-build \
+          --configuration Release \
+          --logger "trx;LogFileName=unit-test-results.trx" \
+          --collect:"XPlat Code Coverage" \
+          --results-directory ./TestResults/Unit
+          
+    - name: Run integration tests
+      run: |
+        echo "🔧 Running integration tests..."
+        dotnet test tests/SpaBooker.Tests.Integration/SpaBooker.Tests.Integration.csproj \
+          --no-build \
+          --configuration Release \
+          --logger "trx;LogFileName=integration-test-results.trx" \
+          --collect:"XPlat Code Coverage" \
+          --results-directory ./TestResults/Integration
+          
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: TestResults/**/*.trx
+        
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-reports
+        path: TestResults/**/coverage.cobertura.xml
+        
+    - name: Code Coverage Summary
+      uses: irongut/CodeCoverageSummary@v1.3.0
+      if: always()
+      with:
+        filename: TestResults/**/coverage.cobertura.xml
+        badge: true
+        fail_below_min: true
+        format: markdown
+        hide_branch_rate: false
+        hide_complexity: false
+        indicators: true
+        output: both
+        thresholds: '${{ env.MINIMUM_COVERAGE }} 80'
+        
+    - name: Add Coverage PR Comment
+      uses: marocchino/sticky-pull-request-comment@v2
+      if: github.event_name == 'pull_request'
+      with:
+        recreate: true
+        path: code-coverage-results.md
+
+  # Enforce test existence for changed files
+  test-coverage-check:
+    name: Verify Test Coverage for Changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v41
+      with:
+        files: |
+          src/**/*.cs
+        files_ignore: |
+          **/*Tests.cs
+          **/Program.cs
+          **/Migrations/**
+          
+    - name: Check for corresponding test files
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: |
+        echo "🔍 Checking for test coverage of changed files..."
+        
+        MISSING_TESTS=()
+        
+        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+          # Extract component name (Entity or Service)
+          filename=$(basename "$file" .cs)
+          
+          # Check for corresponding test file
+          if [[ "$file" == *"/Entities/"* ]]; then
+            test_file="tests/SpaBooker.Tests.Unit/Entities/${filename}Tests.cs"
+          elif [[ "$file" == *"/Services/"* ]]; then
+            test_file="tests/SpaBooker.Tests.Integration/Services/${filename}Tests.cs"
+          else
+            # Skip files that don't need direct tests (DTOs, configs, etc.)
+            continue
+          fi
+          
+          if [[ ! -f "$test_file" ]]; then
+            MISSING_TESTS+=("$file")
+            echo "❌ Missing test: $test_file"
+          else
+            echo "✅ Found test: $test_file"
+          fi
+        done
+        
+        if [ ${#MISSING_TESTS[@]} -gt 0 ]; then
+          echo ""
+          echo "❌ ERROR: The following files are missing test coverage:"
+          printf '%s\n' "${MISSING_TESTS[@]}"
+          echo ""
+          echo "Please add appropriate tests before merging."
+          exit 1
+        fi
+        
+        echo ""
+        echo "✅ All changed files have corresponding test coverage!"
+
+  # Build status check
+  status-check:
+    name: Test Status Check
+    runs-on: ubuntu-latest
+    needs: [test, test-coverage-check]
+    if: always()
+    
+    steps:
+    - name: Check test results
+      run: |
+        if [[ "${{ needs.test.result }}" != "success" ]] || [[ "${{ needs.test-coverage-check.result }}" != "success" ]]; then
+          echo "❌ Tests failed or coverage check failed"
+          exit 1
+        fi
+        echo "✅ All checks passed!"
+

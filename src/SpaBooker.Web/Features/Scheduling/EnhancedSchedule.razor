@@ -701,6 +701,13 @@
                 if (user != null)
                 {
                     isAdmin = await UserManager.IsInRoleAsync(user, "Admin");
+                    
+                    // Redirect admins to comprehensive scheduler
+                    if (isAdmin)
+                    {
+                        NavigationManager.NavigateTo("/admin/scheduler", forceLoad: true);
+                        return;
+                    }
                 }
             }
             

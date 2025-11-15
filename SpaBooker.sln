@@ -11,6 +11,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpaBooker.Core", "src\SpaBo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpaBooker.Infrastructure", "src\SpaBooker.Infrastructure\SpaBooker.Infrastructure.csproj", "{D3BA4D62-8D5B-4154-924C-36D1CAB651C1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{27A7E238-EF1A-4AF0-8A49-86E675D7F912}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpaBooker.Tests.Unit", "tests\SpaBooker.Tests.Unit\SpaBooker.Tests.Unit.csproj", "{0F5264F1-5D39-4C19-8240-174DBA4C22F3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpaBooker.Tests.Integration", "tests\SpaBooker.Tests.Integration\SpaBooker.Tests.Integration.csproj", "{8C0ED9AF-C463-4EDB-9C42-651F92D52294}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,10 +38,20 @@ Global
 		{D3BA4D62-8D5B-4154-924C-36D1CAB651C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D3BA4D62-8D5B-4154-924C-36D1CAB651C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D3BA4D62-8D5B-4154-924C-36D1CAB651C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F5264F1-5D39-4C19-8240-174DBA4C22F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F5264F1-5D39-4C19-8240-174DBA4C22F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F5264F1-5D39-4C19-8240-174DBA4C22F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F5264F1-5D39-4C19-8240-174DBA4C22F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C0ED9AF-C463-4EDB-9C42-651F92D52294}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C0ED9AF-C463-4EDB-9C42-651F92D52294}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C0ED9AF-C463-4EDB-9C42-651F92D52294}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C0ED9AF-C463-4EDB-9C42-651F92D52294}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1747E751-B50D-4645-85C4-FF94E2C4064A} = {69FEA184-EBEA-40BC-B509-75B7586721C6}
 		{45D77A96-4158-421A-AD9B-88679FE376CD} = {69FEA184-EBEA-40BC-B509-75B7586721C6}
 		{D3BA4D62-8D5B-4154-924C-36D1CAB651C1} = {69FEA184-EBEA-40BC-B509-75B7586721C6}
+		{0F5264F1-5D39-4C19-8240-174DBA4C22F3} = {27A7E238-EF1A-4AF0-8A49-86E675D7F912}
+		{8C0ED9AF-C463-4EDB-9C42-651F92D52294} = {27A7E238-EF1A-4AF0-8A49-86E675D7F912}
 	EndGlobalSection
 EndGlobal
