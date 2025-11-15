@@ -4,7 +4,7 @@
 @using SpaBooker.Core.Enums
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
-@inject ApplicationDbContext DbContext
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
@@ -463,7 +463,8 @@
 
     private async Task LoadLocations()
     {
-        locations = await DbContext.Locations
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        locations = await context.Locations
             .Where(l => l.IsActive)
             .OrderBy(l => l.Name)
             .ToListAsync();
@@ -475,29 +476,23 @@
         
         try
         {
+            using var context = await DbContextFactory.CreateDbContextAsync();
             var startOfDay = currentDate.Date;
             var endOfDay = startOfDay.AddDays(1);
 
-            // Load rooms for location
-            var roomsTask = DbContext.Rooms
+            // First, load all DbContext queries and await them
+            rooms = await context.Rooms
                 .Where(r => r.LocationId == selectedLocationId && r.IsActive)
                 .OrderBy(r => r.DisplayOrder)
                 .ToListAsync();
 
-            // Load all therapists and admins
-            var therapistList = await UserManager.GetUsersInRoleAsync("Therapist");
-            var adminList = await UserManager.GetUsersInRoleAsync("Admin");
-            var allStaff = therapistList.Union(adminList).Distinct().ToList();
-
-            // Filter to those who have bookings at this location
-            var therapistIdsTask = DbContext.Bookings
+            var therapistIds = await context.Bookings
                 .Where(b => b.LocationId == selectedLocationId)
                 .Select(b => b.TherapistId)
                 .Distinct()
                 .ToListAsync();
 
-            // Load bookings
-            var bookingsTask = DbContext.Bookings
+            bookings = await context.Bookings
                 .Include(b => b.Client)
                 .Include(b => b.Service)
                 .Include(b => b.Room)
@@ -509,25 +504,24 @@
                 .OrderBy(b => b.StartTime)
                 .ToListAsync();
 
-            // Load blocked times
-            var blockedTimesTask = DbContext.TherapistAvailability
+            var blockedTimes = await context.TherapistAvailability
                 .Where(a => a.SpecificDate == currentDate.Date && !a.IsAvailable)
                 .ToListAsync();
 
-            // Load clients
-            var clientsTask = UserManager.GetUsersInRoleAsync("Client");
+            // Now load UserManager operations (which use a separate DbContext internally)
+            var therapistList = await UserManager.GetUsersInRoleAsync("Therapist");
+            var adminList = await UserManager.GetUsersInRoleAsync("Admin");
+            var allStaff = therapistList.Union(adminList).Distinct().ToList();
 
-            await Task.WhenAll(roomsTask, therapistIdsTask, bookingsTask, blockedTimesTask);
-            
-            rooms = await roomsTask;
-            var therapistIds = await therapistIdsTask;
+            clients = (await UserManager.GetUsersInRoleAsync("Client")).ToList();
+
+            // Filter therapists to those who have bookings at this location
             therapists = allStaff.Where(u => therapistIds.Contains(u.Id))
                 .OrderBy(u => u.FirstName)
                 .ThenBy(u => u.LastName)
                 .ToList();
-            bookings = await bookingsTask;
-            blockedTimes = await blockedTimesTask;
-            clients = (await clientsTask).OrderBy(c => c.FirstName).ThenBy(c => c.LastName).ToList();
+            
+            clients = clients.OrderBy(c => c.FirstName).ThenBy(c => c.LastName).ToList();
         }
         finally
         {
@@ -618,12 +612,13 @@
             .ToList();
 
         // Load services for this room
-        var roomServiceIds = await DbContext.RoomServiceCapabilities
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        var roomServiceIds = await context.RoomServiceCapabilities
             .Where(rsc => rsc.RoomId == room.Id)
             .Select(rsc => rsc.ServiceId)
             .ToListAsync();
 
-        availableServices = await DbContext.SpaServices
+        availableServices = await context.SpaServices
             .Where(s => s.LocationId == selectedLocationId 
                      && s.IsActive 
                      && roomServiceIds.Contains(s.Id))
@@ -674,7 +669,8 @@
 
         try
         {
-            var service = await DbContext.SpaServices.FindAsync(assignmentModel.ServiceId);
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var service = await context.SpaServices.FindAsync(assignmentModel.ServiceId);
             if (service == null)
             {
                 assignmentError = "Service not found";
@@ -713,8 +709,8 @@
                 CreatedAt = DateTime.UtcNow
             };
 
-            DbContext.Bookings.Add(booking);
-            await DbContext.SaveChangesAsync();
+            context.Bookings.Add(booking);
+            await context.SaveChangesAsync();
             await LoadScheduleData();
             CloseAssignmentModal();
         }
@@ -737,9 +733,11 @@
     {
         if (selectedBooking == null) return;
 
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        context.Bookings.Attach(selectedBooking);
         selectedBooking.Status = BookingStatus.Confirmed;
         selectedBooking.UpdatedAt = DateTime.UtcNow;
-        await DbContext.SaveChangesAsync();
+        await context.SaveChangesAsync();
         await LoadScheduleData();
         CloseBookingModal();
     }
@@ -748,10 +746,12 @@
     {
         if (selectedBooking == null) return;
 
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        context.Bookings.Attach(selectedBooking);
         selectedBooking.Status = BookingStatus.Cancelled;
         selectedBooking.CancelledAt = DateTime.UtcNow;
         selectedBooking.UpdatedAt = DateTime.UtcNow;
-        await DbContext.SaveChangesAsync();
+        await context.SaveChangesAsync();
         await LoadScheduleData();
         CloseBookingModal();
     }
