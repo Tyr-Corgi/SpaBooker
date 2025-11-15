@@ -9,7 +9,9 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @attribute [Authorize(Roles = "Admin")]
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<h1>HELLO FROM ADMIN SCHEDULER</h1>
+<p>If you see this, the component is rendering!</p>
 
 <PageTitle>Admin Scheduler - SpaBooker</PageTitle>
 
