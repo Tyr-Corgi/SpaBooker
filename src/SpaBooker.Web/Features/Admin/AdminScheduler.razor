@@ -24,6 +24,14 @@
         </div>
     </div>
 
+    @if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="alert alert-danger">
+            <h5><i class="bi bi-exclamation-triangle me-2"></i>Error Loading Scheduler</h5>
+            <p class="mb-0">@loadError</p>
+        </div>
+    }
+
     @if (isLoading)
     {
         <div class="text-center py-5">
@@ -31,6 +39,13 @@
                 <span class="visually-hidden">Loading...</span>
             </div>
             <p class="mt-3 text-muted">Loading schedule data...</p>
+        </div>
+    }
+    else if (!locations.Any())
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-info-circle me-2"></i>
+            No active locations found. Please add locations first.
         </div>
     }
     else
@@ -420,6 +435,7 @@
     private bool isSaving = false;
     private bool showAssignmentModal = false;
     private string? assignmentError;
+    private string? loadError;
 
     private List<Location> locations = new();
     private List<Room> rooms = new();
@@ -454,6 +470,11 @@
                 selectedLocationId = locations.First().Id;
                 await LoadScheduleData();
             }
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Failed to load scheduler: {ex.Message}";
+            Console.WriteLine($"Error in OnInitializedAsync: {ex}");
         }
         finally
         {
