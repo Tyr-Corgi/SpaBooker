@@ -272,6 +272,21 @@
     border: 1px solid #28a745;
 }
 
+/* Dropdown Styling */
+.user-dropdown-wrapper {
+    position: relative;
+}
+
+.user-dropdown-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1049;
+    background-color: transparent;
+}
+
 /* Modal Styling */
 .modal-backdrop {
     background-color: rgba(0, 0, 0, 0.5);

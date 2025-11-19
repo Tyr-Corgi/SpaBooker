@@ -14,62 +14,28 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="services">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Services
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="memberships/plans">
-                <span class="bi bi-star" aria-hidden="true"></span> Memberships
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="gift-certificates/purchase">
-                <span class="bi bi-gift" aria-hidden="true"></span> Gift Certificates
-            </NavLink>
-        </div>
-
         <AuthorizeView>
             <Authorized>
-                <AuthorizeView Roles="Client" Context="clientAuth">
+                @* Admin Menu Items - Dashboard and Scheduler at top *@
+                <AuthorizeView Roles="Admin" Context="adminAuth">
                     <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="bookings/my-bookings">
-                            <span class="bi bi-calendar3" aria-hidden="true"></span> My Bookings
+                        <NavLink class="nav-link" href="admin/dashboard">
+                            <span class="bi bi-speedometer2" aria-hidden="true"></span> Dashboard
                         </NavLink>
                     </div>
-                </AuthorizeView>
-                
-                <AuthorizeView Roles="Admin" Context="adminSchedulerAuth">
                     <div class="nav-item px-3">
                         <NavLink class="nav-link" href="admin/scheduler">
                             <span class="bi bi-calendar-week" aria-hidden="true"></span> Scheduler
                         </NavLink>
                     </div>
-                </AuthorizeView>
-                
-                <AuthorizeView Roles="Therapist" Context="therapistAuth">
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="schedule/enhanced">
-                            <span class="bi bi-calendar-week" aria-hidden="true"></span> Scheduler
-                        </NavLink>
-                    </div>
-                </AuthorizeView>
-                                
-                <AuthorizeView Roles="Therapist,Admin" Context="inventoryAuth">
                     <div class="nav-item px-3">
                         <NavLink class="nav-link" href="inventory">
                             <span class="bi bi-box-seam" aria-hidden="true"></span> Inventory
                         </NavLink>
                     </div>
-                </AuthorizeView>
-                
-                <AuthorizeView Roles="Admin" Context="adminAuth">
                     <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/dashboard">
-                            <span class="bi bi-speedometer2" aria-hidden="true"></span> Dashboard
+                        <NavLink class="nav-link" href="admin/clients">
+                            <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Client Management
                         </NavLink>
                     </div>
                     <div class="nav-item px-3">
@@ -98,8 +64,64 @@
                         </NavLink>
                     </div>
                 </AuthorizeView>
+
+                @* Therapist Menu Items *@
+                <AuthorizeView Roles="Therapist" Context="therapistAuth">
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="schedule/enhanced">
+                            <span class="bi bi-calendar-week" aria-hidden="true"></span> Scheduler
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="inventory">
+                            <span class="bi bi-box-seam" aria-hidden="true"></span> Inventory
+                        </NavLink>
+                    </div>
+                </AuthorizeView>
+
+                @* Client Menu Items *@
+                <AuthorizeView Roles="Client" Context="clientAuth">
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="bookings/my-bookings">
+                            <span class="bi bi-calendar3" aria-hidden="true"></span> My Bookings
+                        </NavLink>
+                    </div>
+                </AuthorizeView>
             </Authorized>
         </AuthorizeView>
+
+        @* Public Menu Items - Services only visible to non-admins *@
+        <AuthorizeView>
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="services">
+                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Services
+                    </NavLink>
+                </div>
+            </NotAuthorized>
+            <Authorized>
+                @* Services visible to Clients and Therapists, but NOT Admins *@
+                <AuthorizeView Roles="Client,Therapist" Context="servicesAuth">
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="services">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Services
+                        </NavLink>
+                    </div>
+                </AuthorizeView>
+            </Authorized>
+        </AuthorizeView>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="memberships/plans">
+                <span class="bi bi-star" aria-hidden="true"></span> Memberships
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="gift-certificates/purchase">
+                <span class="bi bi-gift" aria-hidden="true"></span> Gift Certificates
+            </NavLink>
+        </div>
     </nav>
 </div>
 

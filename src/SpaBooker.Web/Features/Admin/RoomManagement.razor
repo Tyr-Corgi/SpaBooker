@@ -50,9 +50,9 @@
             <ul class="nav nav-tabs">
                 <li class="nav-item">
                     <a class="nav-link @(selectedLocationId == null ? "active" : "")" 
+                       href="#" 
                        @onclick="() => FilterByLocation(null)" 
-                       @onclick:preventDefault
-                       style="cursor: pointer;">
+                       @onclick:preventDefault>
                         All Locations (@allRooms.Count)
                     </a>
                 </li>
@@ -60,9 +60,9 @@
                 {
                     <li class="nav-item">
                         <a class="nav-link @(selectedLocationId == location.Id ? "active" : "")" 
+                           href="#"
                            @onclick="() => FilterByLocation(location.Id)" 
-                           @onclick:preventDefault
-                           style="cursor: pointer;">
+                           @onclick:preventDefault>
                             @location.Name (@GetLocationRoomCount(location.Id))
                         </a>
                     </li>

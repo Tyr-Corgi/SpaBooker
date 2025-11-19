@@ -15,7 +15,7 @@
         <div class="col-12 d-flex justify-content-between align-items-center">
             <div>
                 <h1 class="text-rose-gold mb-2">User Management</h1>
-                <p class="text-muted">Manage clients, therapists, and administrators</p>
+                <p class="text-muted">Manage therapists and administrators</p>
             </div>
             <a href="/admin/users/create" class="btn btn-primary">
                 <i class="bi bi-plus-circle me-2"></i>Add New User
@@ -40,14 +40,7 @@
                     <a class="nav-link @(selectedRole == "All" ? "active" : "")" 
                        @onclick='() => FilterByRole("All")' 
                        style="cursor: pointer;">
-                        All Users (@allUsers.Count)
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link @(selectedRole == "Client" ? "active" : "")" 
-                       @onclick='() => FilterByRole("Client")' 
-                       style="cursor: pointer;">
-                        Clients (@GetRoleCount("Client"))
+                        All Staff (@allUsers.Count)
                     </a>
                 </li>
                 <li class="nav-item">
@@ -216,17 +209,25 @@
     {
         isLoading = true;
 
-        allUsers = await DbContext.Users
+        var allUsersFromDb = await DbContext.Users
             .Include(u => u.Location)
             .OrderByDescending(u => u.CreatedAt)
             .ToListAsync();
 
-        // Load roles for each user
+        // Load roles for each user and filter out Clients
+        allUsers = new List<ApplicationUser>();
         userRoles = new Dictionary<string, List<string>>();
-        foreach (var user in allUsers)
+        
+        foreach (var user in allUsersFromDb)
         {
             var roles = await UserManager.GetRolesAsync(user);
             userRoles[user.Id] = roles.ToList();
+            
+            // Only include users who are NOT clients, or users who have multiple roles
+            if (!roles.Contains("Client") || roles.Count > 1)
+            {
+                allUsers.Add(user);
+            }
         }
 
         filteredUsers = allUsers;

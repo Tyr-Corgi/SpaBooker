@@ -1,0 +1,1538 @@
+@page "/admin/clients"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Core.Enums
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<PageTitle>Client Management - SpaBooker</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="text-rose-gold mb-2">Client Management</h1>
+                <p class="text-muted">Manage customer accounts, bookings, and memberships</p>
+            </div>
+            <button class="btn btn-primary" @onclick="ExportClients">
+                <i class="bi bi-download me-2"></i>Export Client List
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="bi bi-check-circle me-2"></i>
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Total Clients</p>
+                            <h3 class="mb-0">@allClients.Count</h3>
+                        </div>
+                        <i class="bi bi-people text-primary" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Active Members</p>
+                            <h3 class="mb-0">@GetActiveMemberCount()</h3>
+                        </div>
+                        <i class="bi bi-star text-warning" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">New This Month</p>
+                            <h3 class="mb-0">@GetNewClientsThisMonth()</h3>
+                        </div>
+                        <i class="bi bi-person-plus text-success" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Inactive (30d)</p>
+                            <h3 class="mb-0">@GetInactiveClientCount()</h3>
+                        </div>
+                        <i class="bi bi-clock-history text-danger" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link @(selectedFilter == "All" ? "active" : "")" 
+                       @onclick='() => ApplyFilter("All")' 
+                       style="cursor: pointer;">
+                        All Clients
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(selectedFilter == "ActiveMembers" ? "active" : "")" 
+                       @onclick='() => ApplyFilter("ActiveMembers")' 
+                       style="cursor: pointer;">
+                        Active Members
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(selectedFilter == "NonMembers" ? "active" : "")" 
+                       @onclick='() => ApplyFilter("NonMembers")' 
+                       style="cursor: pointer;">
+                        Non-Members
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(selectedFilter == "Inactive" ? "active" : "")" 
+                       @onclick='() => ApplyFilter("Inactive")' 
+                       style="cursor: pointer;">
+                        Inactive (30d+)
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Loading clients...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Search and Actions -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" 
+                           placeholder="Search by name, email, or phone..." 
+                           @bind="searchQuery" 
+                           @bind:event="oninput"
+                           @onkeyup="SearchClients" />
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-outline-secondary" @onclick='() => sortBy = sortBy == "Name" ? "LastVisit" : "Name"'>
+                    <i class="bi bi-sort-down me-2"></i>
+                    Sort by: @sortBy
+                </button>
+            </div>
+        </div>
+
+        <!-- Clients Table -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-header">
+                                    <tr>
+                                        <th>Client</th>
+                                        <th>Contact</th>
+                                        <th>Membership</th>
+                                        <th>Last Visit</th>
+                                        <th>Next Visit</th>
+                                        <th>Visit Frequency</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (filteredClients.Any())
+                                    {
+                                        @foreach (var client in filteredClients)
+                                        {
+                                            var clientData = clientStats[client.Id];
+                                            var currentClientId = client.Id;
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="user-avatar me-2">
+                                                            @client.FirstName.Substring(0, 1)@client.LastName.Substring(0, 1)
+                                                        </div>
+                                                        <div>
+                                                            <strong>@client.FirstName @client.LastName</strong>
+                                                            <br />
+                                                            <small class="text-muted">
+                                                                Joined @client.CreatedAt.ToLocalTime().ToString("MMM yyyy")
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div>
+                                                        <i class="bi bi-envelope me-1"></i>
+                                                        <small>@client.Email</small>
+                                                    </div>
+                                                    @if (!string.IsNullOrEmpty(client.PhoneNumber))
+                                                    {
+                                                        <div class="mt-1">
+                                                            <i class="bi bi-telephone me-1"></i>
+                                                            <small>@client.PhoneNumber</small>
+                                                        </div>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (clientData.HasActiveMembership)
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="bi bi-star-fill me-1"></i>@clientData.MembershipPlanName
+                                                        </span>
+                                                        <br />
+                                                        <small class="text-muted">@clientData.CurrentCredits.ToString("F1") credits</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">No membership</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (clientData.LastBookingDate.HasValue)
+                                                    {
+                                                        <span>@clientData.LastBookingDate.Value.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                                                        <br />
+                                                        <small class="text-muted">@GetDaysSinceLastVisit(clientData.LastBookingDate.Value) days ago</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">No visits yet</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (clientData.NextBookingDate.HasValue)
+                                                    {
+                                                        <span class="text-success">@clientData.NextBookingDate.Value.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                                                        <br />
+                                                        <small class="text-muted">in @GetDaysUntilNextVisit(clientData.NextBookingDate.Value) days</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">No upcoming visits</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info">@GetVisitFrequency(clientData)</span>
+                                                    @if (client.LockoutEnd.HasValue && client.LockoutEnd > DateTimeOffset.UtcNow)
+                                                    {
+                                                        <br />
+                                                        <span class="badge bg-danger mt-1">
+                                                            <i class="bi bi-lock-fill me-1"></i>Locked
+                                                        </span>
+                                                    }
+                                                    else if (clientData.DaysSinceLastVisit > 90)
+                                                    {
+                                                        <br />
+                                                        <span class="badge bg-warning text-dark mt-1">
+                                                            <i class="bi bi-exclamation-triangle me-1"></i>Inactive
+                                                        </span>
+                                                    }
+                                                </td>
+                                                <td class="text-end">
+                                                    <div class="d-flex flex-column gap-1">
+                                                        <button class="btn btn-sm btn-primary" 
+                                                                @onclick="@((e) => HandleBookAppointmentClick(currentClientId))">
+                                                            <i class="bi bi-calendar-plus me-1"></i>Book Appointment
+                                                        </button>
+                                                        <button class="btn btn-sm" style="background: linear-gradient(135deg, #E8B4B8, #D89BA1); border-color: #D89BA1; color: white;"
+                                                                @onclick="@((e) => HandleNotesClick(currentClientId))">
+                                                            <i class="bi bi-journal-text me-1"></i>Notes
+                                                        </button>
+                                                        <button class="btn btn-sm btn-secondary" 
+                                                                @onclick="@((e) => HandleViewMoreClick(currentClientId))">
+                                                            <i class="bi bi-info-circle me-1"></i>View More
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="7" class="text-center py-4">
+                                                <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                                                <p class="text-muted mt-2">No clients found</p>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@* Client Details Modal *@
+@if (showDetailsModal && selectedClient != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-person-circle me-2"></i>
+                        @selectedClient.FirstName @selectedClient.LastName - Client Profile
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseDetailsModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (selectedClientData != null)
+                    {
+                        <!-- Client Info Tabs -->
+                        <ul class="nav nav-tabs mb-3">
+                            <li class="nav-item">
+                                <a class="nav-link @(activeTab == "overview" ? "active" : "")" 
+                                   @onclick='() => activeTab = "overview"' 
+                                   style="cursor: pointer;">
+                                    <i class="bi bi-info-circle me-1"></i>Overview
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(activeTab == "bookings" ? "active" : "")" 
+                                   @onclick='() => activeTab = "bookings"' 
+                                   style="cursor: pointer;">
+                                    <i class="bi bi-calendar-check me-1"></i>Bookings (@selectedClientData.TotalBookings)
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(activeTab == "membership" ? "active" : "")" 
+                                   @onclick='() => activeTab = "membership"' 
+                                   style="cursor: pointer;">
+                                    <i class="bi bi-star me-1"></i>Membership
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(activeTab == "giftcerts" ? "active" : "")" 
+                                   @onclick='() => activeTab = "giftcerts"' 
+                                   style="cursor: pointer;">
+                                    <i class="bi bi-gift me-1"></i>Gift Certificates
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(activeTab == "notes" ? "active" : "")" 
+                                   @onclick='() => activeTab = "notes"' 
+                                   style="cursor: pointer;">
+                                    <i class="bi bi-journal-text me-1"></i>Notes
+                                </a>
+                            </li>
+                        </ul>
+
+                        <!-- Overview Tab -->
+                        @if (activeTab == "overview")
+                        {
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0"><i class="bi bi-person me-2"></i>Personal Information</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <strong>Name:</strong> @selectedClient.FirstName @selectedClient.LastName
+                                            </div>
+                                            <div class="mb-2">
+                                                <strong>Email:</strong> @selectedClient.Email
+                                            </div>
+                                            <div class="mb-2">
+                                                <strong>Phone:</strong> @(selectedClient.PhoneNumber ?? "Not provided")
+                                            </div>
+                                            <div class="mb-2">
+                                                <strong>Member Since:</strong> @selectedClient.CreatedAt.ToLocalTime().ToString("MMMM dd, yyyy")
+                                            </div>
+                                            <div class="mb-2">
+                                                <strong>Last Login:</strong> 
+                                                @(selectedClient.LastLoginAt.HasValue ? selectedClient.LastLoginAt.Value.ToLocalTime().ToString("MMMM dd, yyyy") : "Never")
+                                            </div>
+                                            <div class="mt-3">
+                                                <a href="mailto:@selectedClient.Email" class="btn btn-sm btn-outline-primary me-2">
+                                                    <i class="bi bi-envelope me-1"></i>Send Email
+                                                </a>
+                                                <button class="btn btn-sm btn-primary" @onclick="() => ShowEditClientModal(selectedClient.Id)">
+                                                    <i class="bi bi-pencil me-1"></i>Edit Client
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>Client Statistics</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Key Metrics - Prominently Displayed -->
+                                            <div class="row text-center mb-4">
+                                                <div class="col-6">
+                                                    <div class="p-3 bg-light rounded">
+                                                        <h3 class="text-primary mb-0">@selectedClientData.TotalBookings</h3>
+                                                        <small class="text-muted">Total Bookings</small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="p-3 bg-light rounded">
+                                                        <h3 class="text-success mb-0">$@selectedClientData.LifetimeValue.ToString("N0")</h3>
+                                                        <small class="text-muted">Lifetime Value</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Booking Breakdown -->
+                                            <div class="mb-3">
+                                                <h6 class="text-muted mb-2">Booking Details</h6>
+                                                <div class="d-flex justify-content-between mb-1">
+                                                    <span><i class="bi bi-check-circle text-success me-1"></i>Completed:</span>
+                                                    <strong class="text-success">@selectedClientData.CompletedBookings</strong>
+                                                </div>
+                                                <div class="d-flex justify-content-between mb-1">
+                                                    <span><i class="bi bi-clock text-primary me-1"></i>Pending:</span>
+                                                    <strong class="text-primary">@(selectedClientData.TotalBookings - selectedClientData.CompletedBookings - selectedClientData.CancelledBookings)</strong>
+                                                </div>
+                                                <div class="d-flex justify-content-between mb-1">
+                                                    <span><i class="bi bi-x-circle text-danger me-1"></i>Cancelled:</span>
+                                                    <strong class="text-danger">@selectedClientData.CancelledBookings</strong>
+                                                </div>
+                                            </div>
+                                            <hr />
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between">
+                                                    <span>Last Visit:</span>
+                                                    <strong>
+                                                        @(selectedClientData.LastBookingDate.HasValue 
+                                                            ? selectedClientData.LastBookingDate.Value.ToLocalTime().ToString("MMM dd, yyyy") 
+                                                            : "No visits")
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between">
+                                                    <span>Visit Frequency:</span>
+                                                    <strong>@GetVisitFrequency(selectedClientData)</strong>
+                                                </div>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(selectedClientData.FavoriteService))
+                                            {
+                                                <div class="mb-2">
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Favorite Service:</span>
+                                                        <strong>@selectedClientData.FavoriteService</strong>
+                                                    </div>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(selectedClientData.FavoriteTherapist))
+                                            {
+                                                <div class="mb-2">
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Preferred Therapist:</span>
+                                                        <strong>@selectedClientData.FavoriteTherapist</strong>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Bookings Tab -->
+                        @if (activeTab == "bookings")
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Service</th>
+                                            <th>Therapist</th>
+                                            <th>Location</th>
+                                            <th>Amount</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var booking in selectedClientBookings.OrderByDescending(b => b.StartTime))
+                                        {
+                                            <tr>
+                                                <td>@booking.StartTime.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")</td>
+                                                <td>@booking.Service.Name</td>
+                                                <td>@booking.Therapist.FirstName @booking.Therapist.LastName</td>
+                                                <td>@booking.Location.Name</td>
+                                                <td>$@booking.TotalPrice.ToString("N2")</td>
+                                                <td>
+                                                    <span class="badge @GetStatusBadgeClass(booking.Status)">
+                                                        @booking.Status
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+
+                        <!-- Membership Tab -->
+                        @if (activeTab == "membership")
+                        {
+                            @if (selectedClientData.HasActiveMembership)
+                            {
+                                <div class="card">
+                                    <div class="card-header bg-success text-white">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-star-fill me-2"></i>Active Membership
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-2">
+                                                    <strong>Plan:</strong> @selectedClientData.MembershipPlanName
+                                                </div>
+                                                <div class="mb-2">
+                                                    <strong>Status:</strong> 
+                                                    <span class="badge bg-success">Active</span>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <strong>Current Credits:</strong> @selectedClientData.CurrentCredits.ToString("F1")
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-2">
+                                                    <strong>Start Date:</strong> @(selectedClientMembership?.StartDate.ToLocalTime().ToString("MMM dd, yyyy"))
+                                                </div>
+                                                <div class="mb-2">
+                                                    <strong>Next Billing:</strong> @(selectedClientMembership?.NextBillingDate?.ToLocalTime().ToString("MMM dd, yyyy") ?? "N/A")
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <hr />
+                                        
+                                        <h6 class="mb-3">Credit Transaction History</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Type</th>
+                                                        <th>Amount</th>
+                                                        <th>Description</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var transaction in selectedClientCreditTransactions.OrderByDescending(t => t.CreatedAt))
+                                                    {
+                                                        <tr>
+                                                            <td>@transaction.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</td>
+                                                            <td>
+                                                                @if (transaction.Amount > 0)
+                                                                {
+                                                                    <span class="badge bg-success">Credit</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="badge bg-danger">Debit</span>
+                                                                }
+                                                            </td>
+                                                            <td>
+                                                                @if (transaction.Amount > 0)
+                                                                {
+                                                                    <span class="text-success">+@transaction.Amount.ToString("F1")</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="text-danger">@transaction.Amount.ToString("F1")</span>
+                                                                }
+                                                            </td>
+                                                            <td><small>@transaction.Description</small></td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    This client does not have an active membership.
+                                </div>
+                            }
+                        }
+
+                        <!-- Gift Certificates Tab -->
+                        @if (activeTab == "giftcerts")
+                        {
+                            <h6 class="mb-3">Purchased Gift Certificates</h6>
+                            <div class="table-responsive mb-4">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Amount</th>
+                                            <th>Balance</th>
+                                            <th>Recipient</th>
+                                            <th>Purchased</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @if (selectedClientPurchasedGiftCerts.Any())
+                                        {
+                                            @foreach (var cert in selectedClientPurchasedGiftCerts)
+                                            {
+                                                <tr>
+                                                    <td><code>@cert.Code</code></td>
+                                                    <td>$@cert.OriginalAmount.ToString("N2")</td>
+                                                    <td>$@cert.RemainingBalance.ToString("N2")</td>
+                                                    <td>@cert.RecipientName</td>
+                                                    <td>@cert.PurchasedAt.ToLocalTime().ToString("MMM dd, yyyy")</td>
+                                                    <td><span class="badge bg-@GetGiftCertStatusColor(cert.Status)">@cert.Status</span></td>
+                                                </tr>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">No gift certificates purchased</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <h6 class="mb-3">Redeemed Gift Certificates</h6>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Amount</th>
+                                            <th>Balance</th>
+                                            <th>From</th>
+                                            <th>Redeemed</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @if (selectedClientRedeemedGiftCerts.Any())
+                                        {
+                                            @foreach (var cert in selectedClientRedeemedGiftCerts)
+                                            {
+                                                <tr>
+                                                    <td><code>@cert.Code</code></td>
+                                                    <td>$@cert.OriginalAmount.ToString("N2")</td>
+                                                    <td>$@cert.RemainingBalance.ToString("N2")</td>
+                                                    <td>@cert.PurchasedByUser.FirstName @cert.PurchasedByUser.LastName</td>
+                                                    <td>@(cert.RedeemedAt?.ToLocalTime().ToString("MMM dd, yyyy") ?? "N/A")</td>
+                                                </tr>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">No gift certificates redeemed</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+
+                        <!-- Notes Tab -->
+                        @if (activeTab == "notes")
+                        {
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Admin Notes</strong></label>
+                                <textarea class="form-control" rows="4" 
+                                          @bind="clientNotes" 
+                                          placeholder="Add notes about client preferences, special requests, or other important information..."></textarea>
+                                <div class="mt-2">
+                                    <button class="btn btn-primary" @onclick="SaveClientNotes">
+                                        <i class="bi bi-save me-1"></i>Save Notes
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Note:</strong> This feature requires adding a Notes field to the ApplicationUser entity. 
+                                For now, notes can be added but won't persist to the database.
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    @if (selectedClient.LockoutEnd.HasValue && selectedClient.LockoutEnd > DateTimeOffset.UtcNow)
+                    {
+                        <button class="btn btn-success" @onclick="() => UnlockClient(selectedClient.Id)">
+                            <i class="bi bi-unlock me-1"></i>Unlock Account
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-warning" @onclick="() => LockClient(selectedClient.Id)">
+                            <i class="bi bi-lock me-1"></i>Lock Account
+                        </button>
+                    }
+                    <button class="btn btn-secondary" @onclick="CloseDetailsModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Edit Client Modal *@
+@if (showEditModal && selectedClient != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil me-2"></i>Edit Client Information
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseEditModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle me-2"></i>@successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle me-2"></i>@errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                        </div>
+                    }
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" @bind="editFirstName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" @bind="editLastName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" @bind="editEmail" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" @bind="editPhoneNumber" />
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Location</label>
+                            <input type="text" class="form-control" @bind="editLocation" readonly />
+                            <small class="text-muted">Location is set at registration and cannot be changed here</small>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Account Status</h6>
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input" id="emailConfirmed" @bind="editEmailConfirmed" />
+                                        <label class="form-check-label" for="emailConfirmed">
+                                            Email Confirmed
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="lockoutEnabled" @bind="editLockoutEnabled" />
+                                        <label class="form-check-label" for="lockoutEnabled">
+                                            Account Locked Out
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Read-Only Information</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>User ID:</strong> <small class="text-muted">@selectedClient.Id</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Username:</strong> <small class="text-muted">@selectedClient.UserName</small>
+                                        </div>
+                                        <div class="col-md-6 mt-2">
+                                            <strong>Account Created:</strong> <small class="text-muted">@selectedClient.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</small>
+                                        </div>
+                                        <div class="col-md-6 mt-2">
+                                            <strong>Last Login:</strong> <small class="text-muted">@(selectedClient.LastLoginAt?.ToLocalTime().ToString("MMM dd, yyyy HH:mm") ?? "Never")</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseEditModal">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveClientChanges">
+                        <i class="bi bi-save me-1"></i>Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Notes Modal *@
+@if (showNotesModal && selectedClient != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-journal-text me-2"></i>Client Notes - @selectedClient.FirstName @selectedClient.LastName
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseNotesModal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Add New Note Section -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Add New Note</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Note Type</label>
+                                <select class="form-select" @bind="newNoteType">
+                                    <option value="Staff">Staff Note</option>
+                                    <option value="Therapist">Therapist Note</option>
+                                    <option value="General">General</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Note Content</label>
+                                <textarea class="form-control" rows="3" @bind="newNoteContent" placeholder="Enter your note here..."></textarea>
+                            </div>
+                            <button class="btn btn-primary" @onclick="AddClientNote">
+                                <i class="bi bi-save me-1"></i>Save Note
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(noteSuccessMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle me-2"></i>@noteSuccessMessage
+                            <button type="button" class="btn-close" @onclick="() => noteSuccessMessage = null"></button>
+                        </div>
+                    }
+
+                    <!-- Existing Notes Section -->
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Note History</h6>
+                        </div>
+                        <div class="card-body">
+                            @if (clientNotes != null && clientNotes.Any())
+                            {
+                                <div class="timeline">
+                                    @foreach (var note in clientNotes.OrderByDescending(n => n.CreatedAt))
+                                    {
+                                        <div class="timeline-item mb-3 pb-3 border-bottom">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex align-items-center mb-2">
+                                                        @if (note.NoteType == "Therapist")
+                                                        {
+                                                            <span class="badge bg-info me-2">
+                                                                <i class="bi bi-heart-pulse me-1"></i>Therapist Note
+                                                            </span>
+                                                        }
+                                                        else if (note.NoteType == "Staff")
+                                                        {
+                                                            <span class="badge bg-secondary me-2">
+                                                                <i class="bi bi-person-badge me-1"></i>Staff Note
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-primary me-2">
+                                                                <i class="bi bi-chat-left-text me-1"></i>General
+                                                            </span>
+                                                        }
+                                                        <small class="text-muted">
+                                                            @note.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy 'at' h:mm tt")
+                                                        </small>
+                                                    </div>
+                                                    <p class="mb-1">@note.Content</p>
+                                                    @if (!string.IsNullOrEmpty(note.CreatedByName))
+                                                    {
+                                                        <small class="text-muted">
+                                                            <i class="bi bi-person-circle me-1"></i>By: @note.CreatedByName
+                                                        </small>
+                                                    }
+                                                </div>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteClientNote(note.Id)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center py-4">
+                                    <i class="bi bi-journal-x text-muted" style="font-size: 3rem;"></i>
+                                    <p class="text-muted mt-2">No notes yet for this client</p>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseNotesModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Client lists and data
+    private List<ApplicationUser> allClients = new();
+    private List<ApplicationUser> filteredClients = new();
+    private Dictionary<string, ClientData> clientStats = new();
+    
+    // Filters and search
+    private string selectedFilter = "All";
+    private string searchQuery = "";
+    private string sortBy = "Name";
+    
+    // UI state
+    private bool isLoading = true;
+    private string? successMessage;
+    private string? errorMessage;
+    
+    // Modal state
+    private bool showDetailsModal = false;
+    private bool showEditModal = false;
+    private bool showNotesModal = false;
+    private ApplicationUser? selectedClient;
+    private ClientData? selectedClientData;
+    private string activeTab = "overview";
+    
+    // Edit form state
+    private string editFirstName = "";
+    private string editLastName = "";
+    private string editEmail = "";
+    private string editPhoneNumber = "";
+    private string editLocation = "";
+    private bool editEmailConfirmed = false;
+    private bool editLockoutEnabled = false;
+    
+    // Notes state
+    private List<ClientNote> clientNotes = new();
+    private string newNoteContent = "";
+    private string newNoteType = "Staff";
+    private string? noteSuccessMessage;
+    
+    // Selected client details
+    private List<Booking> selectedClientBookings = new();
+    private UserMembership? selectedClientMembership;
+    private List<MembershipCreditTransaction> selectedClientCreditTransactions = new();
+    private List<GiftCertificate> selectedClientPurchasedGiftCerts = new();
+    private List<GiftCertificate> selectedClientRedeemedGiftCerts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClients();
+    }
+
+    private async Task LoadClients()
+    {
+        isLoading = true;
+
+        // Load all users with Client role
+        var allUsers = await DbContext.Users
+            .Include(u => u.Location)
+            .Include(u => u.BookingsAsClient)
+                .ThenInclude(b => b.Service)
+            .Include(u => u.BookingsAsClient)
+                .ThenInclude(b => b.Therapist)
+            .Include(u => u.BookingsAsClient)
+                .ThenInclude(b => b.Location)
+            .Include(u => u.Memberships)
+                .ThenInclude(m => m.MembershipPlan)
+            .Include(u => u.Memberships)
+                .ThenInclude(m => m.CreditTransactions)
+            .OrderByDescending(u => u.CreatedAt)
+            .ToListAsync();
+
+        // Filter to only clients
+        allClients = new List<ApplicationUser>();
+        foreach (var user in allUsers)
+        {
+            var roles = await UserManager.GetRolesAsync(user);
+            if (roles.Contains("Client"))
+            {
+                allClients.Add(user);
+            }
+        }
+
+        // Calculate stats for each client
+        clientStats = new Dictionary<string, ClientData>();
+        foreach (var client in allClients)
+        {
+            var data = new ClientData
+            {
+                TotalBookings = client.BookingsAsClient.Count,
+                CompletedBookings = client.BookingsAsClient.Count(b => b.Status == BookingStatus.Completed),
+                CancelledBookings = client.BookingsAsClient.Count(b => b.Status == BookingStatus.Cancelled),
+                LifetimeValue = client.BookingsAsClient.Where(b => b.Status == BookingStatus.Completed).Sum(b => b.TotalPrice),
+                LastBookingDate = client.BookingsAsClient
+                    .Where(b => b.Status == BookingStatus.Completed && b.StartTime < DateTime.UtcNow)
+                    .OrderByDescending(b => b.StartTime)
+                    .FirstOrDefault()?.StartTime,
+                NextBookingDate = client.BookingsAsClient
+                    .Where(b => (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Pending) && b.StartTime > DateTime.UtcNow)
+                    .OrderBy(b => b.StartTime)
+                    .FirstOrDefault()?.StartTime,
+                FavoriteService = client.BookingsAsClient
+                    .GroupBy(b => b.Service.Name)
+                    .OrderByDescending(g => g.Count())
+                    .FirstOrDefault()?.Key,
+                FavoriteTherapist = client.BookingsAsClient
+                    .GroupBy(b => $"{b.Therapist.FirstName} {b.Therapist.LastName}")
+                    .OrderByDescending(g => g.Count())
+                    .FirstOrDefault()?.Key
+            };
+
+            // Check membership
+            var activeMembership = client.Memberships.FirstOrDefault(m => m.Status == MembershipStatus.Active);
+            if (activeMembership != null)
+            {
+                data.HasActiveMembership = true;
+                data.MembershipPlanName = activeMembership.MembershipPlan.Name;
+                data.CurrentCredits = activeMembership.CurrentCredits;
+            }
+
+            // Calculate days since last visit
+            if (data.LastBookingDate.HasValue)
+            {
+                data.DaysSinceLastVisit = (int)(DateTime.UtcNow - data.LastBookingDate.Value).TotalDays;
+            }
+            else
+            {
+                data.DaysSinceLastVisit = 999;
+            }
+
+            clientStats[client.Id] = data;
+        }
+
+        filteredClients = allClients;
+        isLoading = false;
+    }
+
+    private void ApplyFilter(string filter)
+    {
+        selectedFilter = filter;
+        
+        filteredClients = filter switch
+        {
+            "ActiveMembers" => allClients.Where(c => clientStats[c.Id].HasActiveMembership).ToList(),
+            "NonMembers" => allClients.Where(c => !clientStats[c.Id].HasActiveMembership).ToList(),
+            "Inactive" => allClients.Where(c => clientStats[c.Id].DaysSinceLastVisit > 30).ToList(),
+            _ => allClients
+        };
+
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            SearchClients();
+        }
+    }
+
+    private void SearchClients()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            ApplyFilter(selectedFilter);
+            return;
+        }
+
+        var query = searchQuery.ToLower();
+        var baseList = selectedFilter switch
+        {
+            "ActiveMembers" => allClients.Where(c => clientStats[c.Id].HasActiveMembership).ToList(),
+            "NonMembers" => allClients.Where(c => !clientStats[c.Id].HasActiveMembership).ToList(),
+            "Inactive" => allClients.Where(c => clientStats[c.Id].DaysSinceLastVisit > 30).ToList(),
+            _ => allClients
+        };
+
+        filteredClients = baseList.Where(c =>
+            c.FirstName.ToLower().Contains(query) ||
+            c.LastName.ToLower().Contains(query) ||
+            (c.Email?.ToLower().Contains(query) ?? false) ||
+            (c.PhoneNumber?.Contains(query) ?? false)
+        ).ToList();
+    }
+
+    private void TestButtonClick()
+    {
+        Console.WriteLine("TEST BUTTON CLICKED!");
+        showDetailsModal = !showDetailsModal;
+        StateHasChanged();
+    }
+
+    private async Task HandleViewMoreClick(string clientId)
+    {
+        Console.WriteLine($"HandleViewMoreClick called! clientId: {clientId}");
+        await ShowClientDetails(clientId);
+    }
+
+    private void HandleEditClick(string clientId)
+    {
+        Console.WriteLine($"HandleEditClick called! clientId: {clientId}");
+        ShowEditClientModal(clientId);
+    }
+
+    private void HandleBookAppointmentClick(string clientId)
+    {
+        Console.WriteLine($"HandleBookAppointmentClick called! clientId: {clientId}");
+        // Navigate to the scheduler page with the client pre-selected
+        NavigationManager.NavigateTo($"/admin/scheduler?clientId={clientId}");
+    }
+
+    private async Task HandleNotesClick(string clientId)
+    {
+        Console.WriteLine($"HandleNotesClick called! clientId: {clientId}");
+        await ShowNotesModal(clientId);
+    }
+
+    private async Task ShowClientDetails(string clientId)
+    {
+        Console.WriteLine($"ShowClientDetails called with clientId: {clientId}");
+        Console.WriteLine($"allClients count: {allClients.Count}");
+        
+        selectedClient = allClients.FirstOrDefault(c => c.Id == clientId);
+        Console.WriteLine($"selectedClient found: {selectedClient != null}");
+        
+        if (selectedClient == null) return;
+
+        selectedClientData = clientStats[clientId];
+        
+        // Load detailed data
+        selectedClientBookings = await DbContext.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.Therapist)
+            .Include(b => b.Location)
+            .Where(b => b.ClientId == clientId)
+            .ToListAsync();
+
+        selectedClientMembership = await DbContext.UserMemberships
+            .Include(m => m.MembershipPlan)
+            .Include(m => m.CreditTransactions)
+            .FirstOrDefaultAsync(m => m.UserId == clientId && m.Status == MembershipStatus.Active);
+
+        if (selectedClientMembership != null)
+        {
+            selectedClientCreditTransactions = selectedClientMembership.CreditTransactions.ToList();
+        }
+        else
+        {
+            selectedClientCreditTransactions = new List<MembershipCreditTransaction>();
+        }
+
+        selectedClientPurchasedGiftCerts = await DbContext.GiftCertificates
+            .Include(g => g.PurchasedByUser)
+            .Where(g => g.PurchasedByUserId == clientId)
+            .ToListAsync();
+
+        selectedClientRedeemedGiftCerts = await DbContext.GiftCertificates
+            .Include(g => g.PurchasedByUser)
+            .Where(g => g.RedeemedByUserId == clientId)
+            .ToListAsync();
+
+        activeTab = "overview";
+        showDetailsModal = true;
+        Console.WriteLine($"About to show modal. showDetailsModal={showDetailsModal}, selectedClient={selectedClient?.FirstName}");
+        StateHasChanged();
+    }
+
+    private void CloseDetailsModal()
+    {
+        showDetailsModal = false;
+        selectedClient = null;
+        selectedClientData = null;
+    }
+
+    private void ShowEditClientModal(string clientId)
+    {
+        Console.WriteLine($"ShowEditClientModal called with clientId: {clientId}");
+        
+        selectedClient = allClients.FirstOrDefault(c => c.Id == clientId);
+        Console.WriteLine($"selectedClient found for edit: {selectedClient != null}");
+        
+        if (selectedClient == null) return;
+
+        // Populate edit form
+        editFirstName = selectedClient.FirstName;
+        editLastName = selectedClient.LastName;
+        editEmail = selectedClient.Email ?? "";
+        editPhoneNumber = selectedClient.PhoneNumber ?? "";
+        editLocation = selectedClient.Location?.Name ?? "Not set";
+        editEmailConfirmed = selectedClient.EmailConfirmed;
+        editLockoutEnabled = selectedClient.LockoutEnd.HasValue && selectedClient.LockoutEnd > DateTimeOffset.UtcNow;
+
+        showEditModal = true;
+        Console.WriteLine($"About to show edit modal. showEditModal={showEditModal}");
+        StateHasChanged();
+    }
+
+    private void CloseEditModal()
+    {
+        showEditModal = false;
+        selectedClient = null;
+        successMessage = null;
+        errorMessage = null;
+    }
+
+    private async Task SaveClientChanges()
+    {
+        if (selectedClient == null) return;
+
+        try
+        {
+            // Update user properties
+            selectedClient.FirstName = editFirstName;
+            selectedClient.LastName = editLastName;
+            selectedClient.Email = editEmail;
+            selectedClient.PhoneNumber = editPhoneNumber;
+            selectedClient.EmailConfirmed = editEmailConfirmed;
+
+            // Handle lockout
+            if (editLockoutEnabled && (!selectedClient.LockoutEnd.HasValue || selectedClient.LockoutEnd <= DateTimeOffset.UtcNow))
+            {
+                // Enable lockout - set to 100 years from now
+                selectedClient.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
+            }
+            else if (!editLockoutEnabled && selectedClient.LockoutEnd.HasValue && selectedClient.LockoutEnd > DateTimeOffset.UtcNow)
+            {
+                // Disable lockout
+                selectedClient.LockoutEnd = null;
+            }
+
+            // Update username if email changed
+            if (selectedClient.UserName != editEmail)
+            {
+                selectedClient.UserName = editEmail;
+                selectedClient.NormalizedUserName = editEmail.ToUpper();
+            }
+
+            selectedClient.NormalizedEmail = editEmail.ToUpper();
+
+            DbContext.Users.Update(selectedClient);
+            await DbContext.SaveChangesAsync();
+
+            successMessage = "Client information updated successfully!";
+            errorMessage = null;
+
+            // Reload clients to reflect changes
+            await LoadClients();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating client: {ex.Message}";
+            successMessage = null;
+        }
+    }
+
+    private void NavigateToEdit(string clientId)
+    {
+        NavigationManager.NavigateTo($"/admin/users/edit/{clientId}");
+    }
+
+    private async Task LockClient(string clientId)
+    {
+        var client = await UserManager.FindByIdAsync(clientId);
+        if (client != null)
+        {
+            await UserManager.SetLockoutEndDateAsync(client, DateTimeOffset.UtcNow.AddYears(100));
+            successMessage = $"Client {client.FirstName} {client.LastName} has been locked.";
+            await LoadClients();
+            CloseDetailsModal();
+        }
+    }
+
+    private async Task UnlockClient(string clientId)
+    {
+        var client = await UserManager.FindByIdAsync(clientId);
+        if (client != null)
+        {
+            await UserManager.SetLockoutEndDateAsync(client, null);
+            successMessage = $"Client {client.FirstName} {client.LastName} has been unlocked.";
+            await LoadClients();
+            if (selectedClient?.Id == clientId)
+            {
+                await ShowClientDetails(clientId);
+            }
+        }
+    }
+
+    private void SaveClientNotes()
+    {
+        successMessage = "Notes saved successfully! (Note: This feature requires database schema update to persist)";
+        StateHasChanged();
+    }
+
+    private void ExportClients()
+    {
+        // TODO: Implement CSV export
+        successMessage = "Export feature coming soon!";
+    }
+
+    // Helper methods
+    private int GetActiveMemberCount()
+    {
+        return clientStats.Values.Count(d => d.HasActiveMembership);
+    }
+
+    private int GetNewClientsThisMonth()
+    {
+        var thisMonth = DateTime.UtcNow.Month;
+        var thisYear = DateTime.UtcNow.Year;
+        return allClients.Count(c => c.CreatedAt.Month == thisMonth && c.CreatedAt.Year == thisYear);
+    }
+
+    private int GetInactiveClientCount()
+    {
+        return clientStats.Values.Count(d => d.DaysSinceLastVisit > 30);
+    }
+
+    private int GetDaysSinceLastVisit(DateTime lastVisit)
+    {
+        return Math.Abs((int)(DateTime.UtcNow - lastVisit).TotalDays);
+    }
+
+    private int GetDaysUntilNextVisit(DateTime nextVisit)
+    {
+        return Math.Max(0, (int)(nextVisit - DateTime.UtcNow).TotalDays);
+    }
+
+    private string GetVisitFrequency(ClientData data)
+    {
+        if (data.TotalBookings == 0) return "No visits";
+        if (data.TotalBookings == 1) return "First visit";
+        
+        var daysSinceCreation = (DateTime.UtcNow - allClients.First(c => clientStats[c.Id] == data).CreatedAt).TotalDays;
+        if (daysSinceCreation < 30) return "New client";
+        
+        var visitsPerMonth = (data.TotalBookings / (daysSinceCreation / 30));
+        
+        if (visitsPerMonth >= 4) return "Weekly";
+        if (visitsPerMonth >= 2) return "Bi-weekly";
+        if (visitsPerMonth >= 1) return "Monthly";
+        if (visitsPerMonth >= 0.5) return "Bi-monthly";
+        return "Occasional";
+    }
+
+    private string GetStatusBadgeClass(BookingStatus status)
+    {
+        return status switch
+        {
+            BookingStatus.Completed => "bg-success",
+            BookingStatus.Confirmed => "bg-primary",
+            BookingStatus.Pending => "bg-warning",
+            BookingStatus.Cancelled => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetGiftCertStatusColor(string status)
+    {
+        return status switch
+        {
+            "Active" => "success",
+            "PartiallyUsed" => "warning",
+            "FullyRedeemed" => "secondary",
+            "Expired" => "danger",
+            "Cancelled" => "danger",
+            _ => "secondary"
+        };
+    }
+
+    // Notes modal methods
+    private async Task ShowNotesModal(string clientId)
+    {
+        Console.WriteLine($"ShowNotesModal called with clientId: {clientId}");
+        
+        selectedClient = allClients.FirstOrDefault(c => c.Id == clientId);
+        if (selectedClient == null) return;
+
+        // Load client notes from database
+        clientNotes = await DbContext.Set<ClientNote>()
+            .Where(n => n.ClientId == clientId)
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
+
+        showNotesModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseNotesModal()
+    {
+        showNotesModal = false;
+        selectedClient = null;
+        clientNotes = new();
+        newNoteContent = "";
+        newNoteType = "Staff";
+        noteSuccessMessage = null;
+    }
+
+    private async Task AddClientNote()
+    {
+        if (selectedClient == null || string.IsNullOrWhiteSpace(newNoteContent))
+        {
+            return;
+        }
+
+        try
+        {
+            var currentUser = await UserManager.GetUserAsync(NavigationManager.ToAbsoluteUri(NavigationManager.Uri).Host != null 
+                ? null 
+                : null);
+            
+            var note = new ClientNote
+            {
+                Id = Guid.NewGuid().ToString(),
+                ClientId = selectedClient.Id,
+                Content = newNoteContent,
+                NoteType = newNoteType,
+                CreatedAt = DateTime.UtcNow,
+                CreatedByName = "Admin" // You can get the actual user name from the current user context
+            };
+
+            DbContext.Set<ClientNote>().Add(note);
+            await DbContext.SaveChangesAsync();
+
+            // Reload notes
+            clientNotes = await DbContext.Set<ClientNote>()
+                .Where(n => n.ClientId == selectedClient.Id)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
+
+            newNoteContent = "";
+            noteSuccessMessage = "Note added successfully!";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding note: {ex.Message}");
+            noteSuccessMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteClientNote(string noteId)
+    {
+        try
+        {
+            var note = await DbContext.Set<ClientNote>().FindAsync(noteId);
+            if (note != null)
+            {
+                DbContext.Set<ClientNote>().Remove(note);
+                await DbContext.SaveChangesAsync();
+
+                // Reload notes
+                if (selectedClient != null)
+                {
+                    clientNotes = await DbContext.Set<ClientNote>()
+                        .Where(n => n.ClientId == selectedClient.Id)
+                        .OrderByDescending(n => n.CreatedAt)
+                        .ToListAsync();
+                }
+
+                noteSuccessMessage = "Note deleted successfully!";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting note: {ex.Message}");
+            noteSuccessMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    // Data class for client statistics
+    private class ClientData
+    {
+        public int TotalBookings { get; set; }
+        public int CompletedBookings { get; set; }
+        public int CancelledBookings { get; set; }
+        public decimal LifetimeValue { get; set; }
+        public DateTime? LastBookingDate { get; set; }
+        public DateTime? NextBookingDate { get; set; }
+        public int DaysSinceLastVisit { get; set; }
+        public bool HasActiveMembership { get; set; }
+        public string MembershipPlanName { get; set; } = "";
+        public decimal CurrentCredits { get; set; }
+        public string? FavoriteService { get; set; }
+        public string? FavoriteTherapist { get; set; }
+    }
+}
+

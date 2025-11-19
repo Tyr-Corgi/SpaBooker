@@ -26,6 +26,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Banner> Banners => Set<Banner>();
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<RoomServiceCapability> RoomServiceCapabilities => Set<RoomServiceCapability>();
+    public DbSet<ClientNote> ClientNotes => Set<ClientNote>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -302,6 +303,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
             // Unique constraint: a room can only have one capability entry per service
             entity.HasIndex(e => new { e.RoomId, e.ServiceId }).IsUnique();
+        });
+
+        // ClientNote configuration
+        builder.Entity<ClientNote>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.NoteType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CreatedByName).HasMaxLength(100);
+
+            entity.HasOne(e => e.Client)
+                .WithMany()
+                .HasForeignKey(e => e.ClientId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.ClientId, e.CreatedAt });
         });
     }
 }
