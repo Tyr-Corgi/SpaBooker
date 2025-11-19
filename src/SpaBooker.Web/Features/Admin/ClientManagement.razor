@@ -1341,10 +1341,30 @@
         StateHasChanged();
     }
 
-    private void ExportClients()
+    private async Task ExportClients()
     {
-        // TODO: Implement CSV export
-        successMessage = "Export feature coming soon!";
+        try
+        {
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Email,First Name,Last Name,Phone,Registration Date,Last Visit,Total Bookings,Total Spent,Active Membership");
+
+            foreach (var client in allClients)
+            {
+                var stats = clientStats.ContainsKey(client.Id) ? clientStats[client.Id] : new ClientStatsDto();
+                csv.AppendLine($"\"{client.Email}\",\"{client.FirstName}\",\"{client.LastName}\",\"{client.PhoneNumber}\",\"{client.CreatedAt:yyyy-MM-dd}\",\"{stats.LastVisit:yyyy-MM-dd}\",{stats.TotalBookings},{stats.TotalSpent:F2},{stats.HasActiveMembership}");
+            }
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"clients_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+            
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, "text/csv", base64);
+            successMessage = "Client list exported successfully!";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to export clients: {ex.Message}";
+        }
     }
 
     // Helper methods

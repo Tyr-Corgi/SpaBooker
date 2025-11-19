@@ -247,7 +247,8 @@ public class StripeService : IStripeService
                         {
                             Name = "SpaBooker Gift Certificate",
                             Description = $"Gift certificate for ${amount:F2}",
-                            Images = new List<string> { } // TODO: Add gift certificate image
+                            // Images can be added here when a product image URL is available
+                            // Example: Images = new List<string> { "https://yourdomain.com/images/gift-certificate.png" }
                         },
                         UnitAmount = (long)(amount * 100) // Convert to cents
                     },
