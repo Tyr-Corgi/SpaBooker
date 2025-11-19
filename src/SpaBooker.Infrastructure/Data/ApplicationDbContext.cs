@@ -28,6 +28,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RoomServiceCapability> RoomServiceCapabilities => Set<RoomServiceCapability>();
     public DbSet<ProcessedWebhookEvent> ProcessedWebhookEvents => Set<ProcessedWebhookEvent>();
     public DbSet<ClientNote> ClientNotes => Set<ClientNote>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -320,6 +321,27 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => new { e.ClientId, e.CreatedAt });
+        });
+
+        // AuditLog configuration
+        builder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EntityType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.IpAddress).IsRequired().HasMaxLength(45); // IPv6 max length
+            entity.Property(e => e.Severity).IsRequired().HasMaxLength(20);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes for common queries
+            entity.HasIndex(e => new { e.UserId, e.Timestamp });
+            entity.HasIndex(e => new { e.EntityType, e.EntityId, e.Timestamp });
+            entity.HasIndex(e => new { e.Action, e.Timestamp });
+            entity.HasIndex(e => e.Severity);
         });
     }
 }

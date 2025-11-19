@@ -15,17 +15,20 @@ public class StripeWebhookController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly ILogger<StripeWebhookController> _logger;
+    private readonly IAuditService _auditService;
 
     public StripeWebhookController(
         ApplicationDbContext context,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
-        ILogger<StripeWebhookController> logger)
+        ILogger<StripeWebhookController> logger,
+        IAuditService auditService)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _logger = logger;
+        _auditService = auditService;
     }
 
     [HttpPost]
@@ -56,8 +59,8 @@ public class StripeWebhookController : ControllerBase
 
             try
             {
-                // Handle the event
-                switch (stripeEvent.Type)
+            // Handle the event
+            switch (stripeEvent.Type)
             {
                 case "payment_intent.succeeded":
                     var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
@@ -135,18 +138,25 @@ public class StripeWebhookController : ControllerBase
 
         try
         {
-            // Find booking by payment intent ID
-            var booking = await _context.Bookings
-                .FirstOrDefaultAsync(b => b.StripePaymentIntentId == paymentIntent.Id);
+        // Find booking by payment intent ID
+        var booking = await _context.Bookings
+            .FirstOrDefaultAsync(b => b.StripePaymentIntentId == paymentIntent.Id);
 
-            if (booking != null)
-            {
-                booking.Status = BookingStatus.Confirmed;
-                booking.UpdatedAt = DateTime.UtcNow;
+        if (booking != null)
+        {
+            booking.Status = BookingStatus.Confirmed;
+            booking.UpdatedAt = DateTime.UtcNow;
                 
                 await _unitOfWork.CommitAsync();
                 _logger.LogInformation("Booking {BookingId} confirmed after payment intent {PaymentIntentId}",
                     booking.Id, paymentIntent.Id);
+                
+                // Audit log the payment success
+                await _auditService.LogPaymentAsync(
+                    paymentIntent.Id,
+                    paymentIntent.Amount / 100m, // Stripe amounts are in cents
+                    true,
+                    $"Booking {booking.Id} confirmed");
             }
             else
             {
@@ -169,19 +179,26 @@ public class StripeWebhookController : ControllerBase
 
         try
         {
-            var booking = await _context.Bookings
-                .FirstOrDefaultAsync(b => b.StripePaymentIntentId == paymentIntent.Id);
+        var booking = await _context.Bookings
+            .FirstOrDefaultAsync(b => b.StripePaymentIntentId == paymentIntent.Id);
 
-            if (booking != null)
-            {
-                booking.Status = BookingStatus.Cancelled;
-                booking.CancellationReason = "Payment failed";
-                booking.CancelledAt = DateTime.UtcNow;
-                booking.UpdatedAt = DateTime.UtcNow;
+        if (booking != null)
+        {
+            booking.Status = BookingStatus.Cancelled;
+            booking.CancellationReason = "Payment failed";
+            booking.CancelledAt = DateTime.UtcNow;
+            booking.UpdatedAt = DateTime.UtcNow;
                 
                 await _unitOfWork.CommitAsync();
                 _logger.LogWarning("Booking {BookingId} cancelled due to payment failure for payment intent {PaymentIntentId}",
                     booking.Id, paymentIntent.Id);
+                
+                // Audit log the payment failure
+                await _auditService.LogPaymentAsync(
+                    paymentIntent.Id,
+                    paymentIntent.Amount / 100m,
+                    false,
+                    $"Booking {booking.Id} cancelled due to payment failure");
             }
             else
             {
@@ -204,21 +221,21 @@ public class StripeWebhookController : ControllerBase
 
         try
         {
-            var membership = await _context.UserMemberships
-                .FirstOrDefaultAsync(m => m.StripeSubscriptionId == subscription.Id);
+        var membership = await _context.UserMemberships
+            .FirstOrDefaultAsync(m => m.StripeSubscriptionId == subscription.Id);
 
-            if (membership != null)
-            {
+        if (membership != null)
+        {
                 var oldStatus = membership.Status;
                 
-                membership.Status = subscription.Status switch
-                {
-                    "active" => MembershipStatus.Active,
-                    "past_due" => MembershipStatus.Active,
-                    "canceled" => MembershipStatus.Cancelled,
-                    "unpaid" => MembershipStatus.Inactive,
-                    _ => MembershipStatus.Inactive
-                };
+            membership.Status = subscription.Status switch
+            {
+                "active" => MembershipStatus.Active,
+                "past_due" => MembershipStatus.Active,
+                "canceled" => MembershipStatus.Cancelled,
+                "unpaid" => MembershipStatus.Inactive,
+                _ => MembershipStatus.Inactive
+            };
 
                 // Update next billing date if available
                 if (subscription.CurrentPeriodEnd.HasValue)
@@ -226,7 +243,7 @@ public class StripeWebhookController : ControllerBase
                     membership.NextBillingDate = subscription.CurrentPeriodEnd.Value;
                 }
 
-                membership.UpdatedAt = DateTime.UtcNow;
+            membership.UpdatedAt = DateTime.UtcNow;
                 
                 await _unitOfWork.CommitAsync();
                 _logger.LogInformation("Membership {MembershipId} updated from {OldStatus} to {NewStatus}",
@@ -253,14 +270,14 @@ public class StripeWebhookController : ControllerBase
 
         try
         {
-            var membership = await _context.UserMemberships
-                .FirstOrDefaultAsync(m => m.StripeSubscriptionId == subscription.Id);
+        var membership = await _context.UserMemberships
+            .FirstOrDefaultAsync(m => m.StripeSubscriptionId == subscription.Id);
 
-            if (membership != null)
-            {
-                membership.Status = MembershipStatus.Cancelled;
-                membership.EndDate = DateTime.UtcNow;
-                membership.UpdatedAt = DateTime.UtcNow;
+        if (membership != null)
+        {
+            membership.Status = MembershipStatus.Cancelled;
+            membership.EndDate = DateTime.UtcNow;
+            membership.UpdatedAt = DateTime.UtcNow;
                 
                 await _unitOfWork.CommitAsync();
                 _logger.LogInformation("Membership {MembershipId} cancelled for subscription {SubscriptionId}",

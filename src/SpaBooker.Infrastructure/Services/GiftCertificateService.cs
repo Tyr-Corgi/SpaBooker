@@ -135,65 +135,65 @@ public class GiftCertificateService : IGiftCertificateService
         using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
         try
-        {
-            var giftCert = await GetGiftCertificateByCodeAsync(code);
-            
-            if (giftCert == null)
+    {
+        var giftCert = await GetGiftCertificateByCodeAsync(code);
+        
+        if (giftCert == null)
             {
                 _logger.LogWarning("Gift certificate redemption failed: code {Code} not found", code);
-                throw new InvalidOperationException("Gift certificate not found");
+            throw new InvalidOperationException("Gift certificate not found");
             }
 
-            if (!await ValidateGiftCertificateAsync(code))
+        if (!await ValidateGiftCertificateAsync(code))
             {
                 _logger.LogWarning("Gift certificate redemption failed: code {Code} is not valid", code);
-                throw new InvalidOperationException("Gift certificate is not valid");
+            throw new InvalidOperationException("Gift certificate is not valid");
             }
 
-            var amountToRedeem = Math.Min(amount, giftCert.RemainingBalance);
+        var amountToRedeem = Math.Min(amount, giftCert.RemainingBalance);
 
-            var balanceBefore = giftCert.RemainingBalance;
-            giftCert.RemainingBalance -= amountToRedeem;
-            
-            if (!giftCert.IsRedeemed && amountToRedeem > 0)
-            {
-                giftCert.IsRedeemed = true;
-                giftCert.RedeemedByUserId = redeemedByUserId;
-                giftCert.RedeemedAt = DateTime.UtcNow;
-            }
+        var balanceBefore = giftCert.RemainingBalance;
+        giftCert.RemainingBalance -= amountToRedeem;
+        
+        if (!giftCert.IsRedeemed && amountToRedeem > 0)
+        {
+            giftCert.IsRedeemed = true;
+            giftCert.RedeemedByUserId = redeemedByUserId;
+            giftCert.RedeemedAt = DateTime.UtcNow;
+        }
 
-            if (giftCert.RemainingBalance <= 0)
-            {
-                giftCert.Status = "FullyRedeemed";
-            }
-            else if (giftCert.RemainingBalance < giftCert.OriginalAmount)
-            {
-                giftCert.Status = "PartiallyUsed";
-            }
+        if (giftCert.RemainingBalance <= 0)
+        {
+            giftCert.Status = "FullyRedeemed";
+        }
+        else if (giftCert.RemainingBalance < giftCert.OriginalAmount)
+        {
+            giftCert.Status = "PartiallyUsed";
+        }
 
-            giftCert.UpdatedAt = DateTime.UtcNow;
+        giftCert.UpdatedAt = DateTime.UtcNow;
 
-            // Create transaction
-            var transaction = new GiftCertificateTransaction
-            {
-                GiftCertificateId = giftCert.Id,
-                Type = "Redemption",
-                Amount = -amountToRedeem,
-                BalanceBefore = balanceBefore,
-                BalanceAfter = giftCert.RemainingBalance,
-                Description = $"Redeemed by user {redeemedByUserId}",
-                RelatedBookingId = relatedBookingId,
-                PerformedByUserId = redeemedByUserId,
-                CreatedAt = DateTime.UtcNow
-            };
+        // Create transaction
+        var transaction = new GiftCertificateTransaction
+        {
+            GiftCertificateId = giftCert.Id,
+            Type = "Redemption",
+            Amount = -amountToRedeem,
+            BalanceBefore = balanceBefore,
+            BalanceAfter = giftCert.RemainingBalance,
+            Description = $"Redeemed by user {redeemedByUserId}",
+            RelatedBookingId = relatedBookingId,
+            PerformedByUserId = redeemedByUserId,
+            CreatedAt = DateTime.UtcNow
+        };
 
-            _context.GiftCertificateTransactions.Add(transaction);
+        _context.GiftCertificateTransactions.Add(transaction);
 
             await _unitOfWork.CommitAsync();
             _logger.LogInformation("Gift certificate {Code} redeemed: {Amount} by user {UserId}. New balance: {Balance}",
                 code, amountToRedeem, redeemedByUserId, giftCert.RemainingBalance);
 
-            return amountToRedeem;
+        return amountToRedeem;
         }
         catch (Exception ex)
         {

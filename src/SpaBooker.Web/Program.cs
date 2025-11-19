@@ -110,6 +110,9 @@ builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 // Register Unit of Work for transaction management
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+// Register Audit Service for security logging
+builder.Services.AddScoped<IAuditService, AuditService>();
+
 // Register FluentValidation validators
 builder.Services.AddValidatorsFromAssemblyContaining<BookingValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<UserRegistrationValidator>();
