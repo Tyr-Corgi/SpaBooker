@@ -8,7 +8,8 @@ using Stripe;
 namespace SpaBooker.Web.Controllers;
 
 [ApiController]
-[Route("api/stripe/webhook")]
+[Route("api/v{version:apiVersion}/stripe/webhook")]
+[ApiVersion("1.0")]
 public class StripeWebhookController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

@@ -84,6 +84,19 @@ builder.Services.AddRazorPages();
 // Add controllers for API endpoints
 builder.Services.AddControllers();
 
+// Configure API versioning
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = Microsoft.AspNetCore.Mvc.Versioning.ApiVersionReader.Combine(
+        new Microsoft.AspNetCore.Mvc.Versioning.UrlSegmentApiVersionReader(),
+        new Microsoft.AspNetCore.Mvc.Versioning.HeaderApiVersionReader("X-API-Version"),
+        new Microsoft.AspNetCore.Mvc.Versioning.QueryStringApiVersionReader("api-version")
+    );
+});
+
 // Configure rate limiting
 builder.Services.AddMemoryCache();
 builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
