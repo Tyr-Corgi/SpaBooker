@@ -11,6 +11,11 @@ using SpaBooker.Infrastructure.Data;
 using SpaBooker.Infrastructure.Services;
 using SpaBooker.Web.Components;
 using SpaBooker.Web.Middleware;
+using SpaBooker.Web.HealthChecks;
+using HealthChecks.UI.Client;
+using Asp.Versioning;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -87,14 +92,20 @@ builder.Services.AddControllers();
 // Configure API versioning
 builder.Services.AddApiVersioning(options =>
 {
-    options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
+    options.DefaultApiVersion = new Asp.Versioning.ApiVersion(1, 0);
     options.AssumeDefaultVersionWhenUnspecified = true;
     options.ReportApiVersions = true;
-    options.ApiVersionReader = Microsoft.AspNetCore.Mvc.Versioning.ApiVersionReader.Combine(
-        new Microsoft.AspNetCore.Mvc.Versioning.UrlSegmentApiVersionReader(),
-        new Microsoft.AspNetCore.Mvc.Versioning.HeaderApiVersionReader("X-API-Version"),
-        new Microsoft.AspNetCore.Mvc.Versioning.QueryStringApiVersionReader("api-version")
+    options.ApiVersionReader = Asp.Versioning.ApiVersionReader.Combine(
+        new Asp.Versioning.UrlSegmentApiVersionReader(),
+        new Asp.Versioning.HeaderApiVersionReader("X-API-Version"),
+        new Asp.Versioning.QueryStringApiVersionReader("api-version")
     );
+})
+.AddMvc()
+.AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
 });
 
 // Configure rate limiting
@@ -124,7 +135,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.EnableDetailedErrors(builder.Environment.IsDevelopment()); // Only in dev
     options.ConfigureWarnings(warnings =>
     {
-        warnings.Ignore(CoreEventId.NavigationBaseIncludeIgnored);
+        warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.NavigationBaseIncludeIgnored);
     });
 });
 

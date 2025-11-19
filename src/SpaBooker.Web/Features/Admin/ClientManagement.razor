@@ -5,9 +5,11 @@
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @inject ApplicationDbContext DbContext
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @attribute [Authorize(Roles = "Admin")]
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
@@ -1350,8 +1352,8 @@
 
             foreach (var client in allClients)
             {
-                var stats = clientStats.ContainsKey(client.Id) ? clientStats[client.Id] : new ClientStatsDto();
-                csv.AppendLine($"\"{client.Email}\",\"{client.FirstName}\",\"{client.LastName}\",\"{client.PhoneNumber}\",\"{client.CreatedAt:yyyy-MM-dd}\",\"{stats.LastVisit:yyyy-MM-dd}\",{stats.TotalBookings},{stats.TotalSpent:F2},{stats.HasActiveMembership}");
+                var stats = clientStats.ContainsKey(client.Id) ? clientStats[client.Id] : new ClientData();
+                csv.AppendLine($"\"{client.Email}\",\"{client.FirstName}\",\"{client.LastName}\",\"{client.PhoneNumber}\",\"{client.CreatedAt:yyyy-MM-dd}\",\"{stats.LastBookingDate:yyyy-MM-dd}\",{stats.TotalBookings},{stats.LifetimeValue:F2},{stats.HasActiveMembership}");
             }
 
             var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());

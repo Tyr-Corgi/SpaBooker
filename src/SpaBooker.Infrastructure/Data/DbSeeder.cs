@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SpaBooker.Core.Entities;
+using SpaBooker.Core.Enums;
 
 namespace SpaBooker.Infrastructure.Data;
 
@@ -39,7 +40,7 @@ public static class DbSeeder
                 CreatedAt = DateTime.UtcNow
             };
 
-            var result = await userManager.CreateAsync(adminUser, "Admin123!");
+            var result = await userManager.CreateAsync(adminUser, "Admin123!@#$");
 
             if (result.Succeeded)
             {
@@ -96,6 +97,110 @@ public static class DbSeeder
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(clientUser, "Client");
+            }
+        }
+
+        // Seed Cartoon Network Characters as Clients
+        await SeedCartoonNetworkClientsAsync(userManager);
+
+        // Seed Cartoon Network Characters as Therapists
+        await SeedCartoonNetworkTherapistsAsync(userManager);
+    }
+
+    private static async Task SeedCartoonNetworkClientsAsync(UserManager<ApplicationUser> userManager)
+    {
+        var cartoonClients = new List<(string firstName, string lastName, string email, string phone)>
+        {
+            ("Ben", "Tennyson", "ben.tennyson@cntest.com", "(555) 101-0001"),
+            ("Dexter", "McPherson", "dexter.mcpherson@cntest.com", "(555) 101-0002"),
+            ("Numbuh", "One", "numbuh.one@cntest.com", "(555) 101-0003"),
+            ("Ed", "Smith", "ed.smith@cntest.com", "(555) 101-0004"),
+            ("Johnny", "Bravo", "johnny.bravo@cntest.com", "(555) 101-0005"),
+            ("Courage", "Dog", "courage.dog@cntest.com", "(555) 101-0006"),
+            ("Samurai", "Jack", "samurai.jack@cntest.com", "(555) 101-0007"),
+            ("Gwen", "Tennyson", "gwen.tennyson@cntest.com", "(555) 101-0008"),
+            ("Finn", "Human", "finn.human@cntest.com", "(555) 101-0009"),
+            ("Jake", "Dog", "jake.dog@cntest.com", "(555) 101-0010"),
+            ("Blossom", "Powerpuff", "blossom.powerpuff@cntest.com", "(555) 101-0011"),
+            ("Bubbles", "Powerpuff", "bubbles.powerpuff@cntest.com", "(555) 101-0012"),
+            ("Buttercup", "Powerpuff", "buttercup.powerpuff@cntest.com", "(555) 101-0013"),
+            ("Mandy", "Grim", "mandy.grim@cntest.com", "(555) 101-0014"),
+            ("Billy", "Grim", "billy.grim@cntest.com", "(555) 101-0015")
+        };
+
+        foreach (var (firstName, lastName, email, phone) in cartoonClients)
+        {
+            var existingUser = await userManager.FindByEmailAsync(email);
+            if (existingUser == null)
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    PhoneNumber = phone,
+                    EmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var result = await userManager.CreateAsync(user, "CartoonTest123!@#$");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(user, "Client");
+                }
+            }
+        }
+    }
+
+    private static async Task SeedCartoonNetworkTherapistsAsync(UserManager<ApplicationUser> userManager)
+    {
+        var cartoonTherapists = new List<(string firstName, string lastName, string email, string phone, string specialties, string bio)>
+        {
+            ("Kevin", "Levin", "kevin.levin@cntest.com", "(555) 201-0001", 
+             "Deep Tissue, Sports Massage, Hot Stone", 
+             "Former alien hero turned expert massage therapist. Specializes in muscle recovery."),
+            
+            ("Raven", "Azarath", "raven.azarath@cntest.com", "(555) 201-0002", 
+             "Aromatherapy, Meditation, Energy Healing", 
+             "Mystical healer with expertise in relaxation and spiritual wellness."),
+            
+            ("Marceline", "Abadeer", "marceline.abadeer@cntest.com", "(555) 201-0003", 
+             "Swedish Massage, Reflexology, Music Therapy", 
+             "Thousand-year-old vampire queen who found her calling in therapeutic massage."),
+            
+            ("Princess", "Bubblegum", "princess.bubblegum@cntest.com", "(555) 201-0004", 
+             "Scientific Massage, Sports Recovery, Injury Rehabilitation", 
+             "Scientifically-minded therapist with advanced knowledge of human anatomy."),
+            
+            ("Starfire", "Tamaranean", "starfire.tamaranean@cntest.com", "(555) 201-0005", 
+             "Hot Stone, Thai Massage, Couples Therapy", 
+             "Enthusiastic alien therapist bringing joy and warmth to every session.")
+        };
+
+        foreach (var (firstName, lastName, email, phone, specialties, bio) in cartoonTherapists)
+        {
+            var existingUser = await userManager.FindByEmailAsync(email);
+            if (existingUser == null)
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    PhoneNumber = phone,
+                    Specialties = specialties,
+                    Bio = bio,
+                    EmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var result = await userManager.CreateAsync(user, "CartoonTest123!@#$");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(user, "Therapist");
+                }
             }
         }
     }
@@ -1083,6 +1188,365 @@ public static class DbSeeder
             context.TherapistAvailability.AddRange(blocks);
             await context.SaveChangesAsync();
         }
+
+        // 7. CREATE CARTOON CHARACTER BOOKINGS (Past, Present, Future)
+        await SeedCartoonCharacterBookingsAsync(context, userManager);
+    }
+
+    private static async Task SeedCartoonCharacterBookingsAsync(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+    {
+        // Get cartoon clients
+        var benTennyson = await userManager.FindByEmailAsync("ben.tennyson@cntest.com");
+        var dexter = await userManager.FindByEmailAsync("dexter.mcpherson@cntest.com");
+        var numbuhOne = await userManager.FindByEmailAsync("numbuh.one@cntest.com");
+        var ed = await userManager.FindByEmailAsync("ed.smith@cntest.com");
+        var johnny = await userManager.FindByEmailAsync("johnny.bravo@cntest.com");
+        var courage = await userManager.FindByEmailAsync("courage.dog@cntest.com");
+        var jack = await userManager.FindByEmailAsync("samurai.jack@cntest.com");
+        var gwen = await userManager.FindByEmailAsync("gwen.tennyson@cntest.com");
+        var finn = await userManager.FindByEmailAsync("finn.human@cntest.com");
+        var jake = await userManager.FindByEmailAsync("jake.dog@cntest.com");
+        var blossom = await userManager.FindByEmailAsync("blossom.powerpuff@cntest.com");
+        var bubbles = await userManager.FindByEmailAsync("bubbles.powerpuff@cntest.com");
+        var buttercup = await userManager.FindByEmailAsync("buttercup.powerpuff@cntest.com");
+        var mandy = await userManager.FindByEmailAsync("mandy.grim@cntest.com");
+        var billy = await userManager.FindByEmailAsync("billy.grim@cntest.com");
+
+        // Get cartoon therapists
+        var kevin = await userManager.FindByEmailAsync("kevin.levin@cntest.com");
+        var raven = await userManager.FindByEmailAsync("raven.azarath@cntest.com");
+        var marceline = await userManager.FindByEmailAsync("marceline.abadeer@cntest.com");
+        var bubblegum = await userManager.FindByEmailAsync("princess.bubblegum@cntest.com");
+        var starfire = await userManager.FindByEmailAsync("starfire.tamaranean@cntest.com");
+
+        // Get services and rooms
+        var services = await context.SpaServices.Take(5).ToListAsync();
+        var rooms = await context.Rooms.Take(3).ToListAsync();
+        var locations = await context.Locations.Take(1).ToListAsync();
+
+        if (!services.Any() || !rooms.Any() || kevin == null || benTennyson == null)
+        {
+            return; // Can't seed bookings without services, rooms, or users
+        }
+
+        var now = DateTime.UtcNow;
+        var bookings = new List<Booking>();
+
+        // PAST APPOINTMENTS (Completed)
+        if (benTennyson != null && kevin != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = benTennyson.Id,
+                TherapistId = kevin.Id,
+                ServiceId = services[0].Id,
+                RoomId = rooms[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(-30).AddHours(10),
+                EndTime = now.AddDays(-30).AddHours(11),
+                Status = BookingStatus.Completed,
+                TotalPrice = 85.00m,
+                Notes = "Great deep tissue massage after alien battle!",
+                CreatedAt = now.AddDays(-31)
+            });
+        }
+
+        if (gwen != null && raven != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = gwen.Id,
+                TherapistId = raven.Id,
+                ServiceId = services[1].Id,
+                RoomId = rooms[1].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(-25).AddHours(14),
+                EndTime = now.AddDays(-25).AddHours(15),
+                Status = BookingStatus.Completed,
+                TotalPrice = 90.00m,
+                Notes = "Loved the aromatherapy and meditation session!",
+                CreatedAt = now.AddDays(-26)
+            });
+        }
+
+        if (finn != null && marceline != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = finn.Id,
+                TherapistId = marceline.Id,
+                ServiceId = services[2].Id,
+                RoomId = rooms[2].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(-20).AddHours(16),
+                EndTime = now.AddDays(-20).AddHours(17),
+                Status = BookingStatus.Completed,
+                TotalPrice = 95.00m,
+                Notes = "Mathematical! Best massage in the Land of Ooo!",
+                CreatedAt = now.AddDays(-21)
+            });
+        }
+
+        if (johnny != null && starfire != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = johnny.Id,
+                TherapistId = starfire.Id,
+                ServiceId = services[0].Id,
+                RoomId = rooms[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(-15).AddHours(11),
+                EndTime = now.AddDays(-15).AddHours(12),
+                Status = BookingStatus.Completed,
+                TotalPrice = 85.00m,
+                Notes = "Whoa, mama! This was amazing!",
+                CreatedAt = now.AddDays(-16)
+            });
+        }
+
+        if (blossom != null && bubblegum != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = blossom.Id,
+                TherapistId = bubblegum.Id,
+                ServiceId = services[3].Id,
+                RoomId = rooms[1].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(-10).AddHours(9),
+                EndTime = now.AddDays(-10).AddHours(10),
+                Status = BookingStatus.Completed,
+                TotalPrice = 100.00m,
+                Notes = "Perfect recovery after saving Townsville!",
+                CreatedAt = now.AddDays(-11)
+            });
+        }
+
+        // PAST APPOINTMENTS (No-Show)
+        if (ed != null && kevin != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = ed.Id,
+                TherapistId = kevin.Id,
+                ServiceId = services[0].Id,
+                RoomId = rooms[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(-5).AddHours(13),
+                EndTime = now.AddDays(-5).AddHours(14),
+                Status = BookingStatus.NoShow,
+                TotalPrice = 85.00m,
+                Notes = "Client did not show up",
+                CreatedAt = now.AddDays(-6)
+            });
+        }
+
+        // PAST APPOINTMENTS (Cancelled)
+        if (courage != null && raven != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = courage.Id,
+                TherapistId = raven.Id,
+                ServiceId = services[1].Id,
+                RoomId = rooms[1].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(-3).AddHours(15),
+                EndTime = now.AddDays(-3).AddHours(16),
+                Status = BookingStatus.Cancelled,
+                TotalPrice = 90.00m,
+                Notes = "Cancelled - client was too scared",
+                CreatedAt = now.AddDays(-4)
+            });
+        }
+
+        // CURRENT/TODAY APPOINTMENTS (Confirmed)
+        if (jake != null && marceline != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = jake.Id,
+                TherapistId = marceline.Id,
+                ServiceId = services[2].Id,
+                RoomId = rooms[2].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddHours(2),
+                EndTime = now.AddHours(3),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 95.00m,
+                Notes = "Looking forward to stretching out!",
+                CreatedAt = now.AddDays(-2)
+            });
+        }
+
+        if (dexter != null && bubblegum != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = dexter.Id,
+                TherapistId = bubblegum.Id,
+                ServiceId = services[3].Id,
+                RoomId = rooms[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddHours(4),
+                EndTime = now.AddHours(5),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 100.00m,
+                Notes = "Science and relaxation combined!",
+                CreatedAt = now.AddDays(-3)
+            });
+        }
+
+        // NEAR FUTURE APPOINTMENTS (Tomorrow - Next Week)
+        if (numbuhOne != null && kevin != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = numbuhOne.Id,
+                TherapistId = kevin.Id,
+                ServiceId = services[0].Id,
+                RoomId = rooms[1].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(1).AddHours(10),
+                EndTime = now.AddDays(1).AddHours(11),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 85.00m,
+                Notes = "Mission: Relaxation - Kids Next Door approved!",
+                CreatedAt = now.AddDays(-1)
+            });
+        }
+
+        if (bubbles != null && starfire != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = bubbles.Id,
+                TherapistId = starfire.Id,
+                ServiceId = services[1].Id,
+                RoomId = rooms[2].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(2).AddHours(14),
+                EndTime = now.AddDays(2).AddHours(15),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 90.00m,
+                Notes = "Can't wait for the hot stone massage!",
+                CreatedAt = now.AddDays(-2)
+            });
+        }
+
+        if (buttercup != null && kevin != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = buttercup.Id,
+                TherapistId = kevin.Id,
+                ServiceId = services[0].Id,
+                RoomId = rooms[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(3).AddHours(11),
+                EndTime = now.AddDays(3).AddHours(12),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 85.00m,
+                Notes = "Bring on the deep tissue!",
+                CreatedAt = now.AddDays(-1)
+            });
+        }
+
+        if (jack != null && raven != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = jack.Id,
+                TherapistId = raven.Id,
+                ServiceId = services[4].Id,
+                RoomId = rooms[1].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(5).AddHours(13),
+                EndTime = now.AddDays(5).AddHours(14),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 110.00m,
+                Notes = "Meditation and healing after long journey",
+                CreatedAt = now.AddDays(-3)
+            });
+        }
+
+        // FUTURE APPOINTMENTS (Next 2-4 Weeks)
+        if (mandy != null && raven != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = mandy.Id,
+                TherapistId = raven.Id,
+                ServiceId = services[1].Id,
+                RoomId = rooms[2].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(14).AddHours(10),
+                EndTime = now.AddDays(14).AddHours(11),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 90.00m,
+                Notes = "Dark and relaxing, just how I like it",
+                CreatedAt = now.AddDays(-1)
+            });
+        }
+
+        if (billy != null && starfire != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = billy.Id,
+                TherapistId = starfire.Id,
+                ServiceId = services[0].Id,
+                RoomId = rooms[0].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(21).AddHours(15),
+                EndTime = now.AddDays(21).AddHours(16),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 85.00m,
+                Notes = "I love massages! They're my favorite!",
+                CreatedAt = now
+            });
+        }
+
+        if (benTennyson != null && marceline != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = benTennyson.Id,
+                TherapistId = marceline.Id,
+                ServiceId = services[2].Id,
+                RoomId = rooms[1].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(28).AddHours(9),
+                EndTime = now.AddDays(28).AddHours(10),
+                Status = BookingStatus.Confirmed,
+                TotalPrice = 95.00m,
+                Notes = "Back for another session!",
+                CreatedAt = now
+            });
+        }
+
+        // PENDING APPOINTMENTS (Awaiting confirmation)
+        if (gwen != null && bubblegum != null)
+        {
+            bookings.Add(new Booking
+            {
+                ClientId = gwen.Id,
+                TherapistId = bubblegum.Id,
+                ServiceId = services[3].Id,
+                RoomId = rooms[2].Id,
+                LocationId = locations[0].Id,
+                StartTime = now.AddDays(7).AddHours(16),
+                EndTime = now.AddDays(7).AddHours(17),
+                Status = BookingStatus.Pending,
+                TotalPrice = 100.00m,
+                Notes = "Awaiting therapist confirmation",
+                CreatedAt = now
+            });
+        }
+
+        context.Bookings.AddRange(bookings);
+        await context.SaveChangesAsync();
     }
 }
 

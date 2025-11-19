@@ -15,7 +15,7 @@ public class ServiceValidator : AbstractValidator<SpaService>
         RuleFor(s => s.Description)
             .MaximumLength(2000).WithMessage("Description cannot exceed 2000 characters");
 
-        RuleFor(s => s.Price)
+        RuleFor(s => s.BasePrice)
             .GreaterThan(0).WithMessage("Price must be greater than zero")
             .LessThan(100000).WithMessage("Price seems unreasonably high");
 
@@ -23,12 +23,8 @@ public class ServiceValidator : AbstractValidator<SpaService>
             .GreaterThan(0).WithMessage("Duration must be greater than zero")
             .LessThan(1440).WithMessage("Duration cannot exceed 24 hours");
 
-        RuleFor(s => s.DisplayOrder)
-            .GreaterThanOrEqualTo(0).WithMessage("Display order must be zero or positive");
-
-        RuleFor(s => s.CategoryId)
-            .GreaterThan(0).WithMessage("Service category is required")
-            .When(s => s.CategoryId.HasValue);
+        RuleFor(s => s.LocationId)
+            .GreaterThan(0).WithMessage("Location is required");
     }
 }
 

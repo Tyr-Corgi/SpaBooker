@@ -15,6 +15,8 @@ public class GiftCertificateServiceTests : IDisposable
     private readonly ApplicationDbContext _context;
     private readonly GiftCertificateService _service;
     private readonly Mock<IEmailService> _emailServiceMock;
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<Microsoft.Extensions.Logging.ILogger<GiftCertificateService>> _loggerMock;
 
     public GiftCertificateServiceTests()
     {
@@ -24,8 +26,10 @@ public class GiftCertificateServiceTests : IDisposable
 
         _context = new ApplicationDbContext(options);
         _emailServiceMock = new Mock<IEmailService>();
+        _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<GiftCertificateService>>();
 
-        _service = new GiftCertificateService(_context, _emailServiceMock.Object);
+        _service = new GiftCertificateService(_context, _unitOfWorkMock.Object, _emailServiceMock.Object, _loggerMock.Object);
     }
 
     [Fact]
@@ -307,3 +311,4 @@ public class GiftCertificateServiceTests : IDisposable
         _context.Dispose();
     }
 }
+

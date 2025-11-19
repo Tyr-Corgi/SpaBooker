@@ -1,7 +1,8 @@
 namespace SpaBooker.Core.Entities;
 
-public class AuditLog : BaseEntity
+public class AuditLog
 {
+    public int Id { get; set; }
     /// <summary>
     /// The user who performed the action (null for system actions)
     /// </summary>

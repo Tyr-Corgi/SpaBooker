@@ -1,8 +1,10 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Moq;
 using SpaBooker.Core.Entities;
 using SpaBooker.Core.Enums;
+using SpaBooker.Core.Interfaces;
 using SpaBooker.Core.Settings;
 using SpaBooker.Infrastructure.Data;
 using SpaBooker.Infrastructure.Services;
@@ -13,6 +15,8 @@ public class MembershipCreditServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly MembershipCreditService _service;
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<Microsoft.Extensions.Logging.ILogger<MembershipCreditService>> _loggerMock;
 
     public MembershipCreditServiceTests()
     {
@@ -21,6 +25,20 @@ public class MembershipCreditServiceTests : IDisposable
             .Options;
 
         _context = new ApplicationDbContext(options);
+        _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<MembershipCreditService>>();
+        
+        // Setup UnitOfWork mock to return a mock transaction
+        var mockTransaction = new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
+        _unitOfWorkMock.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockTransaction.Object);
+        
+        // When CommitAsync is called, actually save the context changes
+        _unitOfWorkMock.Setup(x => x.CommitAsync(It.IsAny<CancellationToken>()))
+            .Returns(async () => await _context.SaveChangesAsync());
+        
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Returns(async () => await _context.SaveChangesAsync());
         
         var membershipSettings = new MembershipSettings
         {
@@ -29,7 +47,7 @@ public class MembershipCreditServiceTests : IDisposable
         };
         var optionsWrapper = Options.Create(membershipSettings);
         
-        _service = new MembershipCreditService(_context, optionsWrapper);
+        _service = new MembershipCreditService(_context, _unitOfWorkMock.Object, _loggerMock.Object, optionsWrapper);
     }
 
     [Fact]

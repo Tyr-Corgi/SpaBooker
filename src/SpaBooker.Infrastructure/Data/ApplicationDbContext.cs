@@ -384,7 +384,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             
             // Unique index for idempotency check
             entity.HasIndex(e => e.StripeEventId).IsUnique();
-            entity.HasIndex(e => e.ReceivedAt);
+            entity.HasIndex(e => e.ProcessedAt);
         });
 
         // AuditLog configuration
