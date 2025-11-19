@@ -24,4 +24,10 @@
     <UserSecretsId>b696ae70-c084-474b-b57b-fa14e464e3b3</UserSecretsId>
   </PropertyGroup>
 
+  <!-- CSS/JS Minification for Production -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <CssMinificationEnabled>true</CssMinificationEnabled>
+    <JavaScriptMinificationEnabled>true</JavaScriptMinificationEnabled>
+  </PropertyGroup>
+
 </Project>
