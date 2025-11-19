@@ -44,6 +44,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                     property.SetColumnType("timestamp with time zone");
                 }
             }
+            
+            // Configure global query filter for soft delete
+            if (typeof(SpaBooker.Core.Interfaces.ISoftDeletable).IsAssignableFrom(entityType.ClrType))
+            {
+                var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
+                var property = System.Linq.Expressions.Expression.Property(parameter, nameof(SpaBooker.Core.Interfaces.ISoftDeletable.IsDeleted));
+                var filter = System.Linq.Expressions.Expression.Lambda(
+                    System.Linq.Expressions.Expression.Equal(property, System.Linq.Expressions.Expression.Constant(false)),
+                    parameter);
+                
+                entityType.SetQueryFilter(filter);
+            }
         }
 
         // Location configuration

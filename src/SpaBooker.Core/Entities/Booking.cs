@@ -1,8 +1,9 @@
 using SpaBooker.Core.Enums;
+using SpaBooker.Core.Interfaces;
 
 namespace SpaBooker.Core.Entities;
 
-public class Booking
+public class Booking : ISoftDeletable
 {
     public int Id { get; set; }
     public string ClientId { get; set; } = string.Empty;
@@ -41,5 +42,10 @@ public class Booking
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+    
+    // Soft delete properties
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
 }
 
