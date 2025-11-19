@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SpaBooker.Core.Enums;
+using SpaBooker.Core.Interfaces;
 using SpaBooker.Infrastructure.Data;
 using Stripe;
 
@@ -11,15 +12,18 @@ namespace SpaBooker.Web.Controllers;
 public class StripeWebhookController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly ILogger<StripeWebhookController> _logger;
 
     public StripeWebhookController(
         ApplicationDbContext context,
+        IUnitOfWork unitOfWork,
         IConfiguration configuration,
         ILogger<StripeWebhookController> logger)
     {
         _context = context;
+        _unitOfWork = unitOfWork;
         _configuration = configuration;
         _logger = logger;
     }
@@ -92,16 +96,33 @@ public class StripeWebhookController : ControllerBase
     {
         if (paymentIntent == null) return;
 
-        // Find booking by payment intent ID
-        var booking = await _context.Bookings
-            .FirstOrDefaultAsync(b => b.StripePaymentIntentId == paymentIntent.Id);
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
-        if (booking != null)
+        try
         {
-            booking.Status = BookingStatus.Confirmed;
-            booking.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("Booking {BookingId} confirmed after payment", booking.Id);
+            // Find booking by payment intent ID
+            var booking = await _context.Bookings
+                .FirstOrDefaultAsync(b => b.StripePaymentIntentId == paymentIntent.Id);
+
+            if (booking != null)
+            {
+                booking.Status = BookingStatus.Confirmed;
+                booking.UpdatedAt = DateTime.UtcNow;
+                
+                await _unitOfWork.CommitAsync();
+                _logger.LogInformation("Booking {BookingId} confirmed after payment intent {PaymentIntentId}",
+                    booking.Id, paymentIntent.Id);
+            }
+            else
+            {
+                _logger.LogWarning("No booking found for payment intent {PaymentIntentId}", paymentIntent.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle payment intent succeeded for {PaymentIntentId}", paymentIntent.Id);
+            await _unitOfWork.RollbackAsync();
+            throw;
         }
     }
 
@@ -109,17 +130,34 @@ public class StripeWebhookController : ControllerBase
     {
         if (paymentIntent == null) return;
 
-        var booking = await _context.Bookings
-            .FirstOrDefaultAsync(b => b.StripePaymentIntentId == paymentIntent.Id);
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
-        if (booking != null)
+        try
         {
-            booking.Status = BookingStatus.Cancelled;
-            booking.CancellationReason = "Payment failed";
-            booking.CancelledAt = DateTime.UtcNow;
-            booking.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-            _logger.LogWarning("Booking {BookingId} cancelled due to payment failure", booking.Id);
+            var booking = await _context.Bookings
+                .FirstOrDefaultAsync(b => b.StripePaymentIntentId == paymentIntent.Id);
+
+            if (booking != null)
+            {
+                booking.Status = BookingStatus.Cancelled;
+                booking.CancellationReason = "Payment failed";
+                booking.CancelledAt = DateTime.UtcNow;
+                booking.UpdatedAt = DateTime.UtcNow;
+                
+                await _unitOfWork.CommitAsync();
+                _logger.LogWarning("Booking {BookingId} cancelled due to payment failure for payment intent {PaymentIntentId}",
+                    booking.Id, paymentIntent.Id);
+            }
+            else
+            {
+                _logger.LogWarning("No booking found for failed payment intent {PaymentIntentId}", paymentIntent.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle payment intent failed for {PaymentIntentId}", paymentIntent.Id);
+            await _unitOfWork.RollbackAsync();
+            throw;
         }
     }
 

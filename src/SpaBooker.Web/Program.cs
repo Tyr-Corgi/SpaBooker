@@ -1,13 +1,30 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using SpaBooker.Core.Entities;
 using SpaBooker.Core.Interfaces;
 using SpaBooker.Core.Settings;
+using SpaBooker.Core.Validators;
 using SpaBooker.Infrastructure.Data;
 using SpaBooker.Infrastructure.Services;
 using SpaBooker.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
+try
+{
+    Log.Information("Starting SpaBooker application");
+
+    // Validate required configuration on startup
+    ValidateRequiredConfiguration(builder.Configuration);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -80,6 +97,14 @@ builder.Services.AddScoped<IGiftCertificateService, GiftCertificateService>();
 // Register analytics service
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 
+// Register Unit of Work for transaction management
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Register FluentValidation validators
+builder.Services.AddValidatorsFromAssemblyContaining<BookingValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<UserRegistrationValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<ServiceValidator>();
+
 // Register background services
 builder.Services.AddHostedService<BookingReminderService>();
 
@@ -149,9 +174,57 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
-app.MapRazorPages();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    app.MapControllers();
+    app.MapRazorPages();
+    app.MapRazorComponents<App>()
+        .AddInteractiveServerRenderMode();
 
-app.Run();
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
+
+// Configuration validation method
+static void ValidateRequiredConfiguration(IConfiguration configuration)
+{
+    var requiredSettings = new Dictionary<string, string>
+    {
+        { "ConnectionStrings:DefaultConnection", "Database connection string" },
+        { "Stripe:PublishableKey", "Stripe publishable key" },
+        { "Stripe:SecretKey", "Stripe secret key" },
+        { "Stripe:WebhookSecret", "Stripe webhook secret" }
+    };
+
+    var missingSettings = new List<string>();
+
+    foreach (var setting in requiredSettings)
+    {
+        var value = configuration[setting.Key];
+        if (string.IsNullOrWhiteSpace(value) || 
+            value.Contains("TO_BE_CONFIGURED") ||
+            value.Contains("your_") ||
+            value.Contains("YOUR_"))
+        {
+            missingSettings.Add($"  - {setting.Value} ({setting.Key})");
+        }
+    }
+
+    if (missingSettings.Any())
+    {
+        var errorMessage = "⚠️  CONFIGURATION ERROR: Missing required secrets!\n\n" +
+                          "The following secrets must be configured:\n" +
+                          string.Join("\n", missingSettings) + "\n\n" +
+                          "For development, use User Secrets:\n" +
+                          "  cd src/SpaBooker.Web\n" +
+                          "  dotnet user-secrets set \"Key:Name\" \"value\"\n\n" +
+                          "See SECRETS_SETUP_GUIDE.md for detailed instructions.";
+        
+        throw new InvalidOperationException(errorMessage);
+    }
+}

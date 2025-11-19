@@ -1,0 +1,32 @@
+{
+  // Template for local development configuration
+  // Copy this file to appsettings.Development.json (excluded from git)
+  // OR use User Secrets: dotnet user-secrets set "Key:Name" "value"
+  
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=spabooker;Username=postgres;Password=YOUR_PASSWORD_HERE"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore": "Warning"
+    }
+  },
+  "Stripe": {
+    "PublishableKey": "pk_test_YOUR_STRIPE_PUBLISHABLE_KEY",
+    "SecretKey": "sk_test_YOUR_STRIPE_SECRET_KEY",
+    "WebhookSecret": "whsec_YOUR_WEBHOOK_SECRET"
+  },
+  "EmailSettings": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "SmtpUsername": "your_email@gmail.com",
+    "SmtpPassword": "YOUR_EMAIL_APP_PASSWORD",
+    "EnableSsl": true,
+    "FromEmail": "noreply@spabooker.com",
+    "FromName": "SpaBooker",
+    "EnableNotifications": false
+  }
+}
+

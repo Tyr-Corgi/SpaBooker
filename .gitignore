@@ -545,6 +545,12 @@ FodyWeavers.xsd
 appsettings.Development.json
 appsettings.Production.json
 *.secrets.json
+# Keep the template file in git
+!appsettings.Development.json.template
+
+# Log files and directories
+logs/
+*.log
 
 # Database files
 *.db

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SpaBooker.Core.Entities;
 using SpaBooker.Core.Enums;
@@ -11,68 +12,113 @@ namespace SpaBooker.Infrastructure.Services;
 public class MembershipCreditService : IMembershipCreditService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<MembershipCreditService> _logger;
     private readonly MembershipSettings _settings;
 
     public MembershipCreditService(
         ApplicationDbContext context,
+        IUnitOfWork unitOfWork,
+        ILogger<MembershipCreditService> logger,
         IOptions<MembershipSettings> settings)
     {
         _context = context;
+        _unitOfWork = unitOfWork;
+        _logger = logger;
         _settings = settings.Value;
     }
 
     public async Task AddMonthlyCreditsAsync(int userMembershipId, decimal amount, string description)
     {
-        var membership = await _context.UserMemberships.FindAsync(userMembershipId);
-        if (membership == null) return;
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
-        // Add credits
-        membership.CurrentCredits += amount;
-        membership.UpdatedAt = DateTime.UtcNow;
-
-        // Log transaction with expiration date
-        var transaction = new MembershipCreditTransaction
+        try
         {
-            UserMembershipId = userMembershipId,
-            Amount = amount,
-            Type = "Credit",
-            Description = description,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddMonths(_settings.CreditExpirationMonths)
-        };
+            var membership = await _context.UserMemberships.FindAsync(userMembershipId);
+            if (membership == null)
+            {
+                _logger.LogWarning("Attempted to add credits to non-existent membership {MembershipId}", userMembershipId);
+                return;
+            }
 
-        _context.MembershipCreditTransactions.Add(transaction);
-        await _context.SaveChangesAsync();
+            // Add credits
+            membership.CurrentCredits += amount;
+            membership.UpdatedAt = DateTime.UtcNow;
+
+            // Log transaction with expiration date
+            var transaction = new MembershipCreditTransaction
+            {
+                UserMembershipId = userMembershipId,
+                Amount = amount,
+                Type = "Credit",
+                Description = description,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMonths(_settings.CreditExpirationMonths)
+            };
+
+            _context.MembershipCreditTransactions.Add(transaction);
+
+            await _unitOfWork.CommitAsync();
+            _logger.LogInformation("Added {Amount} credits to membership {MembershipId}. New balance: {Balance}",
+                amount, userMembershipId, membership.CurrentCredits);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to add credits to membership {MembershipId}", userMembershipId);
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task DeductCreditsAsync(int userMembershipId, decimal amount, string description, int? relatedBookingId = null)
     {
-        var membership = await _context.UserMemberships.FindAsync(userMembershipId);
-        if (membership == null) return;
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
-        if (membership.CurrentCredits < amount)
+        try
         {
-            throw new InvalidOperationException($"Insufficient credits. Available: {membership.CurrentCredits}, Required: {amount}");
+            var membership = await _context.UserMemberships.FindAsync(userMembershipId);
+            if (membership == null)
+            {
+                _logger.LogWarning("Attempted to deduct credits from non-existent membership {MembershipId}", userMembershipId);
+                return;
+            }
+
+            if (membership.CurrentCredits < amount)
+            {
+                var insufficientCreditsMessage = $"Insufficient credits. Available: {membership.CurrentCredits}, Required: {amount}";
+                _logger.LogWarning("Credit deduction failed for membership {MembershipId}: {Message}",
+                    userMembershipId, insufficientCreditsMessage);
+                throw new InvalidOperationException(insufficientCreditsMessage);
+            }
+
+            // Deduct credits (FIFO - oldest credits used first)
+            membership.CurrentCredits -= amount;
+            membership.UpdatedAt = DateTime.UtcNow;
+
+            // Log transaction
+            var transaction = new MembershipCreditTransaction
+            {
+                UserMembershipId = userMembershipId,
+                Amount = -amount, // Negative for deduction
+                Type = "Debit",
+                Description = description,
+                RelatedBookingId = relatedBookingId,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = null // Deductions don't expire
+            };
+
+            _context.MembershipCreditTransactions.Add(transaction);
+
+            await _unitOfWork.CommitAsync();
+            _logger.LogInformation("Deducted {Amount} credits from membership {MembershipId}. New balance: {Balance}",
+                amount, userMembershipId, membership.CurrentCredits);
         }
-
-        // Deduct credits (FIFO - oldest credits used first)
-        membership.CurrentCredits -= amount;
-        membership.UpdatedAt = DateTime.UtcNow;
-
-        // Log transaction
-        var transaction = new MembershipCreditTransaction
+        catch (Exception ex)
         {
-            UserMembershipId = userMembershipId,
-            Amount = -amount, // Negative for deduction
-            Type = "Debit",
-            Description = description,
-            RelatedBookingId = relatedBookingId,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = null // Deductions don't expire
-        };
-
-        _context.MembershipCreditTransactions.Add(transaction);
-        await _context.SaveChangesAsync();
+            _logger.LogError(ex, "Failed to deduct credits from membership {MembershipId}", userMembershipId);
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<decimal> GetAvailableCreditsAsync(int userMembershipId)
@@ -98,36 +144,53 @@ public class MembershipCreditService : IMembershipCreditService
 
         if (!expiredCredits.Any()) return;
 
-        var membership = await _context.UserMemberships.FindAsync(userMembershipId);
-        if (membership == null) return;
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
-        // Calculate total expired amount
-        var totalExpired = expiredCredits.Sum(c => c.Amount);
-
-        // Deduct expired credits from current balance
-        membership.CurrentCredits = Math.Max(0, membership.CurrentCredits - totalExpired);
-        membership.UpdatedAt = DateTime.UtcNow;
-
-        // Log expiration transactions
-        foreach (var credit in expiredCredits)
+        try
         {
-            var expirationTransaction = new MembershipCreditTransaction
+            var membership = await _context.UserMemberships.FindAsync(userMembershipId);
+            if (membership == null)
             {
-                UserMembershipId = userMembershipId,
-                Amount = -credit.Amount,
-                Type = "Expired",
-                Description = $"Expired credits from {credit.CreatedAt:MMM yyyy}",
-                CreatedAt = DateTime.UtcNow,
-                ExpiresAt = null
-            };
+                _logger.LogWarning("Attempted to expire credits for non-existent membership {MembershipId}", userMembershipId);
+                return;
+            }
 
-            _context.MembershipCreditTransactions.Add(expirationTransaction);
+            // Calculate total expired amount
+            var totalExpired = expiredCredits.Sum(c => c.Amount);
 
-            // Mark original credit as processed (by updating type)
-            credit.Type = "Expired";
+            // Deduct expired credits from current balance
+            membership.CurrentCredits = Math.Max(0, membership.CurrentCredits - totalExpired);
+            membership.UpdatedAt = DateTime.UtcNow;
+
+            // Log expiration transactions
+            foreach (var credit in expiredCredits)
+            {
+                var expirationTransaction = new MembershipCreditTransaction
+                {
+                    UserMembershipId = userMembershipId,
+                    Amount = -credit.Amount,
+                    Type = "Expired",
+                    Description = $"Expired credits from {credit.CreatedAt:MMM yyyy}",
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = null
+                };
+
+                _context.MembershipCreditTransactions.Add(expirationTransaction);
+
+                // Mark original credit as processed (by updating type)
+                credit.Type = "Expired";
+            }
+
+            await _unitOfWork.CommitAsync();
+            _logger.LogInformation("Expired {Amount} credits for membership {MembershipId}. New balance: {Balance}",
+                totalExpired, userMembershipId, membership.CurrentCredits);
         }
-
-        await _context.SaveChangesAsync();
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to expire credits for membership {MembershipId}", userMembershipId);
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task ExpireAllOldCreditsAsync()

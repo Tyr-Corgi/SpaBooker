@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SpaBooker.Core.Interfaces;
 using Stripe;
 
@@ -7,9 +8,11 @@ namespace SpaBooker.Infrastructure.Services;
 public class StripeService : IStripeService
 {
     private readonly string _secretKey;
+    private readonly ILogger<StripeService> _logger;
 
-    public StripeService(IConfiguration configuration)
+    public StripeService(IConfiguration configuration, ILogger<StripeService> logger)
     {
+        _logger = logger;
         _secretKey = configuration["Stripe:SecretKey"] ?? throw new InvalidOperationException("Stripe SecretKey not configured");
         StripeConfiguration.ApiKey = _secretKey;
     }
@@ -39,11 +42,19 @@ public class StripeService : IStripeService
         {
             var service = new PaymentIntentService();
             await service.CancelAsync(paymentIntentId);
+            _logger.LogInformation("Payment intent {PaymentIntentId} cancelled successfully", paymentIntentId);
             return true;
         }
-        catch
+        catch (StripeException ex)
         {
+            _logger.LogError(ex, "Stripe error cancelling payment intent {PaymentIntentId}. Reason: {Reason}",
+                paymentIntentId, ex.StripeError?.Message ?? "Unknown");
             return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error cancelling payment intent {PaymentIntentId}", paymentIntentId);
+            throw;
         }
     }
 

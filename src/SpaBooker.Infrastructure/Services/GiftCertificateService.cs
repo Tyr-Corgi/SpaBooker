@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SpaBooker.Core.Entities;
 using SpaBooker.Core.Interfaces;
 using SpaBooker.Infrastructure.Data;
@@ -8,12 +9,20 @@ namespace SpaBooker.Infrastructure.Services;
 public class GiftCertificateService : IGiftCertificateService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IEmailService _emailService;
+    private readonly ILogger<GiftCertificateService> _logger;
 
-    public GiftCertificateService(ApplicationDbContext context, IEmailService emailService)
+    public GiftCertificateService(
+        ApplicationDbContext context,
+        IUnitOfWork unitOfWork,
+        IEmailService emailService,
+        ILogger<GiftCertificateService> logger)
     {
         _context = context;
+        _unitOfWork = unitOfWork;
         _emailService = emailService;
+        _logger = logger;
     }
 
     public async Task<GiftCertificate> CreateGiftCertificateAsync(string purchasedByUserId, decimal amount, 
@@ -123,55 +132,75 @@ public class GiftCertificateService : IGiftCertificateService
 
     public async Task<decimal> RedeemGiftCertificateAsync(string code, string redeemedByUserId, decimal amount, int? relatedBookingId = null)
     {
-        var giftCert = await GetGiftCertificateByCodeAsync(code);
-        
-        if (giftCert == null)
-            throw new InvalidOperationException("Gift certificate not found");
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
-        if (!await ValidateGiftCertificateAsync(code))
-            throw new InvalidOperationException("Gift certificate is not valid");
-
-        var amountToRedeem = Math.Min(amount, giftCert.RemainingBalance);
-
-        var balanceBefore = giftCert.RemainingBalance;
-        giftCert.RemainingBalance -= amountToRedeem;
-        
-        if (!giftCert.IsRedeemed && amountToRedeem > 0)
+        try
         {
-            giftCert.IsRedeemed = true;
-            giftCert.RedeemedByUserId = redeemedByUserId;
-            giftCert.RedeemedAt = DateTime.UtcNow;
+            var giftCert = await GetGiftCertificateByCodeAsync(code);
+            
+            if (giftCert == null)
+            {
+                _logger.LogWarning("Gift certificate redemption failed: code {Code} not found", code);
+                throw new InvalidOperationException("Gift certificate not found");
+            }
+
+            if (!await ValidateGiftCertificateAsync(code))
+            {
+                _logger.LogWarning("Gift certificate redemption failed: code {Code} is not valid", code);
+                throw new InvalidOperationException("Gift certificate is not valid");
+            }
+
+            var amountToRedeem = Math.Min(amount, giftCert.RemainingBalance);
+
+            var balanceBefore = giftCert.RemainingBalance;
+            giftCert.RemainingBalance -= amountToRedeem;
+            
+            if (!giftCert.IsRedeemed && amountToRedeem > 0)
+            {
+                giftCert.IsRedeemed = true;
+                giftCert.RedeemedByUserId = redeemedByUserId;
+                giftCert.RedeemedAt = DateTime.UtcNow;
+            }
+
+            if (giftCert.RemainingBalance <= 0)
+            {
+                giftCert.Status = "FullyRedeemed";
+            }
+            else if (giftCert.RemainingBalance < giftCert.OriginalAmount)
+            {
+                giftCert.Status = "PartiallyUsed";
+            }
+
+            giftCert.UpdatedAt = DateTime.UtcNow;
+
+            // Create transaction
+            var transaction = new GiftCertificateTransaction
+            {
+                GiftCertificateId = giftCert.Id,
+                Type = "Redemption",
+                Amount = -amountToRedeem,
+                BalanceBefore = balanceBefore,
+                BalanceAfter = giftCert.RemainingBalance,
+                Description = $"Redeemed by user {redeemedByUserId}",
+                RelatedBookingId = relatedBookingId,
+                PerformedByUserId = redeemedByUserId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.GiftCertificateTransactions.Add(transaction);
+
+            await _unitOfWork.CommitAsync();
+            _logger.LogInformation("Gift certificate {Code} redeemed: {Amount} by user {UserId}. New balance: {Balance}",
+                code, amountToRedeem, redeemedByUserId, giftCert.RemainingBalance);
+
+            return amountToRedeem;
         }
-
-        if (giftCert.RemainingBalance <= 0)
+        catch (Exception ex)
         {
-            giftCert.Status = "FullyRedeemed";
+            _logger.LogError(ex, "Failed to redeem gift certificate {Code}", code);
+            await _unitOfWork.RollbackAsync();
+            throw;
         }
-        else if (giftCert.RemainingBalance < giftCert.OriginalAmount)
-        {
-            giftCert.Status = "PartiallyUsed";
-        }
-
-        giftCert.UpdatedAt = DateTime.UtcNow;
-
-        // Create transaction
-        var transaction = new GiftCertificateTransaction
-        {
-            GiftCertificateId = giftCert.Id,
-            Type = "Redemption",
-            Amount = -amountToRedeem,
-            BalanceBefore = balanceBefore,
-            BalanceAfter = giftCert.RemainingBalance,
-            Description = $"Redeemed by user {redeemedByUserId}",
-            RelatedBookingId = relatedBookingId,
-            PerformedByUserId = redeemedByUserId,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.GiftCertificateTransactions.Add(transaction);
-        await _context.SaveChangesAsync();
-
-        return amountToRedeem;
     }
 
     public async Task<List<GiftCertificate>> GetPurchasedGiftCertificatesAsync(string userId)
