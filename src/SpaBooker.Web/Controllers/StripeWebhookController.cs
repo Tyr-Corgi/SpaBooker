@@ -42,10 +42,22 @@ public class StripeWebhookController : ControllerBase
                 webhookSecret
             );
 
-            _logger.LogInformation("Stripe webhook received: {EventType}", stripeEvent.Type);
+            _logger.LogInformation("Stripe webhook received: {EventType} with ID {EventId}", stripeEvent.Type, stripeEvent.Id);
 
-            // Handle the event
-            switch (stripeEvent.Type)
+            // Check for idempotency - prevent duplicate processing
+            if (await _context.ProcessedWebhookEvents.AnyAsync(e => e.StripeEventId == stripeEvent.Id))
+            {
+                _logger.LogInformation("Webhook event {EventId} already processed, skipping", stripeEvent.Id);
+                return Ok(); // Already processed
+            }
+
+            bool success = true;
+            string? errorMessage = null;
+
+            try
+            {
+                // Handle the event
+                switch (stripeEvent.Type)
             {
                 case "payment_intent.succeeded":
                     var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
@@ -81,6 +93,29 @@ public class StripeWebhookController : ControllerBase
                 default:
                     _logger.LogWarning("Unhandled event type: {EventType}", stripeEvent.Type);
                     break;
+                }
+            }
+            catch (Exception ex)
+            {
+                success = false;
+                errorMessage = ex.Message;
+                _logger.LogError(ex, "Error processing webhook event {EventId} of type {EventType}",
+                    stripeEvent.Id, stripeEvent.Type);
+                throw; // Re-throw to return error to Stripe
+            }
+            finally
+            {
+                // Record that we processed this event
+                var processedEvent = new Core.Entities.ProcessedWebhookEvent
+                {
+                    StripeEventId = stripeEvent.Id,
+                    EventType = stripeEvent.Type,
+                    ProcessedAt = DateTime.UtcNow,
+                    Success = success,
+                    ErrorMessage = errorMessage
+                };
+                _context.ProcessedWebhookEvents.Add(processedEvent);
+                await _context.SaveChangesAsync();
             }
 
             return Ok();
@@ -165,29 +200,48 @@ public class StripeWebhookController : ControllerBase
     {
         if (subscription == null) return;
 
-        var membership = await _context.UserMemberships
-            .FirstOrDefaultAsync(m => m.StripeSubscriptionId == subscription.Id);
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
-        if (membership != null)
+        try
         {
-            membership.Status = subscription.Status switch
+            var membership = await _context.UserMemberships
+                .FirstOrDefaultAsync(m => m.StripeSubscriptionId == subscription.Id);
+
+            if (membership != null)
             {
-                "active" => MembershipStatus.Active,
-                "past_due" => MembershipStatus.Active,
-                "canceled" => MembershipStatus.Cancelled,
-                "unpaid" => MembershipStatus.Inactive,
-                _ => MembershipStatus.Inactive
-            };
+                var oldStatus = membership.Status;
+                
+                membership.Status = subscription.Status switch
+                {
+                    "active" => MembershipStatus.Active,
+                    "past_due" => MembershipStatus.Active,
+                    "canceled" => MembershipStatus.Cancelled,
+                    "unpaid" => MembershipStatus.Inactive,
+                    _ => MembershipStatus.Inactive
+                };
 
-            // TODO: Fix Stripe API property names
-            // if (subscription.CurrentPeriodEnd.HasValue)
-            // {
-            //     membership.NextBillingDate = subscription.CurrentPeriodEnd.Value;
-            // }
+                // Update next billing date if available
+                if (subscription.CurrentPeriodEnd.HasValue)
+                {
+                    membership.NextBillingDate = subscription.CurrentPeriodEnd.Value;
+                }
 
-            membership.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("Membership {MembershipId} updated", membership.Id);
+                membership.UpdatedAt = DateTime.UtcNow;
+                
+                await _unitOfWork.CommitAsync();
+                _logger.LogInformation("Membership {MembershipId} updated from {OldStatus} to {NewStatus}",
+                    membership.Id, oldStatus, membership.Status);
+            }
+            else
+            {
+                _logger.LogWarning("No membership found for subscription {SubscriptionId}", subscription.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle subscription updated for {SubscriptionId}", subscription.Id);
+            await _unitOfWork.RollbackAsync();
+            throw;
         }
     }
 
@@ -195,69 +249,125 @@ public class StripeWebhookController : ControllerBase
     {
         if (subscription == null) return;
 
-        var membership = await _context.UserMemberships
-            .FirstOrDefaultAsync(m => m.StripeSubscriptionId == subscription.Id);
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
 
-        if (membership != null)
+        try
         {
-            membership.Status = MembershipStatus.Cancelled;
-            membership.EndDate = DateTime.UtcNow;
-            membership.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("Membership {MembershipId} cancelled", membership.Id);
+            var membership = await _context.UserMemberships
+                .FirstOrDefaultAsync(m => m.StripeSubscriptionId == subscription.Id);
+
+            if (membership != null)
+            {
+                membership.Status = MembershipStatus.Cancelled;
+                membership.EndDate = DateTime.UtcNow;
+                membership.UpdatedAt = DateTime.UtcNow;
+                
+                await _unitOfWork.CommitAsync();
+                _logger.LogInformation("Membership {MembershipId} cancelled for subscription {SubscriptionId}",
+                    membership.Id, subscription.Id);
+            }
+            else
+            {
+                _logger.LogWarning("No membership found for deleted subscription {SubscriptionId}", subscription.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle subscription deleted for {SubscriptionId}", subscription.Id);
+            await _unitOfWork.RollbackAsync();
+            throw;
         }
     }
 
     private async Task HandleInvoicePaymentSucceeded(Invoice? invoice)
     {
-        // TODO: Fix Stripe API property names
-        _logger.LogInformation("Invoice payment succeeded: {InvoiceId}", invoice?.Id);
-        await Task.CompletedTask;
-        // if (invoice?.SubscriptionId == null) return;
-        //
-        // var membership = await _context.UserMemberships
-        //     .Include(m => m.MembershipPlan)
-        //     .FirstOrDefaultAsync(m => m.StripeSubscriptionId == invoice.SubscriptionId);
-        //
-        // if (membership != null)
-        // {
-        //     // Add monthly credits
-        //     membership.CurrentCredits += membership.MembershipPlan.MonthlyCredits;
-        //     membership.UpdatedAt = DateTime.UtcNow;
-        //
-        //     // Log credit transaction
-        //     var transaction = new Core.Entities.MembershipCreditTransaction
-        //     {
-        //         UserMembershipId = membership.Id,
-        //         Amount = membership.MembershipPlan.MonthlyCredits,
-        //         Type = "Credit",
-        //         Description = $"Monthly credits for {DateTime.UtcNow:MMMM yyyy}",
-        //         CreatedAt = DateTime.UtcNow
-        //     };
-        //
-        //     _context.MembershipCreditTransactions.Add(transaction);
-        //     await _context.SaveChangesAsync();
-        //     _logger.LogInformation("Added monthly credits to membership {MembershipId}", membership.Id);
-        // }
+        if (invoice?.SubscriptionId == null)
+        {
+            _logger.LogInformation("Invoice payment succeeded but no subscription: {InvoiceId}", invoice?.Id);
+            return;
+        }
+
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
+
+        try
+        {
+            var membership = await _context.UserMemberships
+                .Include(m => m.MembershipPlan)
+                .FirstOrDefaultAsync(m => m.StripeSubscriptionId == invoice.SubscriptionId);
+
+            if (membership != null)
+            {
+                // Add monthly credits
+                membership.CurrentCredits += membership.MembershipPlan.MonthlyCredits;
+                membership.UpdatedAt = DateTime.UtcNow;
+
+                // Log credit transaction
+                var transaction = new Core.Entities.MembershipCreditTransaction
+                {
+                    UserMembershipId = membership.Id,
+                    Amount = membership.MembershipPlan.MonthlyCredits,
+                    Type = "Credit",
+                    Description = $"Monthly credits for {DateTime.UtcNow:MMMM yyyy}",
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddMonths(12) // 12 month expiration
+                };
+
+                _context.MembershipCreditTransactions.Add(transaction);
+
+                await _unitOfWork.CommitAsync();
+                _logger.LogInformation("Added {Credits} monthly credits to membership {MembershipId} for invoice {InvoiceId}",
+                    membership.MembershipPlan.MonthlyCredits, membership.Id, invoice.Id);
+            }
+            else
+            {
+                _logger.LogWarning("No membership found for subscription {SubscriptionId} in invoice {InvoiceId}",
+                    invoice.SubscriptionId, invoice.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle invoice payment succeeded for {InvoiceId}", invoice.Id);
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 
     private async Task HandleInvoicePaymentFailed(Invoice? invoice)
     {
-        // TODO: Fix Stripe API property names
-        _logger.LogWarning("Invoice payment failed: {InvoiceId}", invoice?.Id);
-        await Task.CompletedTask;
-        // if (invoice?.SubscriptionId == null) return;
-        //
-        // var membership = await _context.UserMemberships
-        //     .FirstOrDefaultAsync(m => m.StripeSubscriptionId == invoice.SubscriptionId);
-        //
-        // if (membership != null)
-        // {
-        //     membership.Status = MembershipStatus.Inactive;
-        //     membership.UpdatedAt = DateTime.UtcNow;
-        //     await _context.SaveChangesAsync();
-        //     _logger.LogWarning("Membership {MembershipId} marked inactive due to payment failure", membership.Id);
-        // }
+        if (invoice?.SubscriptionId == null)
+        {
+            _logger.LogWarning("Invoice payment failed but no subscription: {InvoiceId}", invoice?.Id);
+            return;
+        }
+
+        using var dbTransaction = await _unitOfWork.BeginTransactionAsync();
+
+        try
+        {
+            var membership = await _context.UserMemberships
+                .FirstOrDefaultAsync(m => m.StripeSubscriptionId == invoice.SubscriptionId);
+
+            if (membership != null)
+            {
+                membership.Status = MembershipStatus.Inactive;
+                membership.UpdatedAt = DateTime.UtcNow;
+                
+                await _unitOfWork.CommitAsync();
+                _logger.LogWarning("Membership {MembershipId} marked inactive due to payment failure for invoice {InvoiceId}",
+                    membership.Id, invoice.Id);
+            }
+            else
+            {
+                _logger.LogWarning("No membership found for subscription {SubscriptionId} in invoice {InvoiceId}",
+                    invoice.SubscriptionId, invoice.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle invoice payment failed for {InvoiceId}", invoice.Id);
+            await _unitOfWork.RollbackAsync();
+            throw;
+        }
     }
 }
 

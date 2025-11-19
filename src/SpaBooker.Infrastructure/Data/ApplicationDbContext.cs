@@ -26,6 +26,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Banner> Banners => Set<Banner>();
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<RoomServiceCapability> RoomServiceCapabilities => Set<RoomServiceCapability>();
+    public DbSet<ProcessedWebhookEvent> ProcessedWebhookEvents => Set<ProcessedWebhookEvent>();
     public DbSet<ClientNote> ClientNotes => Set<ClientNote>();
 
     protected override void OnModelCreating(ModelBuilder builder)
