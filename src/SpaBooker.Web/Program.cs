@@ -90,18 +90,50 @@ builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection(
 builder.Services.AddInMemoryRateLimiting();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 
-// Configure PostgreSQL Database
+// Configure PostgreSQL Database with optimizations
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        npgsqlOptions => npgsqlOptions.EnableRetryOnFailure()));
+        npgsqlOptions =>
+        {
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+            npgsqlOptions.CommandTimeout(30); // 30 seconds timeout
+            npgsqlOptions.MigrationsAssembly("SpaBooker.Infrastructure");
+        });
+
+    // Performance optimizations
+    options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking); // Default to no-tracking for read queries
+    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment()); // Only in dev
+    options.EnableDetailedErrors(builder.Environment.IsDevelopment()); // Only in dev
+    options.ConfigureWarnings(warnings =>
+    {
+        warnings.Ignore(CoreEventId.NavigationBaseIncludeIgnored);
+    });
+});
 
 // Add DbContextFactory for components that need to create their own contexts (Blazor Server)
 builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+{
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        npgsqlOptions => npgsqlOptions.EnableRetryOnFailure()),
-    ServiceLifetime.Scoped); // Use Scoped lifetime to avoid singleton/scoped conflict
+        npgsqlOptions =>
+        {
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+            npgsqlOptions.CommandTimeout(30);
+        });
+
+    options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
+},
+ServiceLifetime.Scoped); // Use Scoped lifetime to avoid singleton/scoped conflict
 
 // Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
