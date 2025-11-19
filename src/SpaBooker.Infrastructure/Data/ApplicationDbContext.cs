@@ -117,6 +117,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(e => new { e.LocationId, e.StartTime });
             entity.HasIndex(e => e.StripePaymentIntentId);
             entity.HasIndex(e => e.CreatedAt);
+            
+            // CHECK constraint to ensure EndTime > StartTime
+            entity.ToTable(t => t.HasCheckConstraint("CK_Booking_EndTimeAfterStartTime", "\"EndTime\" > \"StartTime\""));
         });
 
         // MembershipPlan configuration

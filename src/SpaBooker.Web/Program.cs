@@ -136,6 +136,9 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // Register Audit Service for security logging
 builder.Services.AddScoped<IAuditService, AuditService>();
 
+// Register Booking Conflict Checker for preventing double bookings
+builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
+
 // Register FluentValidation validators
 builder.Services.AddValidatorsFromAssemblyContaining<BookingValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<UserRegistrationValidator>();
