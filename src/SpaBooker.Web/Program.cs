@@ -55,6 +55,29 @@ builder.Services.AddSignalR(options =>
 // Register circuit handler for cleanup
 builder.Services.AddScoped<Microsoft.AspNetCore.Components.Server.Circuits.CircuitHandler, SpaBooker.Web.Handlers.CleanupCircuitHandler>();
 
+// Configure CORS for future API integrations
+var corsPolicy = builder.Configuration["Cors:PolicyName"] ?? "SpaBookerCorsPolicy";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[] { "https://localhost:5226" };
+var allowCredentials = builder.Configuration.GetValue<bool>("Cors:AllowCredentials", true);
+var maxAge = builder.Configuration.GetValue<int>("Cors:MaxAgeSeconds", 600);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(corsPolicy, policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .SetIsOriginAllowedToAllowWildcardSubdomains()
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .SetPreflightMaxAge(TimeSpan.FromSeconds(maxAge));
+
+        if (allowCredentials)
+        {
+            policy.AllowCredentials();
+        }
+    });
+});
+
 // Add Razor Pages for authentication
 builder.Services.AddRazorPages();
 
@@ -229,6 +252,9 @@ app.UseSecurityHeaders();
 
 // Apply rate limiting before static files to protect all endpoints
 app.UseIpRateLimiting();
+
+// Apply CORS policy
+app.UseCors(corsPolicy);
 
 app.UseStaticFiles();
 app.UseAntiforgery();
