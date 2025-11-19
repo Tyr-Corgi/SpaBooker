@@ -213,10 +213,18 @@ The system supports three roles:
 
 The database is automatically seeded with an admin account on first run:
 - **Email**: admin@spabooker.com
-- **Password**: Admin123!
+- **Password**: Admin123!@#$ (12 characters minimum for security)
 - **Role**: Admin
 
 ⚠️ **Important**: Change this password immediately after first login in a production environment.
+
+### Test Data
+
+The system includes comprehensive test data for development:
+- **15 Cartoon Network Test Clients** (Ben Tennyson, Dexter McPherson, etc.)
+- **5 Cartoon Character Therapists** (Kevin Levin, Marceline Abadeer, Princess Bubblegum, Raven Azarath, Starfire Tamaranean)
+- **Sample Bookings**: Past, present, and future appointments for testing
+- All test accounts use password: `CartoonTest123!@#$`
 
 ### Initial Data
 
