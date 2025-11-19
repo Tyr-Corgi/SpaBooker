@@ -1,3 +1,4 @@
+using AspNetCoreRateLimit;
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using SpaBooker.Core.Validators;
 using SpaBooker.Infrastructure.Data;
 using SpaBooker.Infrastructure.Services;
 using SpaBooker.Web.Components;
+using SpaBooker.Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +38,12 @@ builder.Services.AddRazorPages();
 // Add controllers for API endpoints
 builder.Services.AddControllers();
 
+// Configure rate limiting
+builder.Services.AddMemoryCache();
+builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.AddInMemoryRateLimiting();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+
 // Configure PostgreSQL Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(
@@ -52,16 +60,18 @@ builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
 // Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
-    // Password settings
+    // Password settings - strengthened for security
     options.Password.RequireDigit = true;
     options.Password.RequireLowercase = true;
     options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 8;
+    options.Password.RequireNonAlphanumeric = true; // Require special characters
+    options.Password.RequiredLength = 12; // Increased from 8
+    options.Password.RequiredUniqueChars = 4; // Require variety
 
-    // Lockout settings
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-    options.Lockout.MaxFailedAccessAttempts = 5;
+    // Lockout settings - more aggressive
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30); // Increased from 15
+    options.Lockout.MaxFailedAccessAttempts = 3; // Decreased from 5
+    options.Lockout.AllowedForNewUsers = true;
 
     // User settings
     options.User.RequireUniqueEmail = true;
@@ -117,6 +127,14 @@ builder.Services.Configure<MembershipSettings>(builder.Configuration.GetSection(
 // Configure email settings
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
+// Configure HSTS (HTTP Strict Transport Security)
+builder.Services.AddHsts(options =>
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(365);
+});
+
 var app = builder.Build();
 
 // Initialize database and seed data
@@ -167,6 +185,12 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Apply security headers to all responses
+app.UseSecurityHeaders();
+
+// Apply rate limiting before static files to protect all endpoints
+app.UseIpRateLimiting();
 
 app.UseStaticFiles();
 app.UseAntiforgery();

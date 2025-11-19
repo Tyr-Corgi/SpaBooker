@@ -8,12 +8,14 @@ namespace SpaBooker.Infrastructure.Services;
 public class StripeService : IStripeService
 {
     private readonly string _secretKey;
+    private readonly string _baseUrl;
     private readonly ILogger<StripeService> _logger;
 
     public StripeService(IConfiguration configuration, ILogger<StripeService> logger)
     {
         _logger = logger;
         _secretKey = configuration["Stripe:SecretKey"] ?? throw new InvalidOperationException("Stripe SecretKey not configured");
+        _baseUrl = configuration["App:BaseUrl"] ?? throw new InvalidOperationException("App:BaseUrl not configured");
         StripeConfiguration.ApiKey = _secretKey;
     }
 
@@ -221,9 +223,8 @@ public class StripeService : IStripeService
 
     public async Task<string> CreateGiftCertificateCheckoutSessionAsync(int giftCertificateId, decimal amount, string purchasedByUserId)
     {
-        var baseUrl = "https://localhost:5226"; // TODO: Make this configurable
-        var successUrl = $"{baseUrl}/gift-certificates/success?giftCertId={giftCertificateId}";
-        var cancelUrl = $"{baseUrl}/gift-certificates/purchase";
+        var successUrl = $"{_baseUrl}/gift-certificates/success?giftCertId={giftCertificateId}";
+        var cancelUrl = $"{_baseUrl}/gift-certificates/purchase";
 
         var metadata = new Dictionary<string, string>
         {
