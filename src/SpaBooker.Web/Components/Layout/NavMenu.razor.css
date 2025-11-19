@@ -52,6 +52,8 @@
 .nav-item {
     font-size: 0.9rem;
     padding-bottom: 0.5rem;
+    padding-left: 0;
+    margin-left: 0;
 }
 
     .nav-item:first-of-type {
@@ -73,9 +75,10 @@
         line-height: 3rem;
         width: 100%;
         transition: all 150ms ease;
-        padding-left: 1rem;
+        padding-left: 0.75rem;
         padding-right: 1rem;
-        margin: 0.25rem 0.5rem;
+        margin: 0.25rem 0;
+        margin-left: 0;
         font-weight: 500;
         white-space: nowrap;
         overflow: hidden;
@@ -92,6 +95,95 @@
     background-color: rgba(255, 255, 255, 0.15);
     color: white;
     transform: translateX(4px);
+}
+
+/* Collapsible Section Styles using details/summary */
+.nav-section {
+    font-size: 0.9rem;
+    padding-bottom: 0.5rem;
+    margin: 0 !important;
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+}
+
+.nav-section summary {
+    list-style: none !important; /* Remove default marker */
+    cursor: pointer;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    padding-left: 0 !important;
+    text-indent: 0 !important;
+}
+
+.nav-section summary::-webkit-details-marker {
+    display: none !important; /* Remove default marker in WebKit */
+}
+
+.nav-section-toggle {
+    color: rgba(255, 255, 255, 0.9);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    line-height: 3rem;
+    width: 100%;
+    transition: all 150ms ease;
+    padding-left: 0.75rem;
+    padding-right: 1rem;
+    margin: 0.25rem 0 0.25rem 0;
+    margin-left: 0 !important;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nav-section-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    transform: translateX(4px);
+}
+
+.nav-section[open] .nav-section-toggle {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: white;
+}
+
+.toggle-icon {
+    margin-left: auto;
+    margin-right: 0.75rem;
+}
+
+.toggle-icon::before {
+    content: "▶";
+    font-size: 0.7rem;
+    transition: transform 150ms ease;
+}
+
+.nav-section[open] .toggle-icon::before {
+    content: "▼";
+}
+
+.nav-section-items {
+    padding-left: 0;
+    margin-top: 0.25rem;
+}
+
+.nav-item ::deep .nav-link.sub-item {
+    font-size: 0.85rem;
+    padding-left: 2.5rem;
+    height: 2.5rem;
+    line-height: 2.5rem;
+    margin: 0.2rem 0;
+}
+
+.nav-item ::deep .nav-link.sub-item .bi {
+    width: 1rem;
+    height: 1rem;
+    margin-right: 0.5rem;
 }
 
 .nav-scrollable {

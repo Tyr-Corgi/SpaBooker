@@ -8,7 +8,7 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
@@ -16,63 +16,103 @@
 
         <AuthorizeView>
             <Authorized>
-                @* Admin Menu Items - Dashboard and Scheduler at top *@
+                @* Admin Menu Items *@
                 <AuthorizeView Roles="Admin" Context="adminAuth">
-                    <div class="nav-item px-3">
+                    <div class="nav-item">
                         <NavLink class="nav-link" href="admin/dashboard">
                             <span class="bi bi-speedometer2" aria-hidden="true"></span> Dashboard
                         </NavLink>
                     </div>
-                    <div class="nav-item px-3">
+                    <div class="nav-item">
                         <NavLink class="nav-link" href="admin/scheduler">
                             <span class="bi bi-calendar-week" aria-hidden="true"></span> Scheduler
                         </NavLink>
                     </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="inventory">
-                            <span class="bi bi-box-seam" aria-hidden="true"></span> Inventory
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/clients">
-                            <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Client Management
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/users">
-                            <span class="bi bi-people" aria-hidden="true"></span> User Management
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/services">
-                            <span class="bi bi-spa" aria-hidden="true"></span> Service Management
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/rooms">
-                            <span class="bi bi-door-open" aria-hidden="true"></span> Room Management
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/banners">
-                            <span class="bi bi-images" aria-hidden="true"></span> Banner Management
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/gift-certificates">
-                            <span class="bi bi-gift" aria-hidden="true"></span> Gift Certificate Management
-                        </NavLink>
-                    </div>
+
+                    @* People Section - Collapsible using details/summary *@
+                    <details class="nav-section" open>
+                        <summary class="nav-section-toggle">
+                            <span class="bi bi-people-fill" aria-hidden="true"></span> People
+                            <span class="toggle-icon"></span>
+                        </summary>
+                        <div class="nav-section-items">
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="admin/clients">
+                                    <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Client Management
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="admin/users">
+                                    <span class="bi bi-person-badge" aria-hidden="true"></span> User Management
+                                </NavLink>
+                            </div>
+                        </div>
+                    </details>
+
+                    @* Setup & Management Section - Collapsible using details/summary *@
+                    <details class="nav-section">
+                        <summary class="nav-section-toggle">
+                            <span class="bi bi-gear-fill" aria-hidden="true"></span> Setup & Management
+                            <span class="toggle-icon"></span>
+                        </summary>
+                        <div class="nav-section-items">
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="admin/services">
+                                    <span class="bi bi-spa" aria-hidden="true"></span> Service Management
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="admin/rooms">
+                                    <span class="bi bi-door-open" aria-hidden="true"></span> Room Management
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="inventory">
+                                    <span class="bi bi-box-seam" aria-hidden="true"></span> Inventory
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="admin/banners">
+                                    <span class="bi bi-images" aria-hidden="true"></span> Banner Management
+                                </NavLink>
+                            </div>
+                        </div>
+                    </details>
+
+                    @* Sales & Offers Section - Collapsible using details/summary *@
+                    <details class="nav-section">
+                        <summary class="nav-section-toggle">
+                            <span class="bi bi-gem" aria-hidden="true"></span> Sales & Offers
+                            <span class="toggle-icon"></span>
+                        </summary>
+                        <div class="nav-section-items">
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="memberships/plans">
+                                    <span class="bi bi-star" aria-hidden="true"></span> Memberships
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="gift-certificates/purchase">
+                                    <span class="bi bi-gift" aria-hidden="true"></span> Gift Certificates
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link sub-item" href="admin/gift-certificates">
+                                    <span class="bi bi-gift-fill" aria-hidden="true"></span> Gift Certificate Management
+                                </NavLink>
+                            </div>
+                        </div>
+                    </details>
                 </AuthorizeView>
 
                 @* Therapist Menu Items *@
                 <AuthorizeView Roles="Therapist" Context="therapistAuth">
-                    <div class="nav-item px-3">
+                    <div class="nav-item">
                         <NavLink class="nav-link" href="schedule/enhanced">
                             <span class="bi bi-calendar-week" aria-hidden="true"></span> Scheduler
                         </NavLink>
                     </div>
-                    <div class="nav-item px-3">
+                    <div class="nav-item">
                         <NavLink class="nav-link" href="inventory">
                             <span class="bi bi-box-seam" aria-hidden="true"></span> Inventory
                         </NavLink>
@@ -81,7 +121,7 @@
 
                 @* Client Menu Items *@
                 <AuthorizeView Roles="Client" Context="clientAuth">
-                    <div class="nav-item px-3">
+                    <div class="nav-item">
                         <NavLink class="nav-link" href="bookings/my-bookings">
                             <span class="bi bi-calendar3" aria-hidden="true"></span> My Bookings
                         </NavLink>
@@ -93,7 +133,7 @@
         @* Public Menu Items - Services only visible to non-admins *@
         <AuthorizeView>
             <NotAuthorized>
-                <div class="nav-item px-3">
+                <div class="nav-item">
                     <NavLink class="nav-link" href="services">
                         <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Services
                     </NavLink>
@@ -102,7 +142,7 @@
             <Authorized>
                 @* Services visible to Clients and Therapists, but NOT Admins *@
                 <AuthorizeView Roles="Client,Therapist" Context="servicesAuth">
-                    <div class="nav-item px-3">
+                    <div class="nav-item">
                         <NavLink class="nav-link" href="services">
                             <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Services
                         </NavLink>
@@ -111,17 +151,34 @@
             </Authorized>
         </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="memberships/plans">
-                <span class="bi bi-star" aria-hidden="true"></span> Memberships
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="gift-certificates/purchase">
-                <span class="bi bi-gift" aria-hidden="true"></span> Gift Certificates
-            </NavLink>
-        </div>
+        @* Memberships and Gift Certificates for non-admin users *@
+        <AuthorizeView>
+            <NotAuthorized>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="memberships/plans">
+                        <span class="bi bi-star" aria-hidden="true"></span> Memberships
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="gift-certificates/purchase">
+                        <span class="bi bi-gift" aria-hidden="true"></span> Gift Certificates
+                    </NavLink>
+                </div>
+            </NotAuthorized>
+            <Authorized>
+                <AuthorizeView Roles="Client,Therapist" Context="publicAuth">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="memberships/plans">
+                            <span class="bi bi-star" aria-hidden="true"></span> Memberships
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="gift-certificates/purchase">
+                            <span class="bi bi-gift" aria-hidden="true"></span> Gift Certificates
+                        </NavLink>
+                    </div>
+                </AuthorizeView>
+            </Authorized>
+        </AuthorizeView>
     </nav>
 </div>
-
