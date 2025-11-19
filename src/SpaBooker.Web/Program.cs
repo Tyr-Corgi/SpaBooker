@@ -194,6 +194,9 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 // Register Booking Conflict Checker for preventing double bookings
 builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
 
+// Register Cache Service for performance optimization
+builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+
 // Register FluentValidation validators
 builder.Services.AddValidatorsFromAssemblyContaining<BookingValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<UserRegistrationValidator>();
