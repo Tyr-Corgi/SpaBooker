@@ -71,6 +71,48 @@ public class EmailService : IEmailService
         }
     }
 
+    public async Task SendEmailConfirmationAsync(string email, string confirmationUrl)
+    {
+        var subject = "Confirm Your Email - SpaBooker";
+        var htmlBody = $@"
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background-color: #2D2D2D; color: white; padding: 20px; text-align: center; }}
+                    .content {{ padding: 30px; background-color: #f9f9f9; }}
+                    .button {{ display: inline-block; padding: 12px 30px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                    .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #666; }}
+                </style>
+            </head>
+            <body>
+                <div class='container'>
+                    <div class='header'>
+                        <h1>Welcome to SpaBooker!</h1>
+                    </div>
+                    <div class='content'>
+                        <h2>Confirm Your Email Address</h2>
+                        <p>Thank you for registering with SpaBooker. To complete your registration and start booking spa services, please confirm your email address by clicking the button below:</p>
+                        <p style='text-align: center;'>
+                            <a href='{confirmationUrl}' class='button'>Confirm Email Address</a>
+                        </p>
+                        <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                        <p style='word-break: break-all; color: #4CAF50;'>{confirmationUrl}</p>
+                        <p><strong>Note:</strong> This link will expire in 24 hours for security reasons.</p>
+                    </div>
+                    <div class='footer'>
+                        <p>If you didn't create an account with SpaBooker, please ignore this email.</p>
+                        <p>&copy; 2025 SpaBooker. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>";
+
+        await SendEmailAsync(email, subject, htmlBody);
+        _logger.LogInformation("Email confirmation sent to {Email}", email);
+    }
+
     public async Task SendBookingConfirmationAsync(int bookingId)
     {
         var booking = await _context.Bookings

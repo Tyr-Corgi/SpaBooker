@@ -76,8 +76,8 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     // User settings
     options.User.RequireUniqueEmail = true;
     
-    // Sign-in settings - allow email as username
-    options.SignIn.RequireConfirmedEmail = false;
+    // Sign-in settings - require email confirmation for security
+    options.SignIn.RequireConfirmedEmail = true;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();

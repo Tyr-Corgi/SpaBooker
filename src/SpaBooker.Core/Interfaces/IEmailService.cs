@@ -3,6 +3,7 @@ namespace SpaBooker.Core.Interfaces;
 public interface IEmailService
 {
     Task SendEmailAsync(string to, string subject, string htmlBody, string? plainTextBody = null);
+    Task SendEmailConfirmationAsync(string email, string confirmationUrl);
     Task SendBookingConfirmationAsync(int bookingId);
     Task SendBookingCancellationAsync(int bookingId);
     Task SendBookingReminderAsync(int bookingId);

@@ -1,0 +1,31 @@
+@page
+@model SpaBooker.Web.Pages.ConfirmEmailModel
+@{
+    ViewData["Title"] = "Confirm Email";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body text-center">
+                    @if (Model.IsSuccess)
+                    {
+                        <i class="bi bi-check-circle text-success" style="font-size: 4rem;"></i>
+                        <h2 class="mt-3">Email Confirmed!</h2>
+                        <p class="text-muted">Your email has been successfully verified.</p>
+                        <a href="/Account/Login" class="btn btn-primary mt-3">Go to Login</a>
+                    }
+                    else
+                    {
+                        <i class="bi bi-x-circle text-danger" style="font-size: 4rem;"></i>
+                        <h2 class="mt-3">Confirmation Failed</h2>
+                        <p class="text-danger">@Model.ErrorMessage</p>
+                        <a href="/" class="btn btn-secondary mt-3">Go to Home</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
