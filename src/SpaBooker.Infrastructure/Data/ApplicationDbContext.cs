@@ -53,6 +53,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany(l => l.Services)
                 .HasForeignKey(e => e.LocationId)
                 .OnDelete(DeleteBehavior.Restrict);
+            
+            // Indexes for common queries
+            entity.HasIndex(e => new { e.LocationId, e.IsActive });
+            entity.HasIndex(e => e.Name);
         });
 
         // ServiceTherapist (many-to-many)
@@ -109,6 +113,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(e => new { e.TherapistId, e.StartTime, e.EndTime });
             entity.HasIndex(e => new { e.RoomId, e.StartTime, e.EndTime });
             entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => new { e.ClientId, e.StartTime });
+            entity.HasIndex(e => new { e.LocationId, e.StartTime });
+            entity.HasIndex(e => e.StripePaymentIntentId);
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         // MembershipPlan configuration
@@ -119,6 +127,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.MonthlyPrice).HasPrecision(18, 2);
             entity.Property(e => e.MonthlyCredits).HasPrecision(18, 2);
             entity.Property(e => e.DiscountPercentage).HasPrecision(5, 2);
+            
+            // Index for active plans
+            entity.HasIndex(e => e.IsActive);
         });
 
         // UserMembership configuration
@@ -151,6 +162,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany(m => m.CreditTransactions)
                 .HasForeignKey(e => e.UserMembershipId)
                 .OnDelete(DeleteBehavior.Cascade);
+            
+            // Index for transaction history queries
+            entity.HasIndex(e => new { e.UserMembershipId, e.CreatedAt });
+            entity.HasIndex(e => e.ExpiresAt);
         });
 
         // InventoryItem configuration
@@ -203,6 +218,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany(l => l.Therapists)
                 .HasForeignKey(e => e.LocationId)
                 .OnDelete(DeleteBehavior.SetNull);
+            
+            // Indexes for common user queries
+            entity.HasIndex(e => e.Email);
+            entity.HasIndex(e => new { e.FirstName, e.LastName });
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         // GiftCertificate configuration
@@ -235,6 +255,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(e => e.Code).IsUnique();
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.PurchasedByUserId);
+            entity.HasIndex(e => new { e.PurchasedByUserId, e.PurchasedAt });
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.HasIndex(e => e.RecipientEmail);
         });
 
         // GiftCertificateTransaction configuration
@@ -260,6 +283,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany()
                 .HasForeignKey(e => e.PerformedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+            
+            // Index for transaction history
+            entity.HasIndex(e => new { e.GiftCertificateId, e.CreatedAt });
         });
 
         // Banner configuration
@@ -321,6 +347,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => new { e.ClientId, e.CreatedAt });
+        });
+
+        // ProcessedWebhookEvent configuration
+        builder.Entity<ProcessedWebhookEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.StripeEventId).IsRequired().HasMaxLength(255);
+            
+            // Unique index for idempotency check
+            entity.HasIndex(e => e.StripeEventId).IsUnique();
+            entity.HasIndex(e => e.ReceivedAt);
         });
 
         // AuditLog configuration
