@@ -61,6 +61,7 @@
                                 <label class="form-label">Therapist</label>
                                 <select class="form-select form-select-lg" @onchange="OnTherapistChanged">
                                     <option value="">-- Select a therapist --</option>
+                                    <option value="ALL_STAFF" selected="@(selectedTherapistId == "ALL_STAFF")">📅 All Staff Overview</option>
                                     @foreach (var therapist in therapists)
                                     {
                                         <option value="@therapist.Id" selected="@(therapist.Id == selectedTherapistId)">
@@ -72,10 +73,20 @@
                             @if (!string.IsNullOrEmpty(selectedTherapistId))
                             {
                                 <div class="col-md-6">
-                                    <div class="alert alert-info mb-0">
-                                        <strong>Current Week Status:</strong><br/>
-                                        @GetCurrentWeekSummary()
-                                    </div>
+                                    @if (selectedTherapistId == "ALL_STAFF")
+                                    {
+                                        <div class="alert alert-info mb-0">
+                                            <strong>All Staff Overview:</strong><br/>
+                                            @GetAllStaffSummary()
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-info mb-0">
+                                            <strong>Current Week Status:</strong><br/>
+                                            @GetCurrentWeekSummary()
+                                        </div>
+                                    }
                                 </div>
                             }
                         </div>
@@ -83,7 +94,200 @@
                 </div>
             </div>
 
-            @if (!string.IsNullOrEmpty(selectedTherapistId))
+            @if (selectedTherapistId == "ALL_STAFF")
+            {
+                @* All Staff Calendar View - Full Width *@
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-calendar3"></i> All Staff Schedule Calendar</h5>
+                            <div>
+                                <span class="badge bg-info me-2">Click any day to view details</span>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-secondary" @onclick="PreviousMonth">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary" disabled>
+                                        @calendarViewDate.ToString("MMMM yyyy")
+                                    </button>
+                                    <button class="btn btn-outline-secondary" @onclick="NextMonth">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <style>
+                                .staff-calendar-grid {
+                                    display: grid;
+                                    grid-template-columns: repeat(7, 1fr);
+                                    gap: 2px;
+                                    background-color: #e9ecef;
+                                    padding: 2px;
+                                    border-radius: 4px;
+                                }
+                                
+                                .staff-calendar-day-header {
+                                    background-color: #6c757d;
+                                    color: white;
+                                    text-align: center;
+                                    padding: 12px 8px;
+                                    font-weight: 600;
+                                    font-size: 0.875rem;
+                                    text-transform: uppercase;
+                                }
+                                
+                                .staff-calendar-day {
+                                    background-color: white;
+                                    min-height: 100px;
+                                    padding: 8px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: flex-start;
+                                    justify-content: flex-start;
+                                    position: relative;
+                                    transition: all 0.2s ease;
+                                }
+                                
+                                .staff-calendar-day:hover {
+                                    background-color: #f8f9fa;
+                                }
+                                
+                                .staff-calendar-day-number {
+                                    font-size: 0.875rem;
+                                    font-weight: 500;
+                                    margin-bottom: 4px;
+                                }
+                                
+                                .staff-calendar-day-indicator {
+                                    font-size: 1.5rem;
+                                    line-height: 1;
+                                    color: #28a745;
+                                }
+                                
+                                .staff-calendar-other-month {
+                                    opacity: 0.3;
+                                }
+                                
+                                .staff-calendar-other-month:hover {
+                                    opacity: 0.5;
+                                }
+                                
+                                .staff-calendar-past-day {
+                                    background-color: #f8f9fa;
+                                    color: #adb5bd;
+                                }
+                                
+                                .staff-calendar-scheduled-day {
+                                    background-color: #d4edda;
+                                    border: 2px solid #28a745;
+                                }
+                                
+                                .staff-calendar-scheduled-day .staff-calendar-day-number {
+                                    color: #155724;
+                                    font-weight: 700;
+                                }
+                                
+                                .staff-calendar-unscheduled-day {
+                                    background-color: #fff3cd;
+                                    border: 2px solid #ffc107;
+                                }
+                                
+                                .staff-calendar-unscheduled-day .staff-calendar-day-number {
+                                    color: #856404;
+                                }
+                                
+                                .staff-calendar-clickable {
+                                    cursor: pointer;
+                                }
+                                
+                                .staff-calendar-clickable:hover {
+                                    box-shadow: 0 0 0 2px #007bff inset;
+                                    transform: scale(1.02);
+                                }
+                                
+                                .staff-calendar-therapist-badge {
+                                    display: inline-block;
+                                    padding: 2px 6px;
+                                    margin: 2px;
+                                    border-radius: 3px;
+                                    font-size: 0.7rem;
+                                    font-weight: 600;
+                                    color: white;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    max-width: 100%;
+                                }
+                            </style>
+                            
+                            @* All Staff Calendar Grid - using regular Razor instead of RenderFragment *@
+                            @{
+                                var firstDayOfMonthAll = new DateTime(calendarViewDate.Year, calendarViewDate.Month, 1);
+                                var startDateAll = firstDayOfMonthAll.AddDays(-(int)firstDayOfMonthAll.DayOfWeek);
+                                var dayNamesAll = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+                                
+                                // Generate color palette
+                                var colors = new[] { "#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#95a5a6", "#34495e", "#16a085" };
+                                var therapistColors = new Dictionary<string, string>();
+                                for (int j = 0; j < therapists.Count; j++)
+                                {
+                                    therapistColors[therapists[j].Id] = colors[j % colors.Length];
+                                }
+                            }
+                            
+                            <div class="staff-calendar-grid">
+                                @* Day headers *@
+                                @foreach (var dayName in dayNamesAll)
+                                {
+                                    <div class="staff-calendar-day-header">@dayName</div>
+                                }
+                                
+                                @* Calendar days *@
+                                @for (int i = 0; i < 42; i++)
+                                {
+                                    var currentDate = startDateAll.AddDays(i);
+                                    var capturedDate = currentDate; // Capture loop variable for event handler
+                                    var isCurrentMonth = currentDate.Month == calendarViewDate.Month;
+                                    var isPast = currentDate < DateTime.Today;
+                                    
+                                    // Get all therapists scheduled for this day
+                                    var scheduledTherapists = new List<(ApplicationUser therapist, string color)>();
+                                    foreach (var therapist in therapists)
+                                    {
+                                        var therapistSchedules = schedules.Where(s => s.TherapistId == therapist.Id).ToList();
+                                        if (IsTherapistScheduledForDayById(currentDate, therapist.Id, therapistSchedules))
+                                        {
+                                            scheduledTherapists.Add((therapist, therapistColors[therapist.Id]));
+                                        }
+                                    }
+                                    
+                                    var cssClass = "staff-calendar-day";
+                                    if (!isCurrentMonth) cssClass += " staff-calendar-other-month";
+                                    if (isPast) cssClass += " staff-calendar-past-day";
+                                    if (!isPast && isCurrentMonth) cssClass += " staff-calendar-clickable";
+                                    
+                                    <div class="@cssClass" @onclick="() => OnAllStaffDayClick(capturedDate)" @onclick:stopPropagation="true">
+                                        <div class="staff-calendar-day-number">@currentDate.Day</div>
+                                        @if (scheduledTherapists.Any() && isCurrentMonth && !isPast)
+                                        {
+                                            <div style="display: flex; flex-direction: column; gap: 2px; width: 100%; margin-top: 4px;">
+                                                @foreach (var (therapist, color) in scheduledTherapists)
+                                                {
+                                                    <div class="staff-calendar-therapist-badge" style="background-color: @color;" title="@therapist.FirstName @therapist.LastName">
+                                                        @therapist.FirstName.Substring(0, 1)@therapist.LastName.Substring(0, 1)
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(selectedTherapistId))
             {
                 @* Quick Schedule Panel *@
                 <div class="col-lg-4 mb-4">
@@ -134,23 +338,6 @@
                                     <i class="bi bi-check-circle"></i> Apply Schedule
                                 </button>
                             </div>
-
-                            <hr/>
-
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetQuickRange(QuickRangeType.ThisWeek)">
-                                    <i class="bi bi-calendar-week"></i> This Week
-                                </button>
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetQuickRange(QuickRangeType.NextWeek)">
-                                    <i class="bi bi-calendar-week"></i> Next Week
-                                </button>
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetQuickRange(QuickRangeType.Fortnight)">
-                                    <i class="bi bi-calendar2-week"></i> Next 2 Weeks
-                                </button>
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetQuickRange(QuickRangeType.Month)">
-                                    <i class="bi bi-calendar-month"></i> Next Month
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -160,16 +347,19 @@
                     <div class="card h-100">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h5 class="mb-0"><i class="bi bi-calendar3"></i> Schedule Calendar</h5>
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-secondary" @onclick="PreviousMonth">
-                                    <i class="bi bi-chevron-left"></i>
-                                </button>
-                                <button class="btn btn-outline-secondary" disabled>
-                                    @calendarViewDate.ToString("MMMM yyyy")
-                                </button>
-                                <button class="btn btn-outline-secondary" @onclick="NextMonth">
-                                    <i class="bi bi-chevron-right"></i>
-                                </button>
+                            <div>
+                                <span class="badge bg-info me-2">Click any day to add/edit schedule</span>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-secondary" @onclick="PreviousMonth">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary" disabled>
+                                        @calendarViewDate.ToString("MMMM yyyy")
+                                    </button>
+                                    <button class="btn btn-outline-secondary" @onclick="NextMonth">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body">
@@ -253,7 +443,46 @@
                                     color: #856404;
                                 }
                             </style>
-                            @RenderCalendar()
+                            
+                            @* Calendar Grid - using regular Razor instead of RenderFragment for proper event handling *@
+                            @{
+                                var firstDayOfMonth = new DateTime(calendarViewDate.Year, calendarViewDate.Month, 1);
+                                var startDate = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek);
+                                var dayNames = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+                            }
+                            
+                            <div class="staff-calendar-grid">
+                                @* Day headers *@
+                                @foreach (var dayName in dayNames)
+                                {
+                                    <div class="staff-calendar-day-header">@dayName</div>
+                                }
+                                
+                                @* Calendar days *@
+                                @for (int i = 0; i < 42; i++)
+                                {
+                                    var currentDate = startDate.AddDays(i);
+                                    var capturedDate = currentDate; // Capture loop variable for event handler
+                                    var isCurrentMonth = currentDate.Month == calendarViewDate.Month;
+                                    var isScheduled = IsTherapistScheduledForDay(currentDate);
+                                    var isPast = currentDate < DateTime.Today;
+                                    
+                                    var cssClass = "staff-calendar-day";
+                                    if (!isCurrentMonth) cssClass += " staff-calendar-other-month";
+                                    if (isPast) cssClass += " staff-calendar-past-day";
+                                    if (isScheduled && !isPast) cssClass += " staff-calendar-scheduled-day";
+                                    if (!isScheduled && !isPast && isCurrentMonth) cssClass += " staff-calendar-unscheduled-day";
+                                    if (!isPast && isCurrentMonth) cssClass += " staff-calendar-clickable";
+                                    
+                                    <div class="@cssClass" @onclick="() => OnCalendarDayClick(capturedDate)" @onclick:stopPropagation="true">
+                                        <div class="staff-calendar-day-number">@currentDate.Day</div>
+                                        @if (isScheduled && isCurrentMonth)
+                                        {
+                                            <div class="staff-calendar-day-indicator">●</div>
+                                        }
+                                    </div>
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -366,6 +595,119 @@
     }
 </div>
 
+@* Modal for All Staff Day View *@
+@if (showDayDetailModal && selectedDate.HasValue)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-calendar-day"></i> Staff Schedule - @selectedDate.Value.ToString("MMMM dd, yyyy (dddd)")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseDayDetailModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (dayDetailTherapists.Any())
+                    {
+                        <div class="list-group">
+                            @foreach (var detail in dayDetailTherapists)
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">
+                                                <span class="badge" style="background-color: @detail.color;">@detail.therapist.FirstName @detail.therapist.LastName</span>
+                                            </h6>
+                                            <p class="mb-0">
+                                                <i class="bi bi-clock"></i> @detail.startTime.ToString(@"hh\:mm tt") - @detail.endTime.ToString(@"hh\:mm tt")
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> No staff scheduled for this day.
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDayDetailModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Modal for Single Therapist Day Edit *@
+@if (showEditDayModal && selectedDate.HasValue && !string.IsNullOrEmpty(selectedTherapistId))
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-calendar-plus"></i> Schedule for @selectedDate.Value.ToString("MMMM dd, yyyy (dddd)")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseEditDayModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(editDayError))
+                    {
+                        <div class="alert alert-danger">@editDayError</div>
+                    }
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Time Range</label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <input type="time" class="form-control" value="@editDayStartTime" @onchange="@(e => editDayStartTime = e.Value?.ToString() ?? "09:00")" />
+                                <small class="text-muted">Start</small>
+                            </div>
+                            <div class="col-6">
+                                <input type="time" class="form-control" value="@editDayEndTime" @onchange="@(e => editDayEndTime = e.Value?.ToString() ?? "17:00")" />
+                                <small class="text-muted">End</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Notes (Optional)</label>
+                        <input type="text" class="form-control" @bind="editDayNotes" placeholder="e.g., Special hours" />
+                    </div>
+                    
+                    @if (existingDaySchedule != null)
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> This day already has a schedule. Saving will update it.
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    @if (existingDaySchedule != null)
+                    {
+                        <button type="button" class="btn btn-danger" @onclick="DeleteDaySchedule" disabled="@isSaving">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    }
+                    <button type="button" class="btn btn-secondary" @onclick="CloseEditDayModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveDaySchedule" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-check-circle"></i> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private bool isLoading = true;
     private bool isSaving = false;
@@ -379,6 +721,19 @@
     private DateTime calendarViewDate = DateTime.Today;
     
     private ScheduleModel scheduleModel = new();
+    
+    // Day detail modal (All Staff view)
+    private bool showDayDetailModal = false;
+    private DateTime? selectedDate;
+    private List<(ApplicationUser therapist, string color, TimeSpan startTime, TimeSpan endTime)> dayDetailTherapists = new();
+    
+    // Edit day modal (Single therapist view)
+    private bool showEditDayModal = false;
+    private string editDayStartTime = "09:00";
+    private string editDayEndTime = "17:00";
+    private string? editDayNotes;
+    private string? editDayError;
+    private TherapistAvailability? existingDaySchedule;
 
     protected override async Task OnInitializedAsync()
     {
@@ -443,12 +798,14 @@
 
     private bool IsTherapistScheduledForDay(DateTime date)
     {
+        var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+        
         // Check specific date first
-        var specificSchedule = schedules.FirstOrDefault(s => s.SpecificDate == date.Date && s.IsAvailable);
+        var specificSchedule = schedules.FirstOrDefault(s => s.SpecificDate == utcDate && s.IsAvailable);
         if (specificSchedule != null) return true;
 
         // Check if specifically blocked
-        var specificBlock = schedules.FirstOrDefault(s => s.SpecificDate == date.Date && !s.IsAvailable);
+        var specificBlock = schedules.FirstOrDefault(s => s.SpecificDate == utcDate && !s.IsAvailable);
         if (specificBlock != null) return false;
 
         // Fall back to weekly schedule
@@ -456,38 +813,54 @@
         return weeklySchedule != null;
     }
 
-    private void SetQuickRange(QuickRangeType rangeType)
+    private string GetAllStaffSummary()
     {
         var today = DateTime.Today;
-        var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
-        if (startOfWeek < today) startOfWeek = startOfWeek.AddDays(7);
+        var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
+        var therapistScheduleCounts = new Dictionary<string, int>();
 
-        switch (rangeType)
+        foreach (var therapist in therapists)
         {
-            case QuickRangeType.ThisWeek:
-                var thisWeekStart = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
-                if (thisWeekStart < today) thisWeekStart = today;
-                scheduleModel.StartDate = thisWeekStart;
-                scheduleModel.EndDate = thisWeekStart.AddDays(4); // Friday
-                break;
-            case QuickRangeType.NextWeek:
-                scheduleModel.StartDate = startOfWeek;
-                scheduleModel.EndDate = startOfWeek.AddDays(4); // Friday
-                break;
-            case QuickRangeType.Fortnight:
-                scheduleModel.StartDate = today;
-                scheduleModel.EndDate = today.AddDays(13);
-                break;
-            case QuickRangeType.Month:
-                scheduleModel.StartDate = today;
-                scheduleModel.EndDate = today.AddDays(29);
-                break;
+            var therapistSchedules = schedules.Where(s => s.TherapistId == therapist.Id).ToList();
+            var daysScheduled = 0;
+
+            for (int i = 0; i < 7; i++)
+            {
+                var checkDate = startOfWeek.AddDays(i);
+                var isScheduled = IsTherapistScheduledForDayById(checkDate, therapist.Id, therapistSchedules);
+                if (isScheduled) daysScheduled++;
+            }
+
+            if (daysScheduled > 0)
+            {
+                therapistScheduleCounts[$"{therapist.FirstName} {therapist.LastName}"] = daysScheduled;
+            }
         }
 
-        // Set default work hours
-        scheduleModel.StartTime = "09:00";
-        scheduleModel.EndTime = "17:00";
+        if (!therapistScheduleCounts.Any())
+            return "No staff scheduled this week";
+
+        var summary = string.Join(", ", therapistScheduleCounts.Select(kvp => $"{kvp.Key}: {kvp.Value} days"));
+        return summary;
     }
+
+    private bool IsTherapistScheduledForDayById(DateTime date, string therapistId, List<TherapistAvailability> therapistSchedules)
+    {
+        var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+        
+        // Check specific date first
+        var specificSchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDate && s.IsAvailable);
+        if (specificSchedule != null) return true;
+
+        // Check if specifically blocked
+        var specificBlock = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDate && !s.IsAvailable);
+        if (specificBlock != null) return false;
+
+        // Fall back to weekly schedule
+        var weeklySchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == null && s.DayOfWeek == date.DayOfWeek && s.IsAvailable);
+        return weeklySchedule != null;
+    }
+
 
     private async Task ApplySchedule()
     {
@@ -529,10 +902,11 @@
             for (int i = 0; i < daysToSchedule; i++)
             {
                 var targetDate = scheduleModel.StartDate.AddDays(i);
+                var utcTargetDate = DateTime.SpecifyKind(targetDate, DateTimeKind.Utc);
                 
                 // Check if schedule already exists for this specific date
                 var existingSchedule = await context.TherapistAvailability
-                    .FirstOrDefaultAsync(a => a.TherapistId == selectedTherapistId && a.SpecificDate == targetDate);
+                    .FirstOrDefaultAsync(a => a.TherapistId == selectedTherapistId && a.SpecificDate == utcTargetDate);
 
                 if (existingSchedule != null)
                 {
@@ -553,7 +927,7 @@
                         StartTime = startTime,
                         EndTime = endTime,
                         IsAvailable = true,
-                        SpecificDate = targetDate,
+                        SpecificDate = DateTime.SpecifyKind(targetDate, DateTimeKind.Utc),
                         Notes = scheduleModel.Notes,
                         CreatedAt = DateTime.UtcNow
                     };
@@ -668,8 +1042,21 @@
             if (isScheduled && !isPast) cssClass += " staff-calendar-scheduled-day";
             if (!isScheduled && !isPast && isCurrentMonth) cssClass += " staff-calendar-unscheduled-day";
             
+            // Make clickable if not past and in current month
+            if (!isPast && isCurrentMonth)
+            {
+                cssClass += " staff-calendar-clickable";
+            }
+            
             builder.OpenElement(5, "div");
             builder.AddAttribute(6, "class", cssClass);
+            
+            // Add click handler if not past and in current month
+            if (!isPast && isCurrentMonth)
+            {
+                var capturedDate = dateToCheck;
+                builder.AddAttribute(7, "onclick", Microsoft.AspNetCore.Components.EventCallback.Factory.Create(this, async () => await OnCalendarDayClick(capturedDate)));
+            }
             
             builder.OpenElement(7, "div");
             builder.AddAttribute(8, "class", "staff-calendar-day-number");
@@ -692,12 +1079,327 @@
         builder.CloseElement();
     };
 
-    private enum QuickRangeType
+    private RenderFragment RenderAllStaffCalendar() => builder =>
     {
-        ThisWeek,
-        NextWeek,
-        Fortnight,
-        Month
+        var firstDayOfMonth = new DateTime(calendarViewDate.Year, calendarViewDate.Month, 1);
+        var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+        var startDate = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek);
+        
+        // Generate color palette for therapists
+        var colors = new[] { "#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#95a5a6", "#34495e", "#16a085" };
+        var therapistColors = new Dictionary<string, string>();
+        for (int i = 0; i < therapists.Count; i++)
+        {
+            therapistColors[therapists[i].Id] = colors[i % colors.Length];
+        }
+        
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "staff-calendar-grid");
+        
+        // Day headers
+        var dayNames = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        foreach (var dayName in dayNames)
+        {
+            builder.OpenElement(2, "div");
+            builder.AddAttribute(3, "class", "staff-calendar-day-header");
+            builder.AddContent(4, dayName);
+            builder.CloseElement();
+        }
+        
+        // Calendar days
+        var currentDate = startDate;
+        for (int i = 0; i < 42; i++) // 6 weeks
+        {
+            var dateToCheck = currentDate;
+            var isCurrentMonth = dateToCheck.Month == calendarViewDate.Month;
+            var isPast = dateToCheck < DateTime.Today;
+            
+            // Get all therapists scheduled for this day
+            var scheduledTherapists = new List<(ApplicationUser therapist, string color)>();
+            foreach (var therapist in therapists)
+            {
+                var therapistSchedules = schedules.Where(s => s.TherapistId == therapist.Id).ToList();
+                if (IsTherapistScheduledForDayById(dateToCheck, therapist.Id, therapistSchedules))
+                {
+                    scheduledTherapists.Add((therapist, therapistColors[therapist.Id]));
+                }
+            }
+            
+            var cssClass = "staff-calendar-day";
+            if (!isCurrentMonth) cssClass += " staff-calendar-other-month";
+            if (isPast) cssClass += " staff-calendar-past-day";
+            
+            // Make clickable if not past and in current month
+            if (!isPast && isCurrentMonth)
+            {
+                cssClass += " staff-calendar-clickable";
+            }
+            
+            builder.OpenElement(5, "div");
+            builder.AddAttribute(6, "class", cssClass);
+            
+            // Add click handler for all staff view
+            if (!isPast && isCurrentMonth)
+            {
+                var capturedDate = dateToCheck;
+                builder.AddAttribute(7, "onclick", Microsoft.AspNetCore.Components.EventCallback.Factory.Create(this, () => OnAllStaffDayClick(capturedDate)));
+            }
+            
+            builder.OpenElement(7, "div");
+            builder.AddAttribute(8, "class", "staff-calendar-day-number");
+            builder.AddContent(9, dateToCheck.Day);
+            builder.CloseElement();
+            
+            // Show therapist badges if any are scheduled
+            if (scheduledTherapists.Any() && isCurrentMonth && !isPast)
+            {
+                builder.OpenElement(10, "div");
+                builder.AddAttribute(11, "style", "display: flex; flex-direction: column; gap: 2px; width: 100%; margin-top: 4px;");
+                
+                foreach (var (therapist, color) in scheduledTherapists)
+                {
+                    builder.OpenElement(12, "div");
+                    builder.AddAttribute(13, "class", "staff-calendar-therapist-badge");
+                    builder.AddAttribute(14, "style", $"background-color: {color};");
+                    builder.AddAttribute(15, "title", $"{therapist.FirstName} {therapist.LastName}");
+                    builder.AddContent(16, $"{therapist.FirstName.Substring(0, 1)}. {therapist.LastName}");
+                    builder.CloseElement();
+                }
+                
+                builder.CloseElement();
+            }
+            
+            builder.CloseElement();
+            
+            currentDate = currentDate.AddDays(1);
+        }
+        
+        builder.CloseElement();
+        
+        // Add legend
+        builder.OpenElement(20, "div");
+        builder.AddAttribute(21, "style", "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 4px;");
+        
+        builder.OpenElement(22, "h6");
+        builder.AddContent(23, "Staff Legend:");
+        builder.CloseElement();
+        
+        builder.OpenElement(24, "div");
+        builder.AddAttribute(25, "style", "display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;");
+        
+        foreach (var therapist in therapists)
+        {
+            builder.OpenElement(26, "div");
+            builder.AddAttribute(27, "style", "display: flex; align-items: center; gap: 5px;");
+            
+            builder.OpenElement(28, "div");
+            builder.AddAttribute(29, "style", $"width: 20px; height: 20px; background-color: {therapistColors[therapist.Id]}; border-radius: 3px;");
+            builder.CloseElement();
+            
+            builder.OpenElement(30, "span");
+            builder.AddContent(31, $"{therapist.FirstName} {therapist.LastName}");
+            builder.CloseElement();
+            
+            builder.CloseElement();
+        }
+        
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    // Calendar day click handlers
+    private async Task OnCalendarDayClick(DateTime date)
+    {
+        try
+        {
+            selectedDate = date;
+            editDayError = null;
+            
+            // Load existing schedule for this day
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+            existingDaySchedule = await context.TherapistAvailability
+                .FirstOrDefaultAsync(a => a.TherapistId == selectedTherapistId && a.SpecificDate == utcDate);
+            
+            if (existingDaySchedule != null)
+            {
+                editDayStartTime = existingDaySchedule.StartTime.ToString(@"HH\:mm");
+                editDayEndTime = existingDaySchedule.EndTime.ToString(@"HH\:mm");
+                editDayNotes = existingDaySchedule.Notes;
+            }
+            else
+            {
+                editDayStartTime = "09:00";
+                editDayEndTime = "17:00";
+                editDayNotes = null;
+            }
+            
+            showEditDayModal = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading schedule: {ex.Message}";
+        }
+    }
+    
+    private void OnAllStaffDayClick(DateTime date)
+    {
+        try
+        {
+            selectedDate = date;
+            dayDetailTherapists.Clear();
+            
+            // Generate color palette
+            var colors = new[] { "#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#95a5a6", "#34495e", "#16a085" };
+            
+            // Get all therapists scheduled for this day
+            var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+            foreach (var therapist in therapists)
+            {
+                var therapistSchedules = schedules.Where(s => s.TherapistId == therapist.Id).ToList();
+                
+                // Check specific date first
+                var specificSchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDate && s.IsAvailable);
+                if (specificSchedule != null)
+                {
+                    var color = colors[therapists.IndexOf(therapist) % colors.Length];
+                    dayDetailTherapists.Add((therapist, color, specificSchedule.StartTime, specificSchedule.EndTime));
+                    continue;
+                }
+                
+                // Check if specifically blocked
+                var specificBlock = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDate && !s.IsAvailable);
+                if (specificBlock != null) continue;
+                
+                // Fall back to weekly schedule
+                var weeklySchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == null && s.DayOfWeek == date.DayOfWeek && s.IsAvailable);
+                if (weeklySchedule != null)
+                {
+                    var color = colors[therapists.IndexOf(therapist) % colors.Length];
+                    dayDetailTherapists.Add((therapist, color, weeklySchedule.StartTime, weeklySchedule.EndTime));
+                }
+            }
+            
+            showDayDetailModal = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading day details: {ex.Message}";
+        }
+    }
+    
+    private void CloseDayDetailModal()
+    {
+        showDayDetailModal = false;
+        selectedDate = null;
+        dayDetailTherapists.Clear();
+    }
+    
+    private void CloseEditDayModal()
+    {
+        showEditDayModal = false;
+        selectedDate = null;
+        existingDaySchedule = null;
+        editDayError = null;
+    }
+    
+    private async Task SaveDaySchedule()
+    {
+        if (!selectedDate.HasValue || string.IsNullOrEmpty(selectedTherapistId)) return;
+        
+        if (!TimeSpan.TryParse(editDayStartTime, out var startTime) || !TimeSpan.TryParse(editDayEndTime, out var endTime))
+        {
+            editDayError = "Invalid time format.";
+            return;
+        }
+        
+        if (startTime >= endTime)
+        {
+            editDayError = "End time must be after start time.";
+            return;
+        }
+        
+        isSaving = true;
+        editDayError = null;
+        
+        try
+        {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            
+            if (existingDaySchedule != null)
+            {
+                // Update existing
+                var scheduleToUpdate = await context.TherapistAvailability.FindAsync(existingDaySchedule.Id);
+                if (scheduleToUpdate != null)
+                {
+                    scheduleToUpdate.StartTime = startTime;
+                    scheduleToUpdate.EndTime = endTime;
+                    scheduleToUpdate.IsAvailable = true;
+                    scheduleToUpdate.Notes = editDayNotes;
+                    scheduleToUpdate.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+            else
+            {
+                // Create new
+                var newSchedule = new TherapistAvailability
+                {
+                    TherapistId = selectedTherapistId,
+                    DayOfWeek = selectedDate.Value.DayOfWeek,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    IsAvailable = true,
+                    SpecificDate = DateTime.SpecifyKind(selectedDate.Value.Date, DateTimeKind.Utc),
+                    Notes = editDayNotes,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.TherapistAvailability.Add(newSchedule);
+            }
+            
+            await context.SaveChangesAsync();
+            await LoadSchedules();
+            successMessage = $"Schedule for {selectedDate.Value:MMMM dd, yyyy} saved successfully.";
+            CloseEditDayModal();
+        }
+        catch (Exception ex)
+        {
+            editDayError = $"Error saving schedule: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+    
+    private async Task DeleteDaySchedule()
+    {
+        if (existingDaySchedule == null) return;
+        
+        isSaving = true;
+        
+        try
+        {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var scheduleToDelete = await context.TherapistAvailability.FindAsync(existingDaySchedule.Id);
+            
+            if (scheduleToDelete != null)
+            {
+                context.TherapistAvailability.Remove(scheduleToDelete);
+                await context.SaveChangesAsync();
+                await LoadSchedules();
+                successMessage = $"Schedule for {selectedDate.Value:MMMM dd, yyyy} deleted successfully.";
+            }
+            
+            CloseEditDayModal();
+        }
+        catch (Exception ex)
+        {
+            editDayError = $"Error deleting schedule: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 
     private class ScheduleModel
