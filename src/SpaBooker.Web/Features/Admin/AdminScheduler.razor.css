@@ -111,11 +111,19 @@
     cursor: not-allowed;
 }
 
+.therapist-slot.unavailable {
+    background-color: #f8f9fa;
+    border: 1px dashed #ced4da;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 .therapist-slot.available:hover {
     background-color: #e1f5e8;
 }
 
-.therapist-slot.blocked:hover {
+.therapist-slot.blocked:hover,
+.therapist-slot.unavailable:hover {
     box-shadow: none;
 }
 

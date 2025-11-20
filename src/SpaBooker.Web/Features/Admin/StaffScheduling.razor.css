@@ -1,0 +1,118 @@
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    background-color: #e9ecef;
+    padding: 2px;
+    border-radius: 4px;
+}
+
+.calendar-day-header {
+    background-color: #6c757d;
+    color: white;
+    text-align: center;
+    padding: 12px 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+}
+
+.calendar-day {
+    background-color: white;
+    min-height: 80px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.calendar-day:hover {
+    background-color: #f8f9fa;
+}
+
+.calendar-day-number {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.calendar-day-indicator {
+    font-size: 1.5rem;
+    line-height: 1;
+    color: #28a745;
+}
+
+.other-month {
+    opacity: 0.3;
+}
+
+.other-month:hover {
+    opacity: 0.5;
+}
+
+.past-day {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+}
+
+.scheduled-day {
+    background-color: #d4edda;
+    border: 2px solid #28a745;
+}
+
+.scheduled-day .calendar-day-number {
+    color: #155724;
+    font-weight: 700;
+}
+
+.unscheduled-day {
+    background-color: #fff3cd;
+    border: 2px solid #ffc107;
+}
+
+.unscheduled-day .calendar-day-number {
+    color: #856404;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .calendar-day {
+        min-height: 60px;
+        padding: 4px;
+    }
+    
+    .calendar-day-number {
+        font-size: 0.75rem;
+    }
+    
+    .calendar-day-indicator {
+        font-size: 1rem;
+    }
+}
+
+/* Card header colors */
+.card-header.bg-primary {
+    background-color: var(--rose-gold, #b76e79) !important;
+}
+
+.text-rose-gold {
+    color: var(--rose-gold, #b76e79) !important;
+}
+
+.btn-primary {
+    background-color: var(--rose-gold, #b76e79);
+    border-color: var(--rose-gold, #b76e79);
+}
+
+.btn-primary:hover {
+    background-color: #a45d6a;
+    border-color: #a45d6a;
+}
+
+.spinner-border.text-rose-gold {
+    color: var(--rose-gold, #b76e79) !important;
+}
+

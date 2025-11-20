@@ -303,34 +303,50 @@
             .Select(b => new { b.StartTime, b.EndTime })
             .ToListAsync();
 
-        // Check if therapist has blocked this specific date
+        // NEW BEHAVIOR: Check therapist schedule (specific date overrides weekly)
         var dayOfWeek = bookingModel.AppointmentDate.DayOfWeek;
-        var specificDateBlock = await DbContext.TherapistAvailability
+        
+        // First, check for specific date availability
+        var specificAvailability = await DbContext.TherapistAvailability
             .FirstOrDefaultAsync(a => a.TherapistId == bookingModel.TherapistId 
-                                   && a.SpecificDate == dateStart 
-                                   && !a.IsAvailable);
+                                   && a.SpecificDate == dateStart);
 
-        if (specificDateBlock != null)
+        TimeSpan startTime;
+        TimeSpan endTime;
+        bool isAvailable;
+
+        if (specificAvailability != null)
         {
-            // Therapist is not available on this date
-            loadingTimeSlots = false;
-            return;
+            // Specific date found - use it (could be available or blocked)
+            startTime = specificAvailability.StartTime;
+            endTime = specificAvailability.EndTime;
+            isAvailable = specificAvailability.IsAvailable;
         }
+        else
+        {
+            // No specific date - check weekly schedule
+            var weeklyAvailability = await DbContext.TherapistAvailability
+                .FirstOrDefaultAsync(a => a.TherapistId == bookingModel.TherapistId 
+                                       && a.DayOfWeek == dayOfWeek 
+                                       && a.SpecificDate == null);
 
-        // Get therapist's availability for this day of week
-        var availability = await DbContext.TherapistAvailability
-            .FirstOrDefaultAsync(a => a.TherapistId == bookingModel.TherapistId 
-                                   && a.DayOfWeek == dayOfWeek 
-                                   && a.SpecificDate == null);
-
-        // Use therapist's availability or default to 9 AM - 5 PM
-        TimeSpan startTime = availability?.StartTime ?? new TimeSpan(9, 0, 0);
-        TimeSpan endTime = availability?.EndTime ?? new TimeSpan(17, 0, 0);
-        bool isAvailable = availability?.IsAvailable ?? true;
+            if (weeklyAvailability != null)
+            {
+                startTime = weeklyAvailability.StartTime;
+                endTime = weeklyAvailability.EndTime;
+                isAvailable = weeklyAvailability.IsAvailable;
+            }
+            else
+            {
+                // NEW DEFAULT: No schedule = not available
+                loadingTimeSlots = false;
+                return;
+            }
+        }
 
         if (!isAvailable)
         {
-            // Therapist doesn't work on this day
+            // Therapist is explicitly blocked/unavailable on this date
             loadingTimeSlots = false;
             return;
         }

@@ -274,6 +274,9 @@ using (var scope = app.Services.CreateScope())
         // Seed initial locations
         await DbSeeder.SeedLocationsAsync(context);
         
+        // Seed therapist schedules (must come after users are created)
+        await DbSeeder.SeedTherapistSchedulesAsync(services);
+        
         // Seed membership plans
         await DbSeeder.SeedMembershipPlansAsync(context);
         

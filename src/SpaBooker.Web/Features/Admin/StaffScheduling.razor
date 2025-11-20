@@ -1,0 +1,712 @@
+@using Microsoft.AspNetCore.Components.Web
+@rendermode RenderMode.InteractiveServer
+@page "/admin/staff-scheduling"
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@using Microsoft.AspNetCore.Authorization
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject UserManager<ApplicationUser> UserManager
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Staff Scheduling - SpaBooker Admin</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="text-rose-gold mb-2">
+                <i class="bi bi-calendar-week"></i> Staff Scheduling
+            </h1>
+            <p class="text-muted">Manage therapist work schedules and availability</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-rose-gold" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Loading schedules...</p>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                <i class="bi bi-check-circle"></i> @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-triangle"></i> @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        <div class="row">
+            @* Therapist Selector *@
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-person-badge"></i> Select Therapist</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <label class="form-label">Therapist</label>
+                                <select class="form-select form-select-lg" @onchange="OnTherapistChanged">
+                                    <option value="">-- Select a therapist --</option>
+                                    @foreach (var therapist in therapists)
+                                    {
+                                        <option value="@therapist.Id" selected="@(therapist.Id == selectedTherapistId)">
+                                            @therapist.FirstName @therapist.LastName
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+                            @if (!string.IsNullOrEmpty(selectedTherapistId))
+                            {
+                                <div class="col-md-6">
+                                    <div class="alert alert-info mb-0">
+                                        <strong>Current Week Status:</strong><br/>
+                                        @GetCurrentWeekSummary()
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(selectedTherapistId))
+            {
+                @* Quick Schedule Panel *@
+                <div class="col-lg-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> Quick Schedule</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Date Range</label>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <input type="date" class="form-control" @bind="scheduleModel.StartDate" @bind:format="yyyy-MM-dd" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                        <small class="text-muted">From</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="date" class="form-control" @bind="scheduleModel.EndDate" @bind:format="yyyy-MM-dd" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                        <small class="text-muted">To</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Time Range</label>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <input type="time" class="form-control" value="@scheduleModel.StartTime" @onchange="@(e => scheduleModel.StartTime = e.Value?.ToString() ?? "09:00")" />
+                                        <small class="text-muted">Start</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="time" class="form-control" value="@scheduleModel.EndTime" @onchange="@(e => scheduleModel.EndTime = e.Value?.ToString() ?? "17:00")" />
+                                        <small class="text-muted">End</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Notes (Optional)</label>
+                                <textarea class="form-control" rows="2" @bind="scheduleModel.Notes" placeholder="e.g., Regular shift"></textarea>
+                            </div>
+
+                            <div class="d-grid gap-2 mb-3">
+                                <button class="btn btn-primary" @onclick="ApplySchedule" disabled="@isSaving">
+                                    @if (isSaving)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    <i class="bi bi-check-circle"></i> Apply Schedule
+                                </button>
+                            </div>
+
+                            <hr/>
+
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetQuickRange(QuickRangeType.ThisWeek)">
+                                    <i class="bi bi-calendar-week"></i> This Week
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetQuickRange(QuickRangeType.NextWeek)">
+                                    <i class="bi bi-calendar-week"></i> Next Week
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetQuickRange(QuickRangeType.Fortnight)">
+                                    <i class="bi bi-calendar2-week"></i> Next 2 Weeks
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetQuickRange(QuickRangeType.Month)">
+                                    <i class="bi bi-calendar-month"></i> Next Month
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* Calendar View *@
+                <div class="col-lg-8 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-calendar3"></i> Schedule Calendar</h5>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" @onclick="PreviousMonth">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" disabled>
+                                    @calendarViewDate.ToString("MMMM yyyy")
+                                </button>
+                                <button class="btn btn-outline-secondary" @onclick="NextMonth">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <style>
+                                .staff-calendar-grid {
+                                    display: grid;
+                                    grid-template-columns: repeat(7, 1fr);
+                                    gap: 2px;
+                                    background-color: #e9ecef;
+                                    padding: 2px;
+                                    border-radius: 4px;
+                                }
+                                
+                                .staff-calendar-day-header {
+                                    background-color: #6c757d;
+                                    color: white;
+                                    text-align: center;
+                                    padding: 12px 8px;
+                                    font-weight: 600;
+                                    font-size: 0.875rem;
+                                    text-transform: uppercase;
+                                }
+                                
+                                .staff-calendar-day {
+                                    background-color: white;
+                                    min-height: 80px;
+                                    padding: 8px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: center;
+                                    justify-content: flex-start;
+                                    position: relative;
+                                    transition: all 0.2s ease;
+                                }
+                                
+                                .staff-calendar-day:hover {
+                                    background-color: #f8f9fa;
+                                }
+                                
+                                .staff-calendar-day-number {
+                                    font-size: 0.875rem;
+                                    font-weight: 500;
+                                    margin-bottom: 4px;
+                                }
+                                
+                                .staff-calendar-day-indicator {
+                                    font-size: 1.5rem;
+                                    line-height: 1;
+                                    color: #28a745;
+                                }
+                                
+                                .staff-calendar-other-month {
+                                    opacity: 0.3;
+                                }
+                                
+                                .staff-calendar-other-month:hover {
+                                    opacity: 0.5;
+                                }
+                                
+                                .staff-calendar-past-day {
+                                    background-color: #f8f9fa;
+                                    color: #adb5bd;
+                                }
+                                
+                                .staff-calendar-scheduled-day {
+                                    background-color: #d4edda;
+                                    border: 2px solid #28a745;
+                                }
+                                
+                                .staff-calendar-scheduled-day .staff-calendar-day-number {
+                                    color: #155724;
+                                    font-weight: 700;
+                                }
+                                
+                                .staff-calendar-unscheduled-day {
+                                    background-color: #fff3cd;
+                                    border: 2px solid #ffc107;
+                                }
+                                
+                                .staff-calendar-unscheduled-day .staff-calendar-day-number {
+                                    color: #856404;
+                                }
+                            </style>
+                            @RenderCalendar()
+                        </div>
+                    </div>
+                </div>
+
+                @* Schedule List *@
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-list-ul"></i> Upcoming Schedules</h5>
+                            @if (schedules.Any())
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="ClearAllSchedules">
+                                    <i class="bi bi-trash"></i> Clear All
+                                </button>
+                            }
+                        </div>
+                        <div class="card-body">
+                            @if (!schedules.Any())
+                            {
+                                <div class="text-center py-4 text-muted">
+                                    <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
+                                    <p class="mt-2">No schedules found. Use Quick Schedule to add work times.</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Day</th>
+                                                <th>Time Range</th>
+                                                <th>Type</th>
+                                                <th>Notes</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var schedule in schedules.OrderBy(s => s.SpecificDate ?? DateTime.MinValue).Take(50))
+                                            {
+                                                <tr>
+                                                    <td>
+                                                        @if (schedule.SpecificDate.HasValue)
+                                                        {
+                                                            @schedule.SpecificDate.Value.ToString("MMM dd, yyyy")
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">Every @schedule.DayOfWeek</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (schedule.SpecificDate.HasValue)
+                                                        {
+                                                            @schedule.SpecificDate.Value.DayOfWeek.ToString()
+                                                        }
+                                                        else
+                                                        {
+                                                            @schedule.DayOfWeek.ToString()
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (schedule.IsAvailable)
+                                                        {
+                                                            <span class="badge bg-success">
+                                                                @schedule.StartTime.ToString(@"hh\:mm") - @schedule.EndTime.ToString(@"hh\:mm")
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-danger">Unavailable</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (schedule.SpecificDate.HasValue)
+                                                        {
+                                                            <span class="badge bg-info">Specific</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary">Weekly</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        <small class="text-muted">@(schedule.Notes ?? "-")</small>
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSchedule(schedule.Id)">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                                @if (schedules.Count > 50)
+                                {
+                                    <div class="alert alert-info mb-0">
+                                        Showing first 50 schedules. Total: @schedules.Count
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? successMessage;
+    private string? errorMessage;
+
+    private List<ApplicationUser> therapists = new();
+    private List<TherapistAvailability> schedules = new();
+    
+    private string? selectedTherapistId;
+    private DateTime calendarViewDate = DateTime.Today;
+    
+    private ScheduleModel scheduleModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTherapists();
+        isLoading = false;
+    }
+
+    private async Task LoadTherapists()
+    {
+        var therapistList = await UserManager.GetUsersInRoleAsync("Therapist");
+        var adminList = await UserManager.GetUsersInRoleAsync("Admin");
+        therapists = therapistList.Union(adminList).OrderBy(t => t.FirstName).ThenBy(t => t.LastName).ToList();
+    }
+
+    private async Task OnTherapistChanged(ChangeEventArgs e)
+    {
+        selectedTherapistId = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(selectedTherapistId))
+        {
+            await LoadSchedules();
+            calendarViewDate = DateTime.Today;
+        }
+        else
+        {
+            schedules.Clear();
+        }
+    }
+
+    private async Task LoadSchedules()
+    {
+        if (string.IsNullOrEmpty(selectedTherapistId)) return;
+
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        
+        // Load all schedules for this therapist (both weekly recurring and specific dates)
+        schedules = await context.TherapistAvailability
+            .Where(a => a.TherapistId == selectedTherapistId)
+            .OrderBy(a => a.SpecificDate ?? DateTime.MinValue)
+            .ThenBy(a => a.DayOfWeek)
+            .ToListAsync();
+    }
+
+    private string GetCurrentWeekSummary()
+    {
+        if (!schedules.Any()) return "No schedules set - UNAVAILABLE";
+
+        var today = DateTime.Today;
+        var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
+        var daysScheduled = 0;
+
+        for (int i = 0; i < 7; i++)
+        {
+            var checkDate = startOfWeek.AddDays(i);
+            if (IsTherapistScheduledForDay(checkDate))
+            {
+                daysScheduled++;
+            }
+        }
+
+        return $"{daysScheduled} days scheduled this week";
+    }
+
+    private bool IsTherapistScheduledForDay(DateTime date)
+    {
+        // Check specific date first
+        var specificSchedule = schedules.FirstOrDefault(s => s.SpecificDate == date.Date && s.IsAvailable);
+        if (specificSchedule != null) return true;
+
+        // Check if specifically blocked
+        var specificBlock = schedules.FirstOrDefault(s => s.SpecificDate == date.Date && !s.IsAvailable);
+        if (specificBlock != null) return false;
+
+        // Fall back to weekly schedule
+        var weeklySchedule = schedules.FirstOrDefault(s => s.SpecificDate == null && s.DayOfWeek == date.DayOfWeek && s.IsAvailable);
+        return weeklySchedule != null;
+    }
+
+    private void SetQuickRange(QuickRangeType rangeType)
+    {
+        var today = DateTime.Today;
+        var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
+        if (startOfWeek < today) startOfWeek = startOfWeek.AddDays(7);
+
+        switch (rangeType)
+        {
+            case QuickRangeType.ThisWeek:
+                var thisWeekStart = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
+                if (thisWeekStart < today) thisWeekStart = today;
+                scheduleModel.StartDate = thisWeekStart;
+                scheduleModel.EndDate = thisWeekStart.AddDays(4); // Friday
+                break;
+            case QuickRangeType.NextWeek:
+                scheduleModel.StartDate = startOfWeek;
+                scheduleModel.EndDate = startOfWeek.AddDays(4); // Friday
+                break;
+            case QuickRangeType.Fortnight:
+                scheduleModel.StartDate = today;
+                scheduleModel.EndDate = today.AddDays(13);
+                break;
+            case QuickRangeType.Month:
+                scheduleModel.StartDate = today;
+                scheduleModel.EndDate = today.AddDays(29);
+                break;
+        }
+
+        // Set default work hours
+        scheduleModel.StartTime = "09:00";
+        scheduleModel.EndTime = "17:00";
+    }
+
+    private async Task ApplySchedule()
+    {
+        if (string.IsNullOrEmpty(selectedTherapistId))
+        {
+            errorMessage = "Please select a therapist first.";
+            return;
+        }
+
+        if (scheduleModel.StartDate > scheduleModel.EndDate)
+        {
+            errorMessage = "End date must be after start date.";
+            return;
+        }
+
+        if (!TimeSpan.TryParse(scheduleModel.StartTime, out var startTime) || 
+            !TimeSpan.TryParse(scheduleModel.EndTime, out var endTime))
+        {
+            errorMessage = "Invalid time format.";
+            return;
+        }
+
+        if (startTime >= endTime)
+        {
+            errorMessage = "End time must be after start time.";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            
+            var daysToSchedule = (scheduleModel.EndDate - scheduleModel.StartDate).Days + 1;
+            var schedulesAdded = 0;
+
+            for (int i = 0; i < daysToSchedule; i++)
+            {
+                var targetDate = scheduleModel.StartDate.AddDays(i);
+                
+                // Check if schedule already exists for this specific date
+                var existingSchedule = await context.TherapistAvailability
+                    .FirstOrDefaultAsync(a => a.TherapistId == selectedTherapistId && a.SpecificDate == targetDate);
+
+                if (existingSchedule != null)
+                {
+                    // Update existing
+                    existingSchedule.StartTime = startTime;
+                    existingSchedule.EndTime = endTime;
+                    existingSchedule.IsAvailable = true;
+                    existingSchedule.Notes = scheduleModel.Notes;
+                    existingSchedule.UpdatedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Create new
+                    var newSchedule = new TherapistAvailability
+                    {
+                        TherapistId = selectedTherapistId,
+                        DayOfWeek = targetDate.DayOfWeek,
+                        StartTime = startTime,
+                        EndTime = endTime,
+                        IsAvailable = true,
+                        SpecificDate = targetDate,
+                        Notes = scheduleModel.Notes,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    context.TherapistAvailability.Add(newSchedule);
+                    schedulesAdded++;
+                }
+            }
+
+            await context.SaveChangesAsync();
+            successMessage = $"Successfully scheduled {daysToSchedule} days ({schedulesAdded} new, {daysToSchedule - schedulesAdded} updated).";
+            
+            await LoadSchedules();
+            
+            // Reset form
+            scheduleModel = new ScheduleModel();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error applying schedule: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteSchedule(int scheduleId)
+    {
+        try
+        {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var schedule = await context.TherapistAvailability.FindAsync(scheduleId);
+            
+            if (schedule != null)
+            {
+                context.TherapistAvailability.Remove(schedule);
+                await context.SaveChangesAsync();
+                await LoadSchedules();
+                successMessage = "Schedule deleted successfully.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting schedule: {ex.Message}";
+        }
+    }
+
+    private async Task ClearAllSchedules()
+    {
+        if (string.IsNullOrEmpty(selectedTherapistId)) return;
+
+        try
+        {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var allSchedules = await context.TherapistAvailability
+                .Where(a => a.TherapistId == selectedTherapistId)
+                .ToListAsync();
+
+            context.TherapistAvailability.RemoveRange(allSchedules);
+            await context.SaveChangesAsync();
+            
+            await LoadSchedules();
+            successMessage = $"Cleared all {allSchedules.Count} schedules.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error clearing schedules: {ex.Message}";
+        }
+    }
+
+    private void PreviousMonth()
+    {
+        calendarViewDate = calendarViewDate.AddMonths(-1);
+    }
+
+    private void NextMonth()
+    {
+        calendarViewDate = calendarViewDate.AddMonths(1);
+    }
+
+    private RenderFragment RenderCalendar() => builder =>
+    {
+        var firstDayOfMonth = new DateTime(calendarViewDate.Year, calendarViewDate.Month, 1);
+        var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+        var startDate = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek);
+        
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "staff-calendar-grid");
+        
+        // Day headers
+        var dayNames = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        foreach (var dayName in dayNames)
+        {
+            builder.OpenElement(2, "div");
+            builder.AddAttribute(3, "class", "staff-calendar-day-header");
+            builder.AddContent(4, dayName);
+            builder.CloseElement();
+        }
+        
+        // Calendar days
+        var currentDate = startDate;
+        for (int i = 0; i < 42; i++) // 6 weeks
+        {
+            var dateToCheck = currentDate;
+            var isCurrentMonth = dateToCheck.Month == calendarViewDate.Month;
+            var isScheduled = IsTherapistScheduledForDay(dateToCheck);
+            var isPast = dateToCheck < DateTime.Today;
+            
+            var cssClass = "staff-calendar-day";
+            if (!isCurrentMonth) cssClass += " staff-calendar-other-month";
+            if (isPast) cssClass += " staff-calendar-past-day";
+            if (isScheduled && !isPast) cssClass += " staff-calendar-scheduled-day";
+            if (!isScheduled && !isPast && isCurrentMonth) cssClass += " staff-calendar-unscheduled-day";
+            
+            builder.OpenElement(5, "div");
+            builder.AddAttribute(6, "class", cssClass);
+            
+            builder.OpenElement(7, "div");
+            builder.AddAttribute(8, "class", "staff-calendar-day-number");
+            builder.AddContent(9, dateToCheck.Day);
+            builder.CloseElement();
+            
+            if (isScheduled && isCurrentMonth)
+            {
+                builder.OpenElement(10, "div");
+                builder.AddAttribute(11, "class", "staff-calendar-day-indicator");
+                builder.AddContent(12, "●");
+                builder.CloseElement();
+            }
+            
+            builder.CloseElement();
+            
+            currentDate = currentDate.AddDays(1);
+        }
+        
+        builder.CloseElement();
+    };
+
+    private enum QuickRangeType
+    {
+        ThisWeek,
+        NextWeek,
+        Fortnight,
+        Month
+    }
+
+    private class ScheduleModel
+    {
+        public DateTime StartDate { get; set; } = DateTime.Today;
+        public DateTime EndDate { get; set; } = DateTime.Today;
+        public string StartTime { get; set; } = "09:00";
+        public string EndTime { get; set; } = "17:00";
+        public string? Notes { get; set; }
+    }
+}
+

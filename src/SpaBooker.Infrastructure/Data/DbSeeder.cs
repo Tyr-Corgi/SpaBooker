@@ -205,6 +205,62 @@ public static class DbSeeder
         }
     }
 
+    public static async Task SeedTherapistSchedulesAsync(IServiceProvider serviceProvider)
+    {
+        var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
+        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        // Get all therapists
+        var therapistRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Therapist");
+        if (therapistRole == null) return;
+
+        var therapistUserIds = await context.UserRoles
+            .Where(ur => ur.RoleId == therapistRole.Id)
+            .Select(ur => ur.UserId)
+            .ToListAsync();
+
+        var therapists = await context.Users
+            .Where(u => therapistUserIds.Contains(u.Id))
+            .ToListAsync();
+
+        // Check if schedules already exist
+        if (await context.TherapistAvailability.AnyAsync())
+        {
+            // Schedules already seeded
+            return;
+        }
+
+        // Create standard Mon-Fri 9am-5pm schedule for all therapists
+        var schedules = new List<TherapistAvailability>();
+        var workDays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+        var startTime = new TimeSpan(9, 0, 0); // 9 AM
+        var endTime = new TimeSpan(17, 0, 0);  // 5 PM
+
+        foreach (var therapist in therapists)
+        {
+            foreach (var day in workDays)
+            {
+                schedules.Add(new TherapistAvailability
+                {
+                    TherapistId = therapist.Id,
+                    DayOfWeek = day,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    IsAvailable = true,
+                    SpecificDate = null, // Weekly recurring
+                    Notes = "Standard work schedule",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        if (schedules.Any())
+        {
+            context.TherapistAvailability.AddRange(schedules);
+            await context.SaveChangesAsync();
+        }
+    }
+
     public static async Task SeedLocationsAsync(ApplicationDbContext context)
     {
         if (!context.Locations.Any())

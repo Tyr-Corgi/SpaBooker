@@ -4,11 +4,13 @@
 @using SpaBooker.Core.Enums
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Web
 @inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @attribute [Authorize(Roles = "Admin")]
+@rendermode RenderMode.InteractiveServer
 
 <PageTitle>Admin Scheduler - SpaBooker</PageTitle>
 
@@ -167,8 +169,11 @@
                                         {
                                             var booking = GetBookingForRoomSlot(room.Id, timeSlot, slotEnd);
                                             var cellClass = booking != null ? "grid-cell slot-cell room-slot occupied" : "grid-cell slot-cell room-slot available";
+                                            var currentRoom = room;
+                                            var currentTimeSlot = timeSlot;
+                                            var currentBooking = booking;
                                             
-                                            <div class="@cellClass" @onclick="() => HandleRoomSlotClick(room, timeSlot, booking)">
+                                            <button type="button" class="@cellClass" @onclick="() => HandleRoomSlotClick(currentRoom, currentTimeSlot, currentBooking)" @onclick:stopPropagation="true">
                                                 @if (booking != null)
                                                 {
                                                     <div class="booking-info">
@@ -187,24 +192,27 @@
                                                         <div class="small">Available</div>
                                                     </div>
                                                 }
-                                            </div>
+                                            </button>
                                         }
 
                                         @* Therapist Cells *@
                                         @foreach (var therapist in therapists)
                                         {
                                             var booking = GetBookingForTherapistSlot(therapist.Id, timeSlot, slotEnd);
-                                            var blocked = GetBlockedTimeForTherapist(therapist.Id, timeSlot);
-                                            var cellClass = blocked != null ? "grid-cell slot-cell therapist-slot blocked" :
+                                            var isScheduled = IsTherapistScheduledForSlot(therapist.Id, timeSlot);
+                                            var cellClass = !isScheduled ? "grid-cell slot-cell therapist-slot unavailable" :
                                                            booking != null ? "grid-cell slot-cell therapist-slot occupied" :
                                                            "grid-cell slot-cell therapist-slot available";
+                                            var currentTherapist = therapist;
+                                            var currentTimeSlot = timeSlot;
+                                            var currentBooking = booking;
                                             
-                                            <div class="@cellClass" @onclick="() => HandleTherapistSlotClick(therapist, timeSlot, booking)">
-                                                @if (blocked != null)
+                                            <button type="button" class="@cellClass" @onclick="() => HandleTherapistSlotClick(currentTherapist, currentTimeSlot, currentBooking)" @onclick:stopPropagation="true">
+                                                @if (!isScheduled)
                                                 {
                                                     <div class="blocked-info">
-                                                        <i class="bi bi-slash-circle"></i>
-                                                        <div class="small">Blocked</div>
+                                                        <i class="bi bi-calendar-x"></i>
+                                                        <div class="small">Not Scheduled</div>
                                                     </div>
                                                 }
                                                 else if (booking != null)
@@ -224,10 +232,11 @@
                                                 else
                                                 {
                                                     <div class="available-label">
+                                                        <i class="bi bi-plus-circle"></i>
                                                         <div class="small">Available</div>
                                                     </div>
                                                 }
-                                            </div>
+                                            </button>
                                         }
                                     }
                                 </div>
@@ -262,13 +271,35 @@
                     }
 
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <strong>Room:</strong> @selectedRoom?.Name
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <strong>Time:</strong> @selectedTimeSlot.ToString(@"hh\:mm")
                         </div>
+                        <div class="col-md-4">
+                            @{
+                                var availableMins = selectedRoom != null ? GetAvailableMinutesForRoom(selectedRoom.Id, currentDate.Date.Add(selectedTimeSlot)) : 0;
+                            }
+                            <strong>Available:</strong> 
+                            <span class="badge bg-info">@availableMins min</span>
+                        </div>
                     </div>
+
+                    @if (availableServices.Any())
+                    {
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>@availableServices.Count service(s)</strong> available that fit in this time slot and are compatible with this room.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>No services available.</strong> Either no services are configured for this room, or there isn't enough time before the next booking.
+                        </div>
+                    }
 
                     <div class="mb-3">
                         <label class="form-label">Therapist *</label>
@@ -279,6 +310,10 @@
                                 <option value="@therapist.Id">@therapist.FirstName @therapist.LastName</option>
                             }
                         </select>
+                        @if (!availableTherapists.Any())
+                        {
+                            <small class="text-danger">⚠️ No therapists available for this time slot</small>
+                        }
                     </div>
 
                     <div class="mb-3">
@@ -287,13 +322,9 @@
                             <option value="0">-- Select Service --</option>
                             @foreach (var service in availableServices)
                             {
-                                <option value="@service.Id">@service.Name (@service.DurationMinutes minutes - $@service.BasePrice)</option>
+                                <option value="@service.Id">@service.Name (@service.DurationMinutes min - $@service.BasePrice.ToString("F2"))</option>
                             }
                         </select>
-                        @if (!availableServices.Any() && !string.IsNullOrEmpty(assignmentModel.TherapistId))
-                        {
-                            <small class="text-muted">No services available for this room</small>
-                        }
                     </div>
 
                     <div class="mb-3">
@@ -524,8 +555,10 @@
                 .OrderBy(b => b.StartTime)
                 .ToListAsync();
 
-            var blockedTimes = await context.TherapistAvailability
-                .Where(a => a.SpecificDate == currentDate.Date && !a.IsAvailable)
+            // Load ALL availability for the day (both specific dates and weekly recurring)
+            blockedTimes = await context.TherapistAvailability
+                .Where(a => (a.SpecificDate == currentDate.Date) || 
+                           (a.SpecificDate == null && a.DayOfWeek == currentDate.DayOfWeek))
                 .ToListAsync();
 
             // Now load UserManager operations (which use a separate DbContext internally)
@@ -596,7 +629,37 @@
             bt.EndTime > slotStart);
     }
 
-    private void HandleRoomSlotClick(Room room, TimeSpan timeSlot, Booking? booking)
+    private bool IsTherapistScheduledForSlot(string therapistId, TimeSpan slotTime)
+    {
+        // Check specific date first (overrides weekly schedule)
+        var specificAvailability = blockedTimes.FirstOrDefault(a => 
+            a.TherapistId == therapistId && a.SpecificDate == currentDate.Date);
+        
+        if (specificAvailability != null)
+        {
+            return specificAvailability.IsAvailable && 
+                   slotTime >= specificAvailability.StartTime && 
+                   slotTime < specificAvailability.EndTime;
+        }
+        
+        // Fall back to weekly schedule
+        var weeklyAvailability = blockedTimes.FirstOrDefault(a => 
+            a.TherapistId == therapistId && 
+            a.SpecificDate == null && 
+            a.DayOfWeek == currentDate.DayOfWeek);
+        
+        if (weeklyAvailability != null)
+        {
+            return weeklyAvailability.IsAvailable && 
+                   slotTime >= weeklyAvailability.StartTime && 
+                   slotTime < weeklyAvailability.EndTime;
+        }
+        
+        // No schedule = not working (NEW DEFAULT BEHAVIOR)
+        return false;
+    }
+
+    private async Task HandleRoomSlotClick(Room room, TimeSpan timeSlot, Booking? booking)
     {
         if (booking != null)
         {
@@ -604,7 +667,7 @@
         }
         else
         {
-            ShowAssignmentModal(room, timeSlot);
+            await ShowAssignmentModal(room, timeSlot);
         }
     }
 
@@ -616,22 +679,25 @@
         }
     }
 
-    private async void ShowAssignmentModal(Room room, TimeSpan timeSlot)
+    private async Task ShowAssignmentModal(Room room, TimeSpan timeSlot)
     {
         selectedRoom = room;
         selectedTimeSlot = timeSlot;
         assignmentModel = new AssignmentModel();
         assignmentError = null;
 
-        // Load available therapists (not blocked, not booked during this slot)
+        // Calculate available time until next booking
         var slotStart = currentDate.Date.Add(timeSlot);
+        var availableMinutes = GetAvailableMinutesForRoom(room.Id, slotStart);
+        
+        // Load available therapists (not blocked, not booked during this slot)
         var slotEnd = slotStart.AddMinutes(30);
         
         availableTherapists = therapists.Where(t => 
             IsTherapistAvailable(t.Id, slotStart, slotEnd))
             .ToList();
 
-        // Load services for this room
+        // Load services for this room that fit in the available time
         using var context = await DbContextFactory.CreateDbContextAsync();
         var roomServiceIds = await context.RoomServiceCapabilities
             .Where(rsc => rsc.RoomId == room.Id)
@@ -641,12 +707,37 @@
         availableServices = await context.SpaServices
             .Where(s => s.LocationId == selectedLocationId 
                      && s.IsActive 
-                     && roomServiceIds.Contains(s.Id))
-            .OrderBy(s => s.Name)
+                     && roomServiceIds.Contains(s.Id)
+                     && s.DurationMinutes <= availableMinutes) // Only services that fit!
+            .OrderBy(s => s.DurationMinutes) // Sort by duration (shortest first)
+            .ThenBy(s => s.Name)
             .ToListAsync();
 
         showAssignmentModal = true;
         StateHasChanged();
+    }
+    
+    /// <summary>
+    /// Calculate how many minutes are available in a room starting from the given time
+    /// before the next booking occurs.
+    /// </summary>
+    private int GetAvailableMinutesForRoom(int roomId, DateTime startTime)
+    {
+        // Find the next booking in this room after the start time
+        var nextBooking = bookings
+            .Where(b => b.RoomId == roomId && b.StartTime > startTime)
+            .OrderBy(b => b.StartTime)
+            .FirstOrDefault();
+        
+        if (nextBooking == null)
+        {
+            // No next booking - available until end of day (assume 8 PM / 20:00)
+            var endOfDay = startTime.Date.AddHours(20);
+            return (int)(endOfDay - startTime).TotalMinutes;
+        }
+        
+        // Calculate minutes until next booking
+        return (int)(nextBooking.StartTime - startTime).TotalMinutes;
     }
 
     private Task OnTherapistSelected()
@@ -786,12 +877,33 @@
 
         if (hasBooking) return false;
 
-        // Check for blocked time
-        var hasBlock = blockedTimes.Any(bt => bt.TherapistId == therapistId
-            && bt.StartTime <= startTime.TimeOfDay
-            && bt.EndTime >= endTime.TimeOfDay);
-
-        return !hasBlock;
+        // NEW: Check if therapist is scheduled for this time (default = unavailable)
+        // Check specific date availability first
+        var specificAvailability = blockedTimes.FirstOrDefault(a => 
+            a.TherapistId == therapistId && a.SpecificDate == startTime.Date);
+        
+        if (specificAvailability != null)
+        {
+            return specificAvailability.IsAvailable && 
+                   startTime.TimeOfDay >= specificAvailability.StartTime && 
+                   endTime.TimeOfDay <= specificAvailability.EndTime;
+        }
+        
+        // Fall back to weekly schedule
+        var weeklyAvailability = blockedTimes.FirstOrDefault(a => 
+            a.TherapistId == therapistId && 
+            a.SpecificDate == null && 
+            a.DayOfWeek == startTime.DayOfWeek);
+        
+        if (weeklyAvailability != null)
+        {
+            return weeklyAvailability.IsAvailable && 
+                   startTime.TimeOfDay >= weeklyAvailability.StartTime && 
+                   endTime.TimeOfDay <= weeklyAvailability.EndTime;
+        }
+        
+        // No schedule = not available (NEW DEFAULT BEHAVIOR)
+        return false;
     }
 
     private bool IsRoomAvailable(int roomId, DateTime startTime, DateTime endTime)
