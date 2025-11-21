@@ -79,6 +79,22 @@
     letter-spacing: 0.5px;
 }
 
+/* Rooms Section Header - Rose Gold Theme (Lighter) */
+.section-divider.rooms-section {
+    background: linear-gradient(135deg, #fef5f1 0%, #f8e6dc 100%);
+    color: #a0826d;
+    font-weight: 700;
+    border-left: 4px solid #d4a373;
+}
+
+/* Therapists Section Header - Rose/Pink Theme (Deeper) */
+.section-divider.therapists-section {
+    background: linear-gradient(135deg, #ffeef5 0%, #ffd6e8 100%);
+    color: #d4698b;
+    font-weight: 700;
+    border-left: 4px solid #e591b0;
+}
+
 .time-header {
     background-color: #ffffff;
     border-right: 2px solid #dee2e6;
@@ -99,6 +115,12 @@
 
 .therapist-column {
     background-color: #e8f5e9;
+}
+
+/* First Therapist Column - Thick left border to separate from rooms */
+.therapist-column.first-therapist,
+.therapist-slot.first-therapist {
+    border-left: 4px solid #d4a373 !important;
 }
 
 /* Time Cell */
@@ -327,5 +349,17 @@
 
 .modal-body dl dd {
     color: #212529;
+}
+
+/* Client Name Link */
+.client-name-link {
+    color: #d4a574 !important; /* Rose gold color */
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.client-name-link:hover {
+    color: #c08d5a !important;
+    text-decoration: underline !important;
 }
 

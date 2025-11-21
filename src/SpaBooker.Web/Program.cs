@@ -296,6 +296,9 @@ using (var scope = app.Services.CreateScope())
         if (app.Environment.IsDevelopment())
         {
             await DbSeeder.SeedMockDataAsync(services);
+            
+            // Seed 100 appointments between Nov 1 and Dec 1
+            await DbSeeder.Seed100AppointmentsAsync(services);
         }
     }
     catch (Exception ex)

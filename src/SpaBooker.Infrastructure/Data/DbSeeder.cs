@@ -1686,5 +1686,101 @@ public static class DbSeeder
         context.Bookings.AddRange(bookings);
         await context.SaveChangesAsync();
     }
+
+    public static async Task Seed100AppointmentsAsync(IServiceProvider serviceProvider)
+    {
+        var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
+        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        // First, delete ALL existing bookings
+        var existingBookings = await context.Bookings.ToListAsync();
+        context.Bookings.RemoveRange(existingBookings);
+        await context.SaveChangesAsync();
+
+        Console.WriteLine($"Deleted {existingBookings.Count} existing bookings.");
+
+        // Get all clients, therapists, services, rooms, and locations
+        var clients = await userManager.GetUsersInRoleAsync("Client");
+        var therapists = await userManager.GetUsersInRoleAsync("Therapist");
+        var services = await context.SpaServices.ToListAsync();
+        var rooms = await context.Rooms.ToListAsync();
+        var locations = await context.Locations.ToListAsync();
+
+        if (!clients.Any() || !therapists.Any() || !services.Any() || !locations.Any())
+        {
+            Console.WriteLine("Cannot seed appointments: missing clients, therapists, services, or locations.");
+            return;
+        }
+
+        var random = new Random(42); // Fixed seed for reproducibility
+        var bookings = new List<Booking>();
+
+        // Date range: November 1 to December 1, 2025
+        var startDate = new DateTime(2025, 11, 1, 0, 0, 0, DateTimeKind.Utc);
+        var endDate = new DateTime(2025, 12, 1, 0, 0, 0, DateTimeKind.Utc);
+        var totalDays = (endDate - startDate).Days;
+
+        var statuses = new[] { BookingStatus.Confirmed, BookingStatus.Completed, BookingStatus.Cancelled, BookingStatus.NoShow };
+        var statusWeights = new[] { 70, 20, 7, 3 }; // 70% confirmed, 20% completed, 7% cancelled, 3% no-show
+
+        for (int i = 0; i < 100; i++)
+        {
+            // Random date within range
+            var randomDays = random.Next(0, totalDays);
+            var bookingDate = startDate.AddDays(randomDays);
+
+            // Random start time between 8:00 AM and 7:00 PM (to allow for service duration)
+            var startHour = random.Next(8, 19);
+            var startMinute = random.Next(0, 4) * 15; // 0, 15, 30, or 45 minutes
+            var startTime = new DateTime(bookingDate.Year, bookingDate.Month, bookingDate.Day, startHour, startMinute, 0, DateTimeKind.Utc);
+
+            // Random service
+            var service = services[random.Next(services.Count)];
+
+            // Service duration (30, 60, or 90 minutes)
+            var durations = new[] { 30, 60, 90 };
+            var duration = durations[random.Next(durations.Length)];
+            var endTime = startTime.AddMinutes(duration);
+
+            // Random client and therapist
+            var client = clients.ElementAt(random.Next(clients.Count));
+            var therapist = therapists.ElementAt(random.Next(therapists.Count));
+
+            // Random room (optional - 70% chance of having a room)
+            int? roomId = null;
+            if (rooms.Any() && random.Next(100) < 70)
+            {
+                roomId = rooms[random.Next(rooms.Count)].Id;
+            }
+
+            // Random status based on weights
+            var statusRoll = random.Next(100);
+            BookingStatus status;
+            if (statusRoll < statusWeights[0]) status = BookingStatus.Confirmed;
+            else if (statusRoll < statusWeights[0] + statusWeights[1]) status = BookingStatus.Completed;
+            else if (statusRoll < statusWeights[0] + statusWeights[1] + statusWeights[2]) status = BookingStatus.Cancelled;
+            else status = BookingStatus.NoShow;
+
+            bookings.Add(new Booking
+            {
+                ClientId = client.Id,
+                TherapistId = therapist.Id,
+                ServiceId = service.Id,
+                RoomId = roomId,
+                LocationId = locations[0].Id,
+                StartTime = startTime,
+                EndTime = endTime,
+                Status = status,
+                TotalPrice = service.BasePrice,
+                Notes = $"Appointment #{i + 1} - {status}",
+                CreatedAt = startTime.AddDays(-random.Next(1, 30)) // Created 1-30 days before appointment
+            });
+        }
+
+        context.Bookings.AddRange(bookings);
+        await context.SaveChangesAsync();
+
+        Console.WriteLine($"Successfully seeded 100 appointments between {startDate:yyyy-MM-dd} and {endDate:yyyy-MM-dd}");
+    }
 }
 
