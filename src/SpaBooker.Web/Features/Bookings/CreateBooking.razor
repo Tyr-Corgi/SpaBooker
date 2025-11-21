@@ -1,7 +1,9 @@
 @page "/bookings/create/{ServiceId:int}"
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Options
 @using SpaBooker.Core.Entities
 @using SpaBooker.Core.Interfaces
+@using SpaBooker.Core.Settings
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
 @inject ApplicationDbContext DbContext
@@ -9,6 +11,7 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject IEmailService EmailService
+@inject IOptions<BufferTimeSettings> BufferTimeOptions
 @attribute [Authorize]
 
 <PageTitle>Book Appointment - SpaBooker</PageTitle>
@@ -326,9 +329,9 @@
         {
             // No specific date - check weekly schedule
             var weeklyAvailability = await DbContext.TherapistAvailability
-                .FirstOrDefaultAsync(a => a.TherapistId == bookingModel.TherapistId 
-                                       && a.DayOfWeek == dayOfWeek 
-                                       && a.SpecificDate == null);
+            .FirstOrDefaultAsync(a => a.TherapistId == bookingModel.TherapistId 
+                                   && a.DayOfWeek == dayOfWeek 
+                                   && a.SpecificDate == null);
 
             if (weeklyAvailability != null)
             {
@@ -366,13 +369,13 @@
             currentSlot = currentSlot.Add(TimeSpan.FromMinutes(30));
         }
 
-        // Filter out slots that conflict with existing bookings
+        // Filter out slots that conflict with existing bookings (NO buffer for therapist - they can move rooms)
         foreach (var slot in slots)
         {
             var slotStart = DateTime.SpecifyKind(bookingModel.AppointmentDate.Date, DateTimeKind.Utc) + slot;
             var slotEnd = slotStart.AddMinutes(service.DurationMinutes);
 
-            // Check if this slot overlaps with any existing booking
+            // Check if this slot overlaps with any existing booking for this therapist
             bool hasConflict = existingBookings.Any(b => 
                 (slotStart >= b.StartTime && slotStart < b.EndTime) ||
                 (slotEnd > b.StartTime && slotEnd <= b.EndTime) ||

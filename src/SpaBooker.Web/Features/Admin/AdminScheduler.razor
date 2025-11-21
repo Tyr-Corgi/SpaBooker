@@ -1,7 +1,9 @@
 @page "/admin/scheduler"
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Options
 @using SpaBooker.Core.Entities
 @using SpaBooker.Core.Enums
+@using SpaBooker.Core.Settings
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Web
@@ -9,6 +11,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
+@inject IOptions<BufferTimeSettings> BufferTimeOptions
 @attribute [Authorize(Roles = "Admin")]
 @rendermode RenderMode.InteractiveServer
 
@@ -75,15 +78,15 @@
                                 <label class="form-label fw-bold mb-2">
                                     <i class="bi bi-calendar-event"></i> Date
                                 </label>
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-outline-secondary" @onclick="NavigatePreviousDay">
-                                        <i class="bi bi-chevron-left"></i>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <button class="btn btn-primary fw-bold" @onclick="NavigatePreviousDay" title="Previous Day">
+                                        ◀
                                     </button>
-                                    <div class="flex-grow-1 text-center align-self-center">
+                                    <div class="flex-grow-1 text-center date-display-box">
                                         <strong>@currentDate.ToString("dddd, dd/MM/yyyy")</strong>
                                     </div>
-                                    <button class="btn btn-outline-secondary" @onclick="NavigateNextDay">
-                                        <i class="bi bi-chevron-right"></i>
+                                    <button class="btn btn-primary fw-bold" @onclick="NavigateNextDay" title="Next Day">
+                                        ▶
                                     </button>
                                 </div>
                             </div>
@@ -110,6 +113,7 @@
         }
         else
         {
+            @ClearRenderedBookings()
             <!-- Schedule Grid -->
             <div class="row">
                 <div class="col-12">
@@ -156,11 +160,13 @@
                                     }
 
                                     <!-- Time Slot Rows -->
+                                    @{ int rowNum = 3; } @* Start after header rows *@
                                     @foreach (var timeSlot in timeSlots)
                                     {
                                         var slotEnd = timeSlot.Add(TimeSpan.FromMinutes(30));
+                                        int colNum = 2; // Start after time column
                                         
-                                        <div class="grid-cell time-cell">
+                                        <div class="grid-cell time-cell" style="grid-column: 1; grid-row: @rowNum;">
                                             @timeSlot.ToString(@"hh\:mm")
                                         </div>
 
@@ -168,57 +174,99 @@
                                         @foreach (var room in rooms)
                                         {
                                             var booking = GetBookingForRoomSlot(room.Id, timeSlot, slotEnd);
-                                            var cellClass = booking != null ? "grid-cell slot-cell room-slot occupied" : "grid-cell slot-cell room-slot available";
-                                            var currentRoom = room;
-                                            var currentTimeSlot = timeSlot;
-                                            var currentBooking = booking;
+                                            var shouldRender = ShouldRenderRoomBooking(booking);
                                             
-                                            <button type="button" class="@cellClass" @onclick="() => HandleRoomSlotClick(currentRoom, currentTimeSlot, currentBooking)" @onclick:stopPropagation="true">
-                                                @if (booking != null)
-                                                {
+                                            @* Skip rendering for cells covered by merged bookings (they're already occupied by spanning cell) *@
+                                            @if (!shouldRender && booking != null)
+                                            {
+                                                @* Do nothing - this grid position is occupied by a spanning cell from a previous row *@
+                                                @* colNum++ is handled at the end of the loop *@
+                                            }
+                                            else if (shouldRender && booking != null)
+                                            {
+                                                // Calculate span and mark as rendered (room section only)
+                                                var span = CalculateBookingSpan(booking, timeSlot);
+                                                renderedRoomBookingIds.Add(booking.Id);
+                                                
+                                                var currentRoom = room;
+                                                var currentTimeSlot = timeSlot;
+                                                var currentBooking = booking;
+                                                
+                                                <button type="button" class="grid-cell slot-cell room-slot occupied merged-slot" 
+                                                        style="grid-column: @colNum; grid-row: @rowNum / span @span;" 
+                                                        @onclick="() => HandleRoomSlotClick(currentRoom, currentTimeSlot, currentBooking)" 
+                                                        @onclick:stopPropagation="true">
                                                     <div class="booking-info">
-                                                        <div class="time-label">@booking.StartTime.ToString("HH:mm")</div>
+                                                        <div class="time-label">@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</div>
                                                         <div class="client-name">@booking.Client.FirstName @booking.Client.LastName</div>
                                                         <div class="service-name">@booking.Service.Name</div>
                                                         <div class="therapist-badge">
                                                             <i class="bi bi-person-fill"></i> @booking.Therapist.FirstName
                                                         </div>
                                                     </div>
+                                                </button>
+                                            }
+                                            else if (booking == null)
+                                            {
+                                                var currentRoom = room;
+                                                var currentTimeSlot = timeSlot;
+                                                var isBuffer = IsBufferSlot(room.Id, timeSlot, slotEnd);
+                                                
+                                                @if (isBuffer)
+                                                {
+                                                    <div class="grid-cell slot-cell room-slot buffer-slot" style="grid-column: @colNum; grid-row: @rowNum;">
+                                                        <div class="buffer-label">
+                                                            <i class="bi bi-hourglass-split"></i>
+                                                            <div class="small">Buffer</div>
+                                                        </div>
+                                                    </div>
                                                 }
                                                 else
                                                 {
+                                                    <button type="button" class="grid-cell slot-cell room-slot available" 
+                                                            style="grid-column: @colNum; grid-row: @rowNum;"
+                                                            @onclick="() => HandleRoomSlotClick(currentRoom, currentTimeSlot, null)" 
+                                                            @onclick:stopPropagation="true">
                                                     <div class="available-label">
                                                         <i class="bi bi-plus-circle"></i>
                                                         <div class="small">Available</div>
                                                     </div>
+                                                    </button>
                                                 }
-                                            </button>
+                                            }
+                                            colNum++;
                                         }
 
                                         @* Therapist Cells *@
+                                        colNum = 2 + rooms.Count; // Start after time + room columns
                                         @foreach (var therapist in therapists)
                                         {
                                             var booking = GetBookingForTherapistSlot(therapist.Id, timeSlot, slotEnd);
                                             var isScheduled = IsTherapistScheduledForSlot(therapist.Id, timeSlot);
-                                            var cellClass = !isScheduled ? "grid-cell slot-cell therapist-slot unavailable" :
-                                                           booking != null ? "grid-cell slot-cell therapist-slot occupied" :
-                                                           "grid-cell slot-cell therapist-slot available";
-                                            var currentTherapist = therapist;
-                                            var currentTimeSlot = timeSlot;
-                                            var currentBooking = booking;
+                                            var shouldRender = ShouldRenderTherapistBooking(booking);
                                             
-                                            <button type="button" class="@cellClass" @onclick="() => HandleTherapistSlotClick(currentTherapist, currentTimeSlot, currentBooking)" @onclick:stopPropagation="true">
-                                                @if (!isScheduled)
-                                                {
-                                                    <div class="blocked-info">
-                                                        <i class="bi bi-calendar-x"></i>
-                                                        <div class="small">Not Scheduled</div>
-                                                    </div>
-                                                }
-                                                else if (booking != null)
-                                                {
+                                            @* Skip rendering for cells covered by merged bookings (they're already occupied by spanning cell) *@
+                                            @if (!shouldRender && booking != null)
+                                            {
+                                                @* Do nothing - this grid position is occupied by a spanning cell from a previous row *@
+                                                @* colNum++ is handled at the end of the loop *@
+                                            }
+                                            else if (shouldRender && booking != null)
+                                            {
+                                                // Calculate span and mark as rendered (therapist section only)
+                                                var span = CalculateBookingSpan(booking, timeSlot);
+                                                renderedTherapistBookingIds.Add(booking.Id);
+                                                
+                                                var currentTherapist = therapist;
+                                                var currentTimeSlot = timeSlot;
+                                                var currentBooking = booking;
+                                                
+                                                <button type="button" class="grid-cell slot-cell therapist-slot occupied merged-slot" 
+                                                        style="grid-column: @colNum; grid-row: @rowNum / span @span;" 
+                                                        @onclick="() => HandleTherapistSlotClick(currentTherapist, currentTimeSlot, currentBooking)" 
+                                                        @onclick:stopPropagation="true">
                                                     <div class="booking-info">
-                                                        <div class="time-label">@booking.StartTime.ToString("HH:mm")</div>
+                                                        <div class="time-label">@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</div>
                                                         <div class="client-name">@booking.Client.FirstName @booking.Client.LastName</div>
                                                         <div class="service-name">@booking.Service.Name</div>
                                                         @if (booking.Room != null)
@@ -228,16 +276,41 @@
                                                             </div>
                                                         }
                                                     </div>
-                                                }
-                                                else
-                                                {
+                                                </button>
+                                            }
+                                            else if (!isScheduled)
+                                            {
+                                                var currentTherapist = therapist;
+                                                var currentTimeSlot = timeSlot;
+                                                
+                                                <button type="button" class="grid-cell slot-cell therapist-slot unavailable" 
+                                                        style="grid-column: @colNum; grid-row: @rowNum;"
+                                                        @onclick="() => HandleTherapistSlotClick(currentTherapist, currentTimeSlot, null)" 
+                                                        @onclick:stopPropagation="true">
+                                                    <div class="blocked-info">
+                                                        <i class="bi bi-calendar-x"></i>
+                                                        <div class="small">Not Scheduled</div>
+                                                    </div>
+                                                </button>
+                                            }
+                                            else if (booking == null)
+                                            {
+                                                var currentTherapist = therapist;
+                                                var currentTimeSlot = timeSlot;
+                                                
+                                                <button type="button" class="grid-cell slot-cell therapist-slot available" 
+                                                        style="grid-column: @colNum; grid-row: @rowNum;"
+                                                        @onclick="() => HandleTherapistSlotClick(currentTherapist, currentTimeSlot, null)" 
+                                                        @onclick:stopPropagation="true">
                                                     <div class="available-label">
                                                         <i class="bi bi-plus-circle"></i>
                                                         <div class="small">Available</div>
                                                     </div>
-                                                }
-                                            </button>
+                                                </button>
+                                            }
+                                            colNum++;
                                         }
+                                        rowNum++;
                                     }
                                 </div>
                             </div>
@@ -329,13 +402,38 @@
 
                     <div class="mb-3">
                         <label class="form-label">Client *</label>
-                        <select class="form-select" @bind="assignmentModel.ClientId">
-                            <option value="">-- Select Client --</option>
-                            @foreach (var client in clients)
+                        <div class="position-relative">
+                            <input type="text" 
+                                   class="form-control" 
+                                   placeholder="Search by name or email..."
+                                   @bind="assignmentClientSearchText"
+                                   @bind:event="oninput"
+                                   @onfocus="() => showAssignmentClientDropdown = true"
+                                   autocomplete="off" />
+                            
+                            @if (showAssignmentClientDropdown && filteredAssignmentClients.Any())
                             {
-                                <option value="@client.Id">@client.FirstName @client.LastName (@client.Email)</option>
+                                <div class="client-search-results">
+                                    @foreach (var client in filteredAssignmentClients.Take(10))
+                            {
+                                        <div class="client-search-item" @onclick="() => SelectAssignmentClient(client)">
+                                            <div class="fw-bold">@client.FirstName @client.LastName</div>
+                                            <small class="text-muted">@client.Email</small>
+                                        </div>
+                                    }
+                                </div>
                             }
-                        </select>
+                            
+                            @if (!string.IsNullOrEmpty(selectedAssignmentClientName))
+                            {
+                                <div class="alert alert-success mt-2 py-2 d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-check-circle me-2"></i>Selected: <strong>@selectedAssignmentClientName</strong></span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearAssignmentClientSelection">
+                                        <i class="bi bi-x"></i> Clear
+                                    </button>
+                                </div>
+                            }
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -346,6 +444,131 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CloseAssignmentModal">Cancel</button>
                     <button type="button" class="btn btn-primary" @onclick="SaveAssignment" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Create Booking
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Therapist Booking Modal -->
+@if (showTherapistBookingModal)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-calendar-plus"></i> Book @selectedTherapist?.FirstName @selectedTherapist?.LastName
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseTherapistBookingModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(therapistBookingError))
+                    {
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>@therapistBookingError
+                        </div>
+                    }
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Therapist:</strong> @selectedTherapist?.FirstName @selectedTherapist?.LastName
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Date:</strong> @currentDate.ToString("MMM dd, yyyy")
+                        </div>
+                    </div>
+
+                    <!-- Time Selection -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Start Time *</label>
+                            <input type="time" class="form-control" value="@therapistBookingModel.StartTime" 
+                                   @onchange="@((ChangeEventArgs e) => therapistBookingModel.StartTime = e.Value?.ToString() ?? string.Empty)" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">End Time *</label>
+                            <input type="time" class="form-control" value="@therapistBookingModel.EndTime" 
+                                   @onchange="@((ChangeEventArgs e) => therapistBookingModel.EndTime = e.Value?.ToString() ?? string.Empty)" />
+                        </div>
+                    </div>
+
+                    <!-- Service Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Service *</label>
+                        <select class="form-select" @bind="therapistBookingModel.ServiceId" @bind:after="OnTherapistServiceSelected">
+                            <option value="0">-- Select a service --</option>
+                            @foreach (var service in availableServicesForTherapist)
+                            {
+                                <option value="@service.Id">
+                                    @service.Name (@service.DurationMinutes min - $@service.BasePrice.ToString("F2"))
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Client Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Client *</label>
+                        <div class="position-relative">
+                            <input type="text" 
+                                   class="form-control" 
+                                   placeholder="Search by name or email..."
+                                   @bind="clientSearchText"
+                                   @bind:event="oninput"
+                                   @onfocus="() => showClientDropdown = true"
+                                   autocomplete="off" />
+                            
+                            @if (showClientDropdown && filteredClients.Any())
+                            {
+                                <div class="client-search-results">
+                                    @foreach (var client in filteredClients.Take(10))
+                                    {
+                                        <div class="client-search-item" @onclick="() => SelectClient(client)">
+                                            <div class="fw-bold">@client.FirstName @client.LastName</div>
+                                            <small class="text-muted">@client.Email</small>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(selectedClientName))
+                            {
+                                <div class="alert alert-success mt-2 py-2 d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-check-circle me-2"></i>Selected: <strong>@selectedClientName</strong></span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearClientSelection">
+                                        <i class="bi bi-x"></i> Clear
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" rows="2" @bind="therapistBookingModel.Notes"></textarea>
+                    </div>
+
+                    <!-- Room Assignment Info -->
+                    @if (!string.IsNullOrEmpty(therapistBookingModel.AssignedRoomName))
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-door-open me-2"></i>
+                            Will be assigned to: <strong>@therapistBookingModel.AssignedRoomName</strong>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseTherapistBookingModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveTherapistBooking" disabled="@isSaving">
                         @if (isSaving)
                         {
                             <span class="spinner-border spinner-border-sm me-2"></span>
@@ -401,18 +624,57 @@
                                 
                                 <dt class="col-sm-4">Room:</dt>
                                 <dd class="col-sm-8">
+                                    <select class="form-select form-select-sm" 
+                                            @bind="tempRoomSelection"
+                                            @bind:after="HandleRoomSelection"
+                                            style="max-width: 250px;"
+                                            disabled="@isRoomSaving">
+                                        <option value="">Unassigned</option>
+                                        @foreach (var room in availableRoomsForBooking)
+                                    {
+                                            <option value="@room.Id">@room.Name</option>
+                                        }
+                                    </select>
+                                    
+                                    @if (isRoomSaving)
+                                    {
+                                        <div class="alert alert-info alert-sm mt-2 mb-0">
+                                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                                <span class="visually-hidden">Saving...</span>
+                                            </div>
+                                            Saving room assignment...
+                                        </div>
+                                    }
+                                    
+                                    @if (!string.IsNullOrEmpty(roomAssignmentSuccess))
+                                    {
+                                        <div class="alert alert-success alert-sm mt-2 mb-0">
+                                            <i class="bi bi-check-circle-fill"></i> @roomAssignmentSuccess
+                                        </div>
+                                    }
+                                    
+                                    @if (!string.IsNullOrEmpty(roomAssignmentError))
+                                    {
+                                        <div class="alert alert-danger alert-sm mt-2 mb-0">
+                                            <i class="bi bi-exclamation-triangle-fill"></i> <strong>Error:</strong> @roomAssignmentError
+                                        </div>
+                                    }
+                                    
                                     @if (selectedBooking.Room != null)
                                     {
-                                        <span class="badge" style="background-color: @selectedBooking.Room.ColorCode; color: white;">
-                                            @selectedBooking.Room.Name
+                                        <span class="badge mt-1 d-block" style="background-color: @selectedBooking.Room.ColorCode; color: white; max-width: 250px;">
+                                            <i class="bi bi-check-circle"></i> Currently Assigned: @selectedBooking.Room.Name
                                         </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">Unassigned</span>
                                     }
                                 </dd>
                             </dl>
+                            
+                            @if (!string.IsNullOrEmpty(roomAssignmentError))
+                            {
+                                <div class="alert alert-danger alert-sm mt-2 mb-0">
+                                    <i class="bi bi-exclamation-triangle"></i> @roomAssignmentError
+                                </div>
+                            }
                         </div>
                         
                         <div class="col-md-6">
@@ -466,6 +728,49 @@
     private bool showAssignmentModal = false;
     private string? assignmentError;
     private string? loadError;
+    
+    // Room assignment state
+    private List<Room> availableRoomsForBooking = new();
+    private string? roomAssignmentError;
+    private string? roomAssignmentSuccess;
+    private bool isRoomSaving = false;
+    private string tempRoomSelection = "";
+    
+    // Therapist booking modal state
+    private bool showTherapistBookingModal = false;
+    private string? therapistBookingError;
+    private TherapistBookingModel therapistBookingModel = new();
+    private List<SpaService> availableServicesForTherapist = new();
+    
+    // Client search state (Therapist Booking Modal)
+    private string _clientSearchText = string.Empty;
+    private string clientSearchText
+    {
+        get => _clientSearchText;
+        set
+        {
+            _clientSearchText = value;
+            FilterClients();
+        }
+    }
+    private bool showClientDropdown = false;
+    private string? selectedClientName;
+    private List<ApplicationUser> filteredClients = new();
+    
+    // Assignment modal client search state
+    private string _assignmentClientSearchText = string.Empty;
+    private string assignmentClientSearchText
+    {
+        get => _assignmentClientSearchText;
+        set
+        {
+            _assignmentClientSearchText = value;
+            FilterAssignmentClients();
+        }
+    }
+    private bool showAssignmentClientDropdown = false;
+    private string? selectedAssignmentClientName;
+    private List<ApplicationUser> filteredAssignmentClients = new();
 
     private List<Location> locations = new();
     private List<Room> rooms = new();
@@ -482,6 +787,11 @@
     private ApplicationUser? selectedTherapist;
     private TimeSpan selectedTimeSlot;
     private Booking? selectedBooking;
+
+    // Track which bookings have already been rendered (for slot merging)
+    // Separate tracking for room and therapist booking renders to allow same booking in both sections
+    private HashSet<int> renderedRoomBookingIds = new();
+    private HashSet<int> renderedTherapistBookingIds = new();
 
     private AssignmentModel assignmentModel = new();
 
@@ -524,6 +834,8 @@
     private async Task LoadScheduleData()
     {
         isLoading = true;
+        renderedRoomBookingIds.Clear(); // Clear for fresh render
+        renderedTherapistBookingIds.Clear();
         
         try
         {
@@ -556,8 +868,9 @@
                 .ToListAsync();
 
             // Load ALL availability for the day (both specific dates and weekly recurring)
+            var utcCurrentDate = DateTime.SpecifyKind(currentDate.Date, DateTimeKind.Utc);
             blockedTimes = await context.TherapistAvailability
-                .Where(a => (a.SpecificDate == currentDate.Date) || 
+                .Where(a => (a.SpecificDate == utcCurrentDate) || 
                            (a.SpecificDate == null && a.DayOfWeek == currentDate.DayOfWeek))
                 .ToListAsync();
 
@@ -568,8 +881,34 @@
 
             clients = (await UserManager.GetUsersInRoleAsync("Client")).ToList();
 
-            // Filter therapists to those who have bookings at this location
-            therapists = allStaff.Where(u => therapistIds.Contains(u.Id))
+            // Filter therapists to those who are scheduled to work on this day
+            therapists = allStaff.Where(therapist => 
+            {
+                // Check if therapist has a specific date schedule for today
+                var specificSchedule = blockedTimes.FirstOrDefault(a => 
+                    a.TherapistId == therapist.Id && 
+                    a.SpecificDate == utcCurrentDate && 
+                    a.IsAvailable);
+                
+                if (specificSchedule != null) return true;
+                
+                // Check if specifically blocked for today
+                var specificBlock = blockedTimes.FirstOrDefault(a => 
+                    a.TherapistId == therapist.Id && 
+                    a.SpecificDate == utcCurrentDate && 
+                    !a.IsAvailable);
+                
+                if (specificBlock != null) return false;
+                
+                // Fall back to weekly recurring schedule
+                var weeklySchedule = blockedTimes.FirstOrDefault(a => 
+                    a.TherapistId == therapist.Id && 
+                    a.SpecificDate == null && 
+                    a.DayOfWeek == currentDate.DayOfWeek && 
+                    a.IsAvailable);
+                
+                return weeklySchedule != null;
+            })
                 .OrderBy(u => u.FirstName)
                 .ThenBy(u => u.LastName)
                 .ToList();
@@ -621,6 +960,90 @@
             b.EndTime.TimeOfDay > slotStart);
     }
 
+    /// <summary>
+    /// Calculate how many 30-minute slots a booking spans starting from the current slot
+    /// </summary>
+    private int CalculateBookingSpan(Booking booking, TimeSpan currentSlot)
+    {
+        var bookingStart = booking.StartTime.TimeOfDay;
+        var bookingEnd = booking.EndTime.TimeOfDay;
+        
+        // If this slot doesn't contain the start of the booking, return 0 (already rendered)
+        if (bookingStart < currentSlot || bookingStart >= currentSlot.Add(TimeSpan.FromMinutes(30)))
+        {
+            return 0;
+        }
+        
+        // Calculate total duration in minutes
+        var durationMinutes = (bookingEnd - bookingStart).TotalMinutes;
+        
+        // Convert to number of 30-minute slots (round up)
+        var slots = (int)Math.Ceiling(durationMinutes / 30.0);
+        
+        return slots;
+    }
+
+    /// <summary>
+    /// Check if a booking should be rendered in the current slot or if it's already been rendered
+    /// </summary>
+    /// <summary>
+    /// Check if a booking should be rendered in a ROOM slot (prevents duplicate renders within room columns only)
+    /// </summary>
+    private bool ShouldRenderRoomBooking(Booking? booking)
+    {
+        if (booking == null) return false;
+        if (renderedRoomBookingIds.Contains(booking.Id)) return false;
+        return true;
+    }
+    
+    /// <summary>
+    /// Check if a booking should be rendered in a THERAPIST slot (prevents duplicate renders within therapist columns only)
+    /// </summary>
+    private bool ShouldRenderTherapistBooking(Booking? booking)
+    {
+        if (booking == null) return false;
+        if (renderedTherapistBookingIds.Contains(booking.Id)) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// Clear rendered booking IDs before each grid render to prevent bookings from disappearing after modal closes
+    /// </summary>
+    private string ClearRenderedBookings()
+    {
+        renderedRoomBookingIds.Clear();
+        renderedTherapistBookingIds.Clear();
+        return string.Empty; // Return empty string so it doesn't render anything in the markup
+    }
+
+    /// <summary>
+    /// Check if a time slot is within the buffer period after a booking
+    /// </summary>
+    private bool IsBufferSlot(int roomId, TimeSpan slotStart, TimeSpan slotEnd)
+    {
+        var bufferMinutes = BufferTimeOptions.Value.BufferMinutes;
+        if (bufferMinutes == 0) return false;
+
+        // Check if this slot falls within buffer time after any booking in this room
+        return bookings.Any(b => b.RoomId == roomId &&
+            b.EndTime.TimeOfDay <= slotStart &&
+            b.EndTime.TimeOfDay.Add(TimeSpan.FromMinutes(bufferMinutes)) > slotStart);
+    }
+
+    /// <summary>
+    /// Check if a time slot is within the buffer period after a therapist's booking
+    /// </summary>
+    private bool IsTherapistBufferSlot(string therapistId, TimeSpan slotStart, TimeSpan slotEnd)
+    {
+        var bufferMinutes = BufferTimeOptions.Value.BufferMinutes;
+        if (bufferMinutes == 0) return false;
+
+        // Check if this slot falls within buffer time after any of therapist's bookings
+        return bookings.Any(b => b.TherapistId == therapistId &&
+            b.EndTime.TimeOfDay <= slotStart &&
+            b.EndTime.TimeOfDay.Add(TimeSpan.FromMinutes(bufferMinutes)) > slotStart);
+    }
+
     private TherapistAvailability? GetBlockedTimeForTherapist(string therapistId, TimeSpan slotStart)
     {
         return blockedTimes.FirstOrDefault(bt => 
@@ -664,6 +1087,11 @@
         if (booking != null)
         {
             selectedBooking = booking;
+            tempRoomSelection = selectedBooking.RoomId?.ToString() ?? "";
+            roomAssignmentError = null;
+            roomAssignmentSuccess = null;
+            isRoomSaving = false;
+            await LoadAvailableRoomsForBooking();
         }
         else
         {
@@ -671,11 +1099,21 @@
         }
     }
 
-    private void HandleTherapistSlotClick(ApplicationUser therapist, TimeSpan timeSlot, Booking? booking)
+    private async Task HandleTherapistSlotClick(ApplicationUser therapist, TimeSpan timeSlot, Booking? booking)
     {
         if (booking != null)
         {
             selectedBooking = booking;
+            tempRoomSelection = selectedBooking.RoomId?.ToString() ?? "";
+            roomAssignmentError = null;
+            roomAssignmentSuccess = null;
+            isRoomSaving = false;
+            await LoadAvailableRoomsForBooking();
+        }
+        else
+        {
+            // Open therapist booking modal for available slots
+            await ShowTherapistBookingModal(therapist, timeSlot);
         }
     }
 
@@ -753,6 +1191,7 @@
         assignmentModel = new();
         assignmentError = null;
         selectedRoom = null;
+        ClearAssignmentClientSelection();
     }
 
     private async Task SaveAssignment()
@@ -838,6 +1277,52 @@
     private void CloseBookingModal()
     {
         selectedBooking = null;
+        availableRoomsForBooking.Clear();
+        roomAssignmentError = null;
+        roomAssignmentSuccess = null;
+        isRoomSaving = false;
+    }
+
+    private async Task LoadAvailableRoomsForBooking()
+    {
+        availableRoomsForBooking.Clear();
+        roomAssignmentError = null;
+        
+        if (selectedBooking == null) return;
+        
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        
+        // Get all rooms that support this service
+        var compatibleRoomIds = await context.RoomServiceCapabilities
+            .Where(rsc => rsc.ServiceId == selectedBooking.ServiceId)
+            .Select(rsc => rsc.RoomId)
+            .ToListAsync();
+        
+        var compatibleRooms = rooms.Where(r => compatibleRoomIds.Contains(r.Id)).ToList();
+        
+        // Filter to only rooms that are available during the booking time (including buffer)
+        foreach (var room in compatibleRooms)
+        {
+            if (IsRoomAvailableForBooking(room.Id, selectedBooking))
+            {
+                availableRoomsForBooking.Add(room);
+            }
+        }
+    }
+
+    private bool IsRoomAvailableForBooking(int roomId, Booking currentBooking)
+    {
+        var bufferMinutes = BufferTimeOptions.Value.BufferMinutes;
+        
+        // Check if any OTHER booking conflicts with this time slot (excluding current booking)
+        var hasConflict = bookings.Any(b => 
+            b.Id != currentBooking.Id && // Exclude the current booking
+            b.RoomId == roomId &&
+            ((currentBooking.StartTime >= b.StartTime && currentBooking.StartTime < b.EndTime.AddMinutes(bufferMinutes)) ||
+             (currentBooking.EndTime > b.StartTime && currentBooking.EndTime <= b.EndTime.AddMinutes(bufferMinutes)) ||
+             (currentBooking.StartTime <= b.StartTime && currentBooking.EndTime >= b.EndTime.AddMinutes(bufferMinutes))));
+        
+        return !hasConflict;
     }
 
     private async Task ConfirmBooking()
@@ -867,9 +1352,334 @@
         CloseBookingModal();
     }
 
+    private async Task HandleRoomSelection()
+    {
+        if (selectedBooking == null)
+        {
+            roomAssignmentError = "No booking selected";
+            return;
+        }
+        
+        try
+        {
+            // Clear previous messages and show loading
+            roomAssignmentError = null;
+            roomAssignmentSuccess = null;
+            isRoomSaving = true;
+            await InvokeAsync(StateHasChanged);
+            
+            // Parse the selected room ID (empty string means unassigned)
+            int? newRoomId = string.IsNullOrEmpty(tempRoomSelection) ? null : int.Parse(tempRoomSelection);
+            
+            Console.WriteLine($"[DEBUG] Starting room assignment: BookingId={selectedBooking.Id}, NewRoomId={newRoomId}");
+            
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var booking = await context.Bookings
+                .Include(b => b.Room)
+                .FirstOrDefaultAsync(b => b.Id == selectedBooking.Id);
+            
+            if (booking == null)
+            {
+                roomAssignmentError = "Booking not found in database (ID: " + selectedBooking.Id + ")";
+                Console.WriteLine($"[ERROR] Booking {selectedBooking.Id} not found");
+                isRoomSaving = false;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+            
+            Console.WriteLine($"[DEBUG] Found booking. Current RoomId: {booking.RoomId}, Setting to: {newRoomId}");
+            
+            var oldRoomId = booking.RoomId;
+            booking.RoomId = newRoomId;
+            booking.UpdatedAt = DateTime.UtcNow;
+            
+            // Explicitly mark the entity as modified to ensure EF Core tracks the change
+            context.Entry(booking).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+            
+            var saveResult = await context.SaveChangesAsync();
+            Console.WriteLine($"[DEBUG] SaveChangesAsync returned: {saveResult} rows affected");
+            
+            if (saveResult == 0)
+            {
+                roomAssignmentError = "No changes were saved to the database. SaveChangesAsync returned 0.";
+                isRoomSaving = false;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+            
+            // Success! Show success message
+            var roomName = newRoomId.HasValue ? $"Room {newRoomId}" : "Unassigned";
+            roomAssignmentSuccess = $"Room successfully updated to: {roomName}";
+            Console.WriteLine($"[SUCCESS] Room updated from {oldRoomId} to {newRoomId}");
+            
+            // Reload the schedule to show the updated room assignment
+            await LoadScheduleData();
+            
+            // Update the selected booking reference with the new room
+            selectedBooking = await context.Bookings
+                .Include(b => b.Service)
+                .Include(b => b.Client)
+                .Include(b => b.Therapist)
+                .Include(b => b.Room)
+                .FirstOrDefaultAsync(b => b.Id == selectedBooking.Id);
+            
+            Console.WriteLine($"[DEBUG] selectedBooking refreshed. New RoomId: {selectedBooking?.RoomId}, Room Name: {selectedBooking?.Room?.Name}");
+            
+            // Reload available rooms in case availability changed
+            await LoadAvailableRoomsForBooking();
+            
+            isRoomSaving = false;
+            await InvokeAsync(StateHasChanged);
+            
+            // Clear success message after 3 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(3000);
+                roomAssignmentSuccess = null;
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+            roomAssignmentError = $"Exception: {ex.Message}\n\nStack Trace: {ex.StackTrace}";
+            Console.WriteLine($"[ERROR] Exception in HandleRoomSelection: {ex}");
+            isRoomSaving = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+    
+    // Therapist Booking Modal Methods
+    
+    private async Task ShowTherapistBookingModal(ApplicationUser therapist, TimeSpan timeSlot)
+    {
+        selectedTherapist = therapist;
+        selectedTimeSlot = timeSlot;
+        therapistBookingModel = new TherapistBookingModel
+        {
+            StartTime = timeSlot.ToString("hh\\:mm"),
+            EndTime = timeSlot.Add(TimeSpan.FromMinutes(30)).ToString("hh\\:mm")
+        };
+        therapistBookingError = null;
+
+        // Load all services for this location
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        availableServicesForTherapist = await context.SpaServices
+            .Where(s => s.LocationId == selectedLocationId && s.IsActive)
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        showTherapistBookingModal = true;
+        StateHasChanged();
+    }
+
+    private Task OnTherapistServiceSelected()
+    {
+        // Auto-calculate end time based on service duration
+        if (therapistBookingModel.ServiceId > 0)
+        {
+            var service = availableServicesForTherapist.FirstOrDefault(s => s.Id == therapistBookingModel.ServiceId);
+            if (service != null && TimeSpan.TryParse(therapistBookingModel.StartTime, out var startTime))
+            {
+                var endTime = startTime.Add(TimeSpan.FromMinutes(service.DurationMinutes));
+                therapistBookingModel.EndTime = endTime.ToString("hh\\:mm");
+            }
+        }
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void CloseTherapistBookingModal()
+    {
+        showTherapistBookingModal = false;
+        therapistBookingModel = new();
+        therapistBookingError = null;
+        selectedTherapist = null;
+        availableServicesForTherapist.Clear();
+        ClearClientSelection();
+    }
+    
+    private void FilterClients()
+    {
+        if (string.IsNullOrWhiteSpace(clientSearchText))
+        {
+            filteredClients = clients;
+        }
+        else
+        {
+            var searchLower = clientSearchText.ToLower();
+            filteredClients = clients
+                .Where(c => 
+                    c.FirstName.ToLower().Contains(searchLower) ||
+                    c.LastName.ToLower().Contains(searchLower) ||
+                    (c.Email?.ToLower().Contains(searchLower) ?? false))
+                .ToList();
+        }
+    }
+    
+    private void SelectClient(ApplicationUser client)
+    {
+        therapistBookingModel.ClientId = client.Id;
+        selectedClientName = $"{client.FirstName} {client.LastName}";
+        clientSearchText = string.Empty;
+        showClientDropdown = false;
+        StateHasChanged();
+    }
+    
+    private void ClearClientSelection()
+    {
+        therapistBookingModel.ClientId = string.Empty;
+        selectedClientName = null;
+        clientSearchText = string.Empty;
+        showClientDropdown = false;
+        filteredClients.Clear();
+    }
+    
+    // Assignment Modal Client Search Methods
+    private void FilterAssignmentClients()
+    {
+        if (string.IsNullOrWhiteSpace(assignmentClientSearchText))
+        {
+            filteredAssignmentClients = clients;
+        }
+        else
+        {
+            var searchLower = assignmentClientSearchText.ToLower();
+            filteredAssignmentClients = clients
+                .Where(c => 
+                    c.FirstName.ToLower().Contains(searchLower) ||
+                    c.LastName.ToLower().Contains(searchLower) ||
+                    (c.Email?.ToLower().Contains(searchLower) ?? false))
+                .ToList();
+        }
+    }
+    
+    private void SelectAssignmentClient(ApplicationUser client)
+    {
+        assignmentModel.ClientId = client.Id;
+        selectedAssignmentClientName = $"{client.FirstName} {client.LastName}";
+        assignmentClientSearchText = string.Empty;
+        showAssignmentClientDropdown = false;
+        StateHasChanged();
+    }
+    
+    private void ClearAssignmentClientSelection()
+    {
+        assignmentModel.ClientId = string.Empty;
+        selectedAssignmentClientName = null;
+        assignmentClientSearchText = string.Empty;
+        showAssignmentClientDropdown = false;
+        filteredAssignmentClients.Clear();
+    }
+
+    private async Task SaveTherapistBooking()
+    {
+        therapistBookingError = null;
+
+        // Validation
+        if (selectedTherapist == null)
+        {
+            therapistBookingError = "Therapist information is missing";
+            return;
+        }
+        if (therapistBookingModel.ServiceId == 0)
+        {
+            therapistBookingError = "Please select a service";
+            return;
+        }
+        if (string.IsNullOrEmpty(therapistBookingModel.ClientId))
+        {
+            therapistBookingError = "Please select a client";
+            return;
+        }
+        if (!TimeSpan.TryParse(therapistBookingModel.StartTime, out var startTime))
+        {
+            therapistBookingError = "Invalid start time";
+            return;
+        }
+        if (!TimeSpan.TryParse(therapistBookingModel.EndTime, out var endTime))
+        {
+            therapistBookingError = "Invalid end time";
+            return;
+        }
+        if (endTime <= startTime)
+        {
+            therapistBookingError = "End time must be after start time";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var service = await context.SpaServices.FindAsync(therapistBookingModel.ServiceId);
+            if (service == null)
+            {
+                therapistBookingError = "Service not found";
+                return;
+            }
+
+            var bookingStartTime = currentDate.Date.Add(startTime);
+            var bookingEndTime = currentDate.Date.Add(endTime);
+
+            // Verify therapist is still available
+            if (!IsTherapistAvailable(selectedTherapist.Id, bookingStartTime, bookingEndTime))
+            {
+                therapistBookingError = "Therapist is not available for the selected time";
+                return;
+            }
+
+            // Find an available room that can handle this service
+            var roomServiceCapabilities = await context.RoomServiceCapabilities
+                .Where(rsc => rsc.ServiceId == service.Id && rsc.Room.LocationId == selectedLocationId && rsc.Room.IsActive)
+                .Select(rsc => rsc.RoomId)
+                .ToListAsync();
+
+            var availableRoom = rooms
+                .Where(r => roomServiceCapabilities.Contains(r.Id))
+                .FirstOrDefault(r => IsRoomAvailable(r.Id, bookingStartTime, bookingEndTime));
+
+            if (availableRoom == null)
+            {
+                therapistBookingError = "No room is available for this service at the selected time. Please choose a different time or service.";
+                return;
+            }
+
+            // Create the booking
+            var booking = new Booking
+            {
+                ClientId = therapistBookingModel.ClientId,
+                TherapistId = selectedTherapist.Id,
+                ServiceId = therapistBookingModel.ServiceId,
+                LocationId = selectedLocationId,
+                RoomId = availableRoom.Id,
+                StartTime = bookingStartTime,
+                EndTime = bookingEndTime,
+                Status = BookingStatus.Confirmed,
+                ServicePrice = service.BasePrice,
+                TotalPrice = service.BasePrice,
+                Notes = therapistBookingModel.Notes,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Bookings.Add(booking);
+            await context.SaveChangesAsync();
+            await LoadScheduleData();
+            CloseTherapistBookingModal();
+        }
+        catch (Exception ex)
+        {
+            therapistBookingError = $"Error creating booking: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
     private bool IsTherapistAvailable(string therapistId, DateTime startTime, DateTime endTime)
     {
-        // Check for existing bookings
+        // Check for existing bookings (NO buffer time for therapists - they can move to another room)
         var hasBooking = bookings.Any(b => b.TherapistId == therapistId
             && ((startTime >= b.StartTime && startTime < b.EndTime) ||
                 (endTime > b.StartTime && endTime <= b.EndTime) ||
@@ -908,10 +1718,13 @@
 
     private bool IsRoomAvailable(int roomId, DateTime startTime, DateTime endTime)
     {
+        var bufferMinutes = BufferTimeOptions.Value.BufferMinutes;
+        
+        // Check for conflicts including buffer time after existing bookings
         return !bookings.Any(b => b.RoomId == roomId
-            && ((startTime >= b.StartTime && startTime < b.EndTime) ||
-                (endTime > b.StartTime && endTime <= b.EndTime) ||
-                (startTime <= b.StartTime && endTime >= b.EndTime)));
+            && ((startTime >= b.StartTime && startTime < b.EndTime.AddMinutes(bufferMinutes)) ||
+                (endTime > b.StartTime && endTime <= b.EndTime.AddMinutes(bufferMinutes)) ||
+                (startTime <= b.StartTime && endTime >= b.EndTime.AddMinutes(bufferMinutes))));
     }
 
     private string GetStatusBadgeClass(BookingStatus status)
@@ -933,6 +1746,16 @@
         public int ServiceId { get; set; }
         public string ClientId { get; set; } = string.Empty;
         public string? Notes { get; set; }
+    }
+    
+    public class TherapistBookingModel
+    {
+        public string StartTime { get; set; } = string.Empty;
+        public string EndTime { get; set; } = string.Empty;
+        public int ServiceId { get; set; }
+        public string ClientId { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+        public string? AssignedRoomName { get; set; }
     }
 }
 

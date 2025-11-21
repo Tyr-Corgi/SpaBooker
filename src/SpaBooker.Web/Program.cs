@@ -238,6 +238,9 @@ builder.Services.Configure<MembershipSettings>(builder.Configuration.GetSection(
 // Configure email settings
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
+// Configure buffer time settings
+builder.Services.Configure<BufferTimeSettings>(builder.Configuration.GetSection("BufferTimeSettings"));
+
 // Configure HSTS (HTTP Strict Transport Security)
 builder.Services.AddHsts(options =>
 {
@@ -276,6 +279,9 @@ using (var scope = app.Services.CreateScope())
         
         // Seed therapist schedules (must come after users are created)
         await DbSeeder.SeedTherapistSchedulesAsync(services);
+        
+        // Seed monthly schedules for 4 therapists
+        await DbSeeder.SeedMonthlyTherapistSchedulesAsync(services);
         
         // Seed membership plans
         await DbSeeder.SeedMembershipPlansAsync(context);

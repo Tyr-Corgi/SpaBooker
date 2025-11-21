@@ -126,7 +126,7 @@
 .week-time-grid {
     display: grid;
     gap: 0;
-    background-color: #e9ecef;
+    background-color: #fff;
     border: 1px solid #dee2e6;
     border-radius: 8px;
     overflow: hidden;

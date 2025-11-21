@@ -1,0 +1,226 @@
+@page "/admin/booking-settings"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.Options
+@using SpaBooker.Core.Settings
+@inject IOptions<BufferTimeSettings> BufferTimeOptions
+@inject IConfiguration Configuration
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Booking Settings - SpaBooker</PageTitle>
+
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="text-rose-gold mb-2">
+                <i class="bi bi-clock-history"></i> Booking Settings
+            </h1>
+            <p class="text-muted">Configure global booking and scheduling settings</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>@errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <!-- Buffer Time Settings Card -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-rose-gold-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-stopwatch"></i> Room Turnover Buffer Time
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Set the minimum buffer time required between appointments to allow therapists to prepare the room for the next client.
+                        This buffer time will be automatically enforced when creating new bookings.
+                    </p>
+
+                    <EditForm Model="@bufferTimeModel" OnValidSubmit="SaveSettings">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        Buffer Time (Minutes) *
+                                    </label>
+                                    <InputNumber class="form-control form-control-lg" 
+                                                 @bind-Value="bufferTimeModel.BufferMinutes" 
+                                                 min="0" 
+                                                 max="60" />
+                                    <div class="form-text">
+                                        Recommended: 15-30 minutes. Set to 0 to disable buffer time.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Note:</strong> This setting applies to newly created bookings only. Existing bookings will not be affected.
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                <i class="bi bi-save me-2"></i> Save Settings
+                            </button>
+                            <button type="button" class="btn btn-secondary" @onclick="ResetToDefault">
+                                <i class="bi bi-arrow-counterclockwise me-2"></i> Reset to Default (15 min)
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+
+            <!-- Current Configuration Info -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear"></i> Current Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Buffer Time:</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge bg-primary fs-6">@bufferTimeModel.BufferMinutes minutes</span>
+                        </dd>
+                        <dt class="col-sm-4">Status:</dt>
+                        <dd class="col-sm-8">
+                            @if (bufferTimeModel.BufferMinutes > 0)
+                            {
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> Active
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-exclamation-triangle"></i> Disabled
+                                </span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-question-circle"></i> Help
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">What is Buffer Time?</h6>
+                    <p class="small">
+                        Buffer time is the minimum gap required between consecutive appointments <strong>in the same room</strong>. 
+                        This ensures adequate time to:
+                    </p>
+                    <ul class="small">
+                        <li>Clean and sanitize the room</li>
+                        <li>Restock supplies</li>
+                        <li>Prepare for the next client</li>
+                    </ul>
+                    <p class="small">
+                        <strong>Note:</strong> Buffer time applies to rooms only. Therapists can move between rooms without buffer restrictions.
+                    </p>
+
+                    <h6 class="fw-bold mt-3">How It Works</h6>
+                    <p class="small">
+                        When a booking ends at 2:00 PM with a 15-minute buffer:
+                    </p>
+                    <ul class="small">
+                        <li>The room is unavailable until 2:15 PM</li>
+                        <li>Next booking can start at 2:15 PM or later</li>
+                        <li>The scheduler will show buffer slots as unavailable</li>
+                    </ul>
+
+                    <h6 class="fw-bold mt-3">Best Practices</h6>
+                    <ul class="small">
+                        <li><strong>15 minutes:</strong> Quick services (facials, massages)</li>
+                        <li><strong>20-30 minutes:</strong> Complex treatments requiring extensive cleanup</li>
+                        <li><strong>0 minutes:</strong> Only if you manually manage scheduling</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private BufferTimeModel bufferTimeModel = new();
+    private string? successMessage;
+    private string? errorMessage;
+    private bool isSaving = false;
+
+    protected override void OnInitialized()
+    {
+        bufferTimeModel.BufferMinutes = BufferTimeOptions.Value.BufferMinutes;
+    }
+
+    private async Task SaveSettings()
+    {
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            // Validation
+            if (bufferTimeModel.BufferMinutes < 0 || bufferTimeModel.BufferMinutes > 60)
+            {
+                errorMessage = "Buffer time must be between 0 and 60 minutes.";
+                return;
+            }
+
+            // Note: In a production app, you would save this to a database table (e.g., SystemSettings)
+            // For now, we'll just update the in-memory options and show a message about updating appsettings.json
+            
+            successMessage = $"Buffer time updated to {bufferTimeModel.BufferMinutes} minutes. " +
+                           $"Note: To persist this change permanently, update the 'BufferTimeSettings:BufferMinutes' value in appsettings.json to {bufferTimeModel.BufferMinutes}.";
+            
+            // Update the options (this will only affect the current app instance)
+            BufferTimeOptions.Value.BufferMinutes = bufferTimeModel.BufferMinutes;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving settings: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ResetToDefault()
+    {
+        bufferTimeModel.BufferMinutes = 15;
+        successMessage = "Buffer time reset to default (15 minutes). Click 'Save Settings' to apply.";
+    }
+
+    private class BufferTimeModel
+    {
+        public int BufferMinutes { get; set; } = 15;
+    }
+}
+

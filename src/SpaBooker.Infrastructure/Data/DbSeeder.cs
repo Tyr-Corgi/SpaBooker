@@ -261,6 +261,88 @@ public static class DbSeeder
         }
     }
 
+    public static async Task SeedMonthlyTherapistSchedulesAsync(IServiceProvider serviceProvider)
+    {
+        var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
+        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        // Get 4 specific therapists (Kevin, Raven, Marceline, Princess Bubblegum)
+        var therapistEmails = new[]
+        {
+            "kevin.levin@cntest.com",
+            "raven.azarath@cntest.com",
+            "marceline.abadeer@cntest.com",
+            "princess.bubblegum@cntest.com"
+        };
+
+        var therapists = new List<ApplicationUser>();
+        foreach (var email in therapistEmails)
+        {
+            var therapist = await userManager.FindByEmailAsync(email);
+            if (therapist != null)
+            {
+                therapists.Add(therapist);
+            }
+        }
+
+        if (therapists.Count != 4)
+        {
+            // Not all therapists found, skip seeding
+            return;
+        }
+
+        // Get today's date and the date 30 days from now (in UTC)
+        var startDate = DateTime.UtcNow.Date;
+        var endDate = startDate.AddDays(30);
+
+        // Check if any specific date schedules already exist for this period
+        var existingSchedules = await context.TherapistAvailability
+            .Where(a => a.SpecificDate != null && 
+                       a.SpecificDate >= startDate && 
+                       a.SpecificDate < endDate &&
+                       therapists.Select(t => t.Id).Contains(a.TherapistId))
+            .AnyAsync();
+
+        if (existingSchedules)
+        {
+            // Schedules already seeded for this period
+            return;
+        }
+
+        // Create daily schedules for the next 30 days
+        var schedules = new List<TherapistAvailability>();
+        var startTime = new TimeSpan(9, 0, 0);  // 9 AM
+        var endTime = new TimeSpan(17, 0, 0);   // 5 PM
+
+        for (var date = startDate; date < endDate; date = date.AddDays(1))
+        {
+            // Ensure date is UTC (AddDays may lose Kind)
+            var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+            
+            // Schedule all 4 therapists for each day
+            foreach (var therapist in therapists)
+            {
+                schedules.Add(new TherapistAvailability
+                {
+                    TherapistId = therapist.Id,
+                    DayOfWeek = utcDate.DayOfWeek,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    IsAvailable = true,
+                    SpecificDate = utcDate,
+                    Notes = $"Scheduled for {utcDate:MMM dd, yyyy}",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        if (schedules.Any())
+        {
+            context.TherapistAvailability.AddRange(schedules);
+            await context.SaveChangesAsync();
+        }
+    }
+
     public static async Task SeedLocationsAsync(ApplicationDbContext context)
     {
         if (!context.Locations.Any())
