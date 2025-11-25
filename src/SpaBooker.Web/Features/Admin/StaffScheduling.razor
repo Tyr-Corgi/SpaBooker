@@ -102,19 +102,41 @@
                 @* All Staff Calendar View - Full Width *@
                 <div class="col-12 mb-4">
                     <div class="card">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="bi bi-calendar3"></i> All Staff Schedule Calendar</h5>
-                            <div>
-                                <span class="badge bg-info me-2">Click any day to view details</span>
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-secondary" @onclick="PreviousMonth">
-                                        <i class="bi bi-chevron-left"></i>
-                                    </button>
-                                    <button class="btn btn-outline-secondary" disabled>
-                                        @calendarViewDate.ToString("MMMM yyyy")
-                                    </button>
-                                    <button class="btn btn-outline-secondary" @onclick="NextMonth">
-                                        <i class="bi bi-chevron-right"></i>
+                        <div class="card-header bg-light">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <h5 class="mb-0"><i class="bi bi-calendar3"></i> All Staff Schedule Calendar</h5>
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    @* View Toggle *@
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn @(calendarViewMode == CalendarViewMode.Day ? "btn-primary" : "btn-outline-secondary")" 
+                                                @onclick="() => SetCalendarViewMode(CalendarViewMode.Day)">
+                                            Day
+                                        </button>
+                                        <button type="button" class="btn @(calendarViewMode == CalendarViewMode.Week ? "btn-primary" : "btn-outline-secondary")" 
+                                                @onclick="() => SetCalendarViewMode(CalendarViewMode.Week)">
+                                            Week
+                                        </button>
+                                        <button type="button" class="btn @(calendarViewMode == CalendarViewMode.Month ? "btn-primary" : "btn-outline-secondary")" 
+                                                @onclick="() => SetCalendarViewMode(CalendarViewMode.Month)">
+                                            Month
+                                        </button>
+                                    </div>
+                                    
+                                    @* Navigation *@
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-primary" @onclick="NavigatePrevious" title="Previous">
+                                            <span style="font-size: 1.2rem;">◀</span>
+                                        </button>
+                                        <button class="btn btn-outline-secondary" disabled>
+                                            @GetCalendarViewTitle()
+                                        </button>
+                                        <button class="btn btn-primary" @onclick="NavigateNext" title="Next">
+                                            <span style="font-size: 1.2rem;">▶</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <button class="btn btn-sm btn-primary" @onclick="GoToToday">
+                                        <i class="bi bi-calendar-check"></i> Today
                                     </button>
                                 </div>
                             </div>
@@ -224,10 +246,23 @@
                                 }
                             </style>
                             
-                            @* All Staff Calendar Grid - using regular Razor instead of RenderFragment *@
+                            @* All Staff Calendar Grid - supports Day/Week/Month views *@
                             @{
                                 var firstDayOfMonthAll = new DateTime(calendarViewDate.Year, calendarViewDate.Month, 1);
-                                var startDateAll = firstDayOfMonthAll.AddDays(-(int)firstDayOfMonthAll.DayOfWeek);
+                                var startDateAll = calendarViewMode switch
+                                {
+                                    CalendarViewMode.Day => calendarViewDate,
+                                    CalendarViewMode.Week => GetWeekStart(),
+                                    CalendarViewMode.Month => firstDayOfMonthAll.AddDays(-(int)firstDayOfMonthAll.DayOfWeek),
+                                    _ => firstDayOfMonthAll.AddDays(-(int)firstDayOfMonthAll.DayOfWeek)
+                                };
+                                var dayCount = calendarViewMode switch
+                                {
+                                    CalendarViewMode.Day => 1,
+                                    CalendarViewMode.Week => 7,
+                                    CalendarViewMode.Month => 42,
+                                    _ => 42
+                                };
                                 var dayNamesAll = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
                                 
                                 // Generate color palette
@@ -237,22 +272,39 @@
                                 {
                                     therapistColors[therapists[j].Id] = colors[j % colors.Length];
                                 }
+                                
+                                var gridColumns = calendarViewMode switch
+                                {
+                                    CalendarViewMode.Day => 1,
+                                    CalendarViewMode.Week => 7,
+                                    CalendarViewMode.Month => 7,
+                                    _ => 7
+                                };
                             }
                             
-                            <div class="staff-calendar-grid">
-                                @* Day headers *@
-                                @foreach (var dayName in dayNamesAll)
+                            <div class="staff-calendar-grid" style="grid-template-columns: repeat(@gridColumns, 1fr);">
+                                @* Day headers (only for Week and Month views) *@
+                                @if (calendarViewMode == CalendarViewMode.Week || calendarViewMode == CalendarViewMode.Month)
                                 {
-                                    <div class="staff-calendar-day-header">@dayName</div>
+                                    @foreach (var dayName in dayNamesAll)
+                                    {
+                                        <div class="staff-calendar-day-header">@dayName</div>
+                                    }
                                 }
                                 
                                 @* Calendar days *@
-                                @for (int i = 0; i < 42; i++)
+                                @for (int i = 0; i < dayCount; i++)
                                 {
                                     var currentDate = startDateAll.AddDays(i);
                                     var capturedDate = currentDate; // Capture loop variable for event handler
                                     var isCurrentMonth = currentDate.Month == calendarViewDate.Month;
                                     var isPast = currentDate < DateTime.Today;
+                                    
+                                    // For Day and Week views, always show as "current"
+                                    if (calendarViewMode == CalendarViewMode.Day || calendarViewMode == CalendarViewMode.Week)
+                                    {
+                                        isCurrentMonth = true;
+                                    }
                                     
                                     // Get all therapists scheduled for this day
                                     var scheduledTherapists = new List<(ApplicationUser therapist, string color)>();
@@ -353,13 +405,13 @@
                             <div>
                                 <span class="badge bg-info me-2">Click any day to add/edit schedule</span>
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-secondary" @onclick="PreviousMonth">
+                                    <button class="btn btn-outline-secondary" @onclick="() => { calendarViewDate = calendarViewDate.AddMonths(-1); }">
                                         <i class="bi bi-chevron-left"></i>
                                     </button>
                                     <button class="btn btn-outline-secondary" disabled>
                                         @calendarViewDate.ToString("MMMM yyyy")
                                     </button>
-                                    <button class="btn btn-outline-secondary" @onclick="NextMonth">
+                                    <button class="btn btn-outline-secondary" @onclick="() => { calendarViewDate = calendarViewDate.AddMonths(1); }">
                                         <i class="bi bi-chevron-right"></i>
                                     </button>
                                 </div>
@@ -490,24 +542,18 @@
                     </div>
                 </div>
 
-                @* Schedule List *@
+                @* Upcoming Appointments *@
                 <div class="col-12">
                     <div class="card">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="bi bi-list-ul"></i> Upcoming Schedules</h5>
-                            @if (schedules.Any())
-                            {
-                                <button class="btn btn-sm btn-outline-danger" @onclick="ClearAllSchedules">
-                                    <i class="bi bi-trash"></i> Clear All
-                                </button>
-                            }
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Upcoming Appointments</h5>
                         </div>
                         <div class="card-body">
-                            @if (!schedules.Any())
+                            @if (!upcomingAppointments.Any())
                             {
                                 <div class="text-center py-4 text-muted">
                                     <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
-                                    <p class="mt-2">No schedules found. Use Quick Schedule to add work times.</p>
+                                    <p class="mt-2">No upcoming appointments found for this therapist.</p>
                                 </div>
                             }
                             else
@@ -516,77 +562,75 @@
                                     <table class="table table-hover">
                                         <thead>
                                             <tr>
-                                                <th>Date</th>
-                                                <th>Day</th>
-                                                <th>Time Range</th>
-                                                <th>Type</th>
-                                                <th>Notes</th>
-                                                <th>Actions</th>
+                                                <th>Date & Time</th>
+                                                <th>Client</th>
+                                                <th>Service</th>
+                                                <th>Duration</th>
+                                                <th>Room</th>
+                                                <th>Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach (var schedule in schedules.OrderBy(s => s.SpecificDate ?? DateTime.MinValue).Take(50))
+                                            @foreach (var booking in upcomingAppointments.Take(20))
                                             {
                                                 <tr>
                                                     <td>
-                                                        @if (schedule.SpecificDate.HasValue)
-                                                        {
-                                                            @schedule.SpecificDate.Value.ToString("MMM dd, yyyy")
-                                                        }
-                                                        else
-                                                        {
-                                                            <span class="text-muted">Every @schedule.DayOfWeek</span>
-                                                        }
+                                                        <strong>@booking.StartTime.ToString("MMM dd, yyyy")</strong><br/>
+                                                        <small class="text-muted">@booking.StartTime.ToString("h:mm tt") - @booking.EndTime.ToString("h:mm tt")</small>
                                                     </td>
                                                     <td>
-                                                        @if (schedule.SpecificDate.HasValue)
-                                                        {
-                                                            @schedule.SpecificDate.Value.DayOfWeek.ToString()
-                                                        }
-                                                        else
-                                                        {
-                                                            @schedule.DayOfWeek.ToString()
-                                                        }
+                                                        <i class="bi bi-person-fill text-muted"></i>
+                                                        @booking.Client.FirstName @booking.Client.LastName
                                                     </td>
                                                     <td>
-                                                        @if (schedule.IsAvailable)
+                                                        <i class="bi bi-scissors text-muted"></i>
+                                                        @booking.Service.Name
+                                                    </td>
+                                                    <td>
+                                                        <i class="bi bi-clock text-muted"></i>
+                                                        @((booking.EndTime - booking.StartTime).TotalMinutes) min
+                                                    </td>
+                                                    <td>
+                                                        @if (booking.Room != null)
                                                         {
-                                                            <span class="badge bg-success">
-                                                                @schedule.StartTime.ToString(@"hh\:mm") - @schedule.EndTime.ToString(@"hh\:mm")
+                                                            <span class="badge" style="background-color: @booking.Room.ColorCode;">
+                                                                @booking.Room.Name
                                                             </span>
                                                         }
                                                         else
                                                         {
-                                                            <span class="badge bg-danger">Unavailable</span>
+                                                            <span class="badge bg-secondary">Unassigned</span>
                                                         }
                                                     </td>
                                                     <td>
-                                                        @if (schedule.SpecificDate.HasValue)
+                                                        @switch (booking.Status)
                                                         {
-                                                            <span class="badge bg-info">Specific</span>
+                                                            case BookingStatus.Confirmed:
+                                                                <span class="badge bg-success">Confirmed</span>
+                                                                break;
+                                                            case BookingStatus.Pending:
+                                                                <span class="badge bg-warning">Pending</span>
+                                                                break;
+                                                            case BookingStatus.Completed:
+                                                                <span class="badge bg-primary">Completed</span>
+                                                                break;
+                                                            case BookingStatus.Cancelled:
+                                                                <span class="badge bg-danger">Cancelled</span>
+                                                                break;
+                                                            case BookingStatus.NoShow:
+                                                                <span class="badge bg-dark">No Show</span>
+                                                                break;
                                                         }
-                                                        else
-                                                        {
-                                                            <span class="badge bg-secondary">Weekly</span>
-                                                        }
-                                                    </td>
-                                                    <td>
-                                                        <small class="text-muted">@(schedule.Notes ?? "-")</small>
-                                                    </td>
-                                                    <td>
-                                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSchedule(schedule.Id)">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
                                                     </td>
                                                 </tr>
                                             }
                                         </tbody>
                                     </table>
                                 </div>
-                                @if (schedules.Count > 50)
+                                @if (upcomingAppointments.Count > 20)
                                 {
-                                    <div class="alert alert-info mb-0">
-                                        Showing first 50 schedules. Total: @schedules.Count
+                                    <div class="text-center mt-3">
+                                        <small class="text-muted">Showing first 20 of @upcomingAppointments.Count appointments</small>
                                     </div>
                                 }
                             }
@@ -790,6 +834,8 @@
 }
 
 @code {
+    private enum CalendarViewMode { Day, Week, Month }
+    
     private bool isLoading = true;
     private bool isSaving = false;
     private string? successMessage;
@@ -797,9 +843,11 @@
 
     private List<ApplicationUser> therapists = new();
     private List<TherapistAvailability> schedules = new();
+    private List<Booking> upcomingAppointments = new();
     
     private string? selectedTherapistId;
     private DateTime calendarViewDate = DateTime.Today;
+    private CalendarViewMode calendarViewMode = CalendarViewMode.Month;
     
     private ScheduleModel scheduleModel = new();
     
@@ -845,11 +893,13 @@
         if (!string.IsNullOrEmpty(selectedTherapistId))
         {
             await LoadSchedules();
+            await LoadUpcomingAppointments();
             calendarViewDate = DateTime.Today;
         }
         else
         {
             schedules.Clear();
+            upcomingAppointments.Clear();
         }
     }
 
@@ -876,6 +926,30 @@
                 .ThenBy(a => a.DayOfWeek)
                 .ToListAsync();
         }
+    }
+    
+    private async Task LoadUpcomingAppointments()
+    {
+        upcomingAppointments.Clear();
+        
+        if (string.IsNullOrEmpty(selectedTherapistId) || selectedTherapistId == "ALL_STAFF")
+        {
+            return; // Don't load appointments for All Staff view
+        }
+
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        var now = DateTime.UtcNow;
+        
+        upcomingAppointments = await context.Bookings
+            .Include(b => b.Client)
+            .Include(b => b.Service)
+            .Include(b => b.Room)
+            .Where(b => b.TherapistId == selectedTherapistId && 
+                       b.StartTime >= now &&
+                       b.Status != BookingStatus.Cancelled &&
+                       b.Status != BookingStatus.NoShow)
+            .OrderBy(b => b.StartTime)
+            .ToListAsync();
     }
 
     private string GetCurrentWeekSummary()
@@ -1106,14 +1180,57 @@
         }
     }
 
-    private void PreviousMonth()
+    private void SetCalendarViewMode(CalendarViewMode mode)
     {
-        calendarViewDate = calendarViewDate.AddMonths(-1);
+        calendarViewMode = mode;
+    }
+    
+    private void NavigatePrevious()
+    {
+        calendarViewDate = calendarViewMode switch
+        {
+            CalendarViewMode.Day => calendarViewDate.AddDays(-1),
+            CalendarViewMode.Week => calendarViewDate.AddDays(-7),
+            CalendarViewMode.Month => calendarViewDate.AddMonths(-1),
+            _ => calendarViewDate
+        };
     }
 
-    private void NextMonth()
+    private void NavigateNext()
     {
-        calendarViewDate = calendarViewDate.AddMonths(1);
+        calendarViewDate = calendarViewMode switch
+        {
+            CalendarViewMode.Day => calendarViewDate.AddDays(1),
+            CalendarViewMode.Week => calendarViewDate.AddDays(7),
+            CalendarViewMode.Month => calendarViewDate.AddMonths(1),
+            _ => calendarViewDate
+        };
+    }
+    
+    private void GoToToday()
+    {
+        calendarViewDate = DateTime.Today;
+    }
+    
+    private string GetCalendarViewTitle()
+    {
+        return calendarViewMode switch
+        {
+            CalendarViewMode.Day => calendarViewDate.ToString("MMMM dd, yyyy (dddd)"),
+            CalendarViewMode.Week => $"{GetWeekStart().ToString("MMM dd")} - {GetWeekEnd().ToString("MMM dd, yyyy")}",
+            CalendarViewMode.Month => calendarViewDate.ToString("MMMM yyyy"),
+            _ => calendarViewDate.ToString("MMMM yyyy")
+        };
+    }
+    
+    private DateTime GetWeekStart()
+    {
+        return calendarViewDate.AddDays(-(int)calendarViewDate.DayOfWeek);
+    }
+    
+    private DateTime GetWeekEnd()
+    {
+        return GetWeekStart().AddDays(6);
     }
 
     private RenderFragment RenderCalendar() => builder =>
