@@ -1556,8 +1556,8 @@
     private void StartEditingTherapist(string therapistId, TimeSpan startTime, TimeSpan endTime)
     {
         editingTherapistId = therapistId;
-        editStartTime = startTime.ToString(@"hh\:mm");
-        editEndTime = endTime.ToString(@"hh\:mm");
+        editStartTime = $"{startTime.Hours:D2}:{startTime.Minutes:D2}";
+        editEndTime = $"{endTime.Hours:D2}:{endTime.Minutes:D2}";
         editNotes = null;
         dayDetailError = null;
         dayDetailSuccess = null;
