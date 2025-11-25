@@ -296,7 +296,7 @@ public static class DbSeeder
         var startDate = DateTime.UtcNow.Date;
         var endDate = startDate.AddDays(30);
 
-        // Delete existing schedules for this period to allow re-seeding
+        // Check if schedules already exist for this period
         var existingSchedules = await context.TherapistAvailability
             .Where(a => a.SpecificDate != null && 
                        a.SpecificDate >= startDate && 
@@ -305,8 +305,8 @@ public static class DbSeeder
 
         if (existingSchedules.Any())
         {
-            context.TherapistAvailability.RemoveRange(existingSchedules);
-            await context.SaveChangesAsync();
+            // Schedules already exist, don't re-seed
+            return;
         }
 
         // Create daily schedules for the next 30 days

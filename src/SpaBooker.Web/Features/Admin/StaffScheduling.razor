@@ -895,11 +895,13 @@
             await LoadSchedules();
             await LoadUpcomingAppointments();
             calendarViewDate = DateTime.Today;
+            await InvokeAsync(StateHasChanged);
         }
         else
         {
             schedules.Clear();
             upcomingAppointments.Clear();
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -1443,13 +1445,25 @@
             // Load existing schedule for this day
             using var context = await DbContextFactory.CreateDbContextAsync();
             var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+            
+            // Check for specific date schedule first (only available ones)
             existingDaySchedule = await context.TherapistAvailability
-                .FirstOrDefaultAsync(a => a.TherapistId == selectedTherapistId && a.SpecificDate == utcDate);
+                .FirstOrDefaultAsync(a => a.TherapistId == selectedTherapistId && a.SpecificDate == utcDate && a.IsAvailable);
+            
+            // If no specific schedule, check for weekly recurring schedule
+            if (existingDaySchedule == null)
+            {
+                existingDaySchedule = await context.TherapistAvailability
+                    .FirstOrDefaultAsync(a => a.TherapistId == selectedTherapistId && 
+                                             a.SpecificDate == null && 
+                                             a.DayOfWeek == date.DayOfWeek &&
+                                             a.IsAvailable);
+            }
             
             if (existingDaySchedule != null)
             {
-                editDayStartTime = existingDaySchedule.StartTime.ToString(@"HH\:mm");
-                editDayEndTime = existingDaySchedule.EndTime.ToString(@"HH\:mm");
+                editDayStartTime = $"{existingDaySchedule.StartTime.Hours:D2}:{existingDaySchedule.StartTime.Minutes:D2}";
+                editDayEndTime = $"{existingDaySchedule.EndTime.Hours:D2}:{existingDaySchedule.EndTime.Minutes:D2}";
                 editDayNotes = existingDaySchedule.Notes;
             }
             else
@@ -1684,12 +1698,39 @@
             }
             
             // Remove the therapist's schedule for this day
-            var schedule = await context.TherapistAvailability
-                .FirstOrDefaultAsync(a => a.TherapistId == therapistId && a.SpecificDate == utcDate);
+            // First check for specific date schedule
+            var specificSchedule = await context.TherapistAvailability
+                .FirstOrDefaultAsync(a => a.TherapistId == therapistId && a.SpecificDate == utcDate && a.IsAvailable);
             
-            if (schedule != null)
+            if (specificSchedule != null)
             {
-                context.TherapistAvailability.Remove(schedule);
+                // If there's a specific schedule for this day, delete it
+                context.TherapistAvailability.Remove(specificSchedule);
+            }
+            else
+            {
+                // Check if they have a weekly recurring schedule
+                var weeklySchedule = await context.TherapistAvailability
+                    .FirstOrDefaultAsync(a => a.TherapistId == therapistId && 
+                                             a.SpecificDate == null && 
+                                             a.DayOfWeek == selectedDate.Value.DayOfWeek &&
+                                             a.IsAvailable);
+                
+                if (weeklySchedule != null)
+                {
+                    // Create a "blocked" entry for this specific day to override the weekly schedule
+                    var blockedEntry = new TherapistAvailability
+                    {
+                        TherapistId = therapistId,
+                        SpecificDate = utcDate,
+                        DayOfWeek = selectedDate.Value.DayOfWeek, // Keep the day of week for reference
+                        StartTime = weeklySchedule.StartTime,
+                        EndTime = weeklySchedule.EndTime,
+                        IsAvailable = false, // This marks it as blocked/unavailable
+                        Notes = "Removed from schedule"
+                    };
+                    context.TherapistAvailability.Add(blockedEntry);
+                }
             }
             
             await context.SaveChangesAsync();
@@ -1701,24 +1742,38 @@
             var savedDate = selectedDate.Value; // Save the date before clearing
             dayDetailTherapists.Clear();
             
-            // Reload the therapists for this specific day
-            using var refreshContext = await DbContextFactory.CreateDbContextAsync();
+            // Reload schedules from database
+            await LoadSchedules();
+            
+            // Generate color palette
+            var colors = new[] { "#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#95a5a6", "#34495e", "#16a085" };
             var utcDateRefresh = DateTime.SpecifyKind(savedDate.Date, DateTimeKind.Utc);
             
-            var therapistsForDay = await refreshContext.TherapistAvailability
-                .Include(a => a.Therapist)
-                .Where(a => a.SpecificDate == utcDateRefresh && a.IsAvailable)
-                .ToListAsync();
-            
-            // Generate color palette for therapists
-            var colors = new[] { "#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#95a5a6", "#34495e", "#16a085" };
-            var colorIndex = 0;
-            
-            foreach (var availability in therapistsForDay)
+            // Rebuild the day detail list using the same logic as OnAllStaffDayClick
+            foreach (var therapist in therapists)
             {
-                var color = colors[colorIndex % colors.Length];
-                dayDetailTherapists.Add((availability.Therapist, color, availability.StartTime, availability.EndTime));
-                colorIndex++;
+                var therapistSchedules = schedules.Where(s => s.TherapistId == therapist.Id).ToList();
+                
+                // Check specific date first
+                var refreshSpecificSchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDateRefresh && s.IsAvailable);
+                if (refreshSpecificSchedule != null)
+                {
+                    var color = colors[therapists.IndexOf(therapist) % colors.Length];
+                    dayDetailTherapists.Add((therapist, color, refreshSpecificSchedule.StartTime, refreshSpecificSchedule.EndTime));
+                    continue;
+                }
+                
+                // Check if specifically blocked
+                var refreshSpecificBlock = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDateRefresh && !s.IsAvailable);
+                if (refreshSpecificBlock != null) continue; // Skip if blocked for this day
+                
+                // Fall back to weekly schedule
+                var refreshWeeklySchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == null && s.DayOfWeek == savedDate.DayOfWeek && s.IsAvailable);
+                if (refreshWeeklySchedule != null)
+                {
+                    var color = colors[therapists.IndexOf(therapist) % colors.Length];
+                    dayDetailTherapists.Add((therapist, color, refreshWeeklySchedule.StartTime, refreshWeeklySchedule.EndTime));
+                }
             }
             
             // Clear edit mode
