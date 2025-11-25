@@ -306,14 +306,15 @@
                                         isCurrentMonth = true;
                                     }
                                     
-                                    // Get all therapists scheduled for this day
-                                    var scheduledTherapists = new List<(ApplicationUser therapist, string color)>();
+                                    // Get all therapists scheduled for this day with their schedule times
+                                    var scheduledTherapists = new List<(ApplicationUser therapist, string color, TimeSpan startTime, TimeSpan endTime)>();
                                     foreach (var therapist in therapists)
                                     {
                                         var therapistSchedules = schedules.Where(s => s.TherapistId == therapist.Id).ToList();
-                                        if (IsTherapistScheduledForDayById(currentDate, therapist.Id, therapistSchedules))
+                                        var schedule = GetTherapistScheduleForSpecificDay(currentDate, therapist.Id, therapistSchedules);
+                                        if (schedule != null)
                                         {
-                                            scheduledTherapists.Add((therapist, therapistColors[therapist.Id]));
+                                            scheduledTherapists.Add((therapist, therapistColors[therapist.Id], schedule.StartTime, schedule.EndTime));
                                         }
                                     }
                                     
@@ -327,10 +328,10 @@
                                         @if (scheduledTherapists.Any() && isCurrentMonth && !isPast)
                                         {
                                             <div style="display: flex; flex-direction: column; gap: 2px; width: 100%; margin-top: 4px;">
-                                                @foreach (var (therapist, color) in scheduledTherapists)
+                                                @foreach (var (therapist, color, startTime, endTime) in scheduledTherapists)
                                                 {
                                                     <div class="staff-calendar-therapist-badge" style="background-color: @color;" title="@therapist.FirstName @therapist.LastName">
-                                                        @therapist.FirstName.Substring(0, 1)@therapist.LastName.Substring(0, 1)
+                                                        @therapist.FirstName @therapist.LastName.Substring(0, 1). (@FormatTimeSpanToAmPm(startTime) - @FormatTimeSpanToAmPm(endTime))
                                                     </div>
                                                 }
                                             </div>
@@ -1043,6 +1044,23 @@
         // Fall back to weekly schedule
         var weeklySchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == null && s.DayOfWeek == date.DayOfWeek && s.IsAvailable);
         return weeklySchedule != null;
+    }
+    
+    private TherapistAvailability? GetTherapistScheduleForSpecificDay(DateTime date, string therapistId, List<TherapistAvailability> therapistSchedules)
+    {
+        var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+        
+        // Check specific date first
+        var specificSchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDate && s.IsAvailable);
+        if (specificSchedule != null) return specificSchedule;
+
+        // Check if specifically blocked
+        var specificBlock = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDate && !s.IsAvailable);
+        if (specificBlock != null) return null; // Blocked for this day
+
+        // Fall back to weekly schedule
+        var weeklySchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == null && s.DayOfWeek == date.DayOfWeek && s.IsAvailable);
+        return weeklySchedule;
     }
 
 
