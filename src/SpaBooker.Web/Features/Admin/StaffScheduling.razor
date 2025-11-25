@@ -1890,22 +1890,45 @@
     
     private async Task DeleteDaySchedule()
     {
-        if (existingDaySchedule == null) return;
+        if (existingDaySchedule == null || !selectedDate.HasValue) return;
         
         isSaving = true;
         
         try
         {
             using var context = await DbContextFactory.CreateDbContextAsync();
-            var scheduleToDelete = await context.TherapistAvailability.FindAsync(existingDaySchedule.Id);
+            var utcDate = DateTime.SpecifyKind(selectedDate.Value.Date, DateTimeKind.Utc);
             
-            if (scheduleToDelete != null)
+            // Check if this is a specific date schedule or a recurring one
+            if (existingDaySchedule.SpecificDate.HasValue)
             {
-                context.TherapistAvailability.Remove(scheduleToDelete);
-                await context.SaveChangesAsync();
-                await LoadSchedules();
-                successMessage = $"Schedule for {selectedDate.Value:MMMM dd, yyyy} deleted successfully.";
+                // It's a specific date schedule - delete it directly
+                var scheduleToDelete = await context.TherapistAvailability.FindAsync(existingDaySchedule.Id);
+                if (scheduleToDelete != null)
+                {
+                    context.TherapistAvailability.Remove(scheduleToDelete);
+                }
             }
+            else
+            {
+                // It's a weekly recurring schedule - create a blocked entry for this specific day
+                var blockedEntry = new TherapistAvailability
+                {
+                    TherapistId = selectedTherapistId!,
+                    SpecificDate = utcDate,
+                    DayOfWeek = selectedDate.Value.DayOfWeek,
+                    StartTime = existingDaySchedule.StartTime,
+                    EndTime = existingDaySchedule.EndTime,
+                    IsAvailable = false, // This marks it as blocked/unavailable
+                    Notes = "Removed from schedule"
+                };
+                context.TherapistAvailability.Add(blockedEntry);
+            }
+            
+            await context.SaveChangesAsync();
+            await LoadSchedules();
+            StateHasChanged();
+            successMessage = $"Schedule for {selectedDate.Value:MMMM dd, yyyy} deleted successfully.";
             
             CloseEditDayModal();
         }
