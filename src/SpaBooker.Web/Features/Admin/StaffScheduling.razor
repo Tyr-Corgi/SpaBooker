@@ -564,7 +564,9 @@
                                         <div class="staff-calendar-day-number">@currentDate.Day</div>
                                         @if (isScheduled && isCurrentPeriod)
                                         {
-                                            <div class="staff-calendar-day-indicator">●</div>
+                                            <div class="staff-calendar-day-times">
+                                                @GetTherapistScheduleForDay(currentDate)
+                                            </div>
                                         }
                                     </div>
                                 }
@@ -1094,6 +1096,20 @@
         // Fall back to weekly schedule
         var weeklySchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == null && s.DayOfWeek == date.DayOfWeek && s.IsAvailable);
         return weeklySchedule;
+    }
+    
+    private string GetTherapistScheduleForDay(DateTime date)
+    {
+        if (string.IsNullOrEmpty(selectedTherapistId))
+            return string.Empty;
+            
+        var therapistSchedules = schedules.Where(s => s.TherapistId == selectedTherapistId).ToList();
+        var schedule = GetTherapistScheduleForSpecificDay(date, selectedTherapistId, therapistSchedules);
+        
+        if (schedule == null)
+            return string.Empty;
+            
+        return $"{FormatTimeSpanToAmPm(schedule.StartTime)} - {FormatTimeSpanToAmPm(schedule.EndTime)}";
     }
 
 
