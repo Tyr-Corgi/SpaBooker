@@ -757,7 +757,7 @@
                                                 <button type="button" class="btn btn-sm btn-secondary me-1" @onclick="CancelTherapistEdit">
                                                     <i class="bi bi-x"></i> Cancel
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveTherapistFromDay(detail.therapist.Id)">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => MarkTherapistForRemoval(detail.therapist.Id)">
                                                     <i class="bi bi-x-circle"></i> Remove
                                                 </button>
                                             </div>
@@ -901,6 +901,7 @@
     private string? editNotes;
     private bool hasUnsavedDayChanges = false;
     private Dictionary<string, (TimeSpan startTime, TimeSpan endTime, string? notes)> pendingScheduleChanges = new();
+    private HashSet<string> pendingRemovals = new();
     
     // Edit day modal (Single therapist view)
     private bool showEditDayModal = false;
@@ -1604,6 +1605,7 @@
         dayDetailSuccess = null;
         hasUnsavedDayChanges = false;
         pendingScheduleChanges.Clear();
+        pendingRemovals.Clear();
     }
     
     private async Task AttemptCloseDayDetailModal()
@@ -1679,6 +1681,18 @@
     {
         if (!selectedDate.HasValue) return;
         
+        // Confirmation dialog if there are pending removals
+        if (pendingRemovals.Any())
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+                $"Are you sure you want to remove {pendingRemovals.Count} therapist(s) from the schedule for {selectedDate.Value:MMMM dd, yyyy}? Any bookings for these therapists will be unassigned.");
+            
+            if (!confirmed)
+            {
+                return; // User cancelled
+            }
+        }
+        
         try
         {
             dayDetailError = null;
@@ -1687,6 +1701,13 @@
             using var context = await DbContextFactory.CreateDbContextAsync();
             var utcDate = DateTime.SpecifyKind(selectedDate.Value.Date, DateTimeKind.Utc);
             
+            // Process pending removals first
+            foreach (var therapistId in pendingRemovals)
+            {
+                await RemoveTherapistFromDay(therapistId);
+            }
+            
+            // Then process pending schedule changes
             foreach (var (therapistId, (startTime, endTime, notes)) in pendingScheduleChanges)
             {
                 var schedule = await context.TherapistAvailability
@@ -1724,6 +1745,7 @@
             
             // Clear pending changes
             pendingScheduleChanges.Clear();
+            pendingRemovals.Clear();
             hasUnsavedDayChanges = false;
             
             dayDetailSuccess = $"{pendingScheduleChanges.Count} schedule(s) updated successfully!";
@@ -1734,15 +1756,28 @@
         }
     }
     
+    private void MarkTherapistForRemoval(string therapistId)
+    {
+        // Add to pending removals
+        pendingRemovals.Add(therapistId);
+        
+        // Remove from the displayed list immediately for visual feedback
+        dayDetailTherapists.RemoveAll(t => t.therapist.Id == therapistId);
+        
+        // Set unsaved changes flag
+        hasUnsavedDayChanges = true;
+        
+        // Clear any errors and show success message
+        dayDetailError = null;
+        dayDetailSuccess = "Therapist marked for removal. Click 'Save All Changes' to apply.";
+    }
+    
     private async Task RemoveTherapistFromDay(string therapistId)
     {
         if (!selectedDate.HasValue) return;
         
         try
         {
-            dayDetailError = null;
-            dayDetailSuccess = null;
-            
             using var context = await DbContextFactory.CreateDbContextAsync();
             var utcDate = DateTime.SpecifyKind(selectedDate.Value.Date, DateTimeKind.Utc);
             
@@ -1801,47 +1836,6 @@
             }
             
             await context.SaveChangesAsync();
-            
-            // Refresh the calendar schedules
-            await LoadSchedules();
-            
-            // Refresh the day detail modal by reloading therapists for this day
-            var savedDate = selectedDate.Value; // Save the date before clearing
-            dayDetailTherapists.Clear();
-            
-            // Reload schedules from database
-            await LoadSchedules();
-            
-            // Generate color palette
-            var colors = new[] { "#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#95a5a6", "#34495e", "#16a085" };
-            var utcDateRefresh = DateTime.SpecifyKind(savedDate.Date, DateTimeKind.Utc);
-            
-            // Rebuild the day detail list using the same logic as OnAllStaffDayClick
-            foreach (var therapist in therapists)
-            {
-                var therapistSchedules = schedules.Where(s => s.TherapistId == therapist.Id).ToList();
-                
-                // Check specific date first
-                var refreshSpecificSchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDateRefresh && s.IsAvailable);
-                if (refreshSpecificSchedule != null)
-                {
-                    var color = colors[therapists.IndexOf(therapist) % colors.Length];
-                    dayDetailTherapists.Add((therapist, color, refreshSpecificSchedule.StartTime, refreshSpecificSchedule.EndTime));
-                    continue;
-                }
-                
-                // Check if specifically blocked
-                var refreshSpecificBlock = therapistSchedules.FirstOrDefault(s => s.SpecificDate == utcDateRefresh && !s.IsAvailable);
-                if (refreshSpecificBlock != null) continue; // Skip if blocked for this day
-                
-                // Fall back to weekly schedule
-                var refreshWeeklySchedule = therapistSchedules.FirstOrDefault(s => s.SpecificDate == null && s.DayOfWeek == savedDate.DayOfWeek && s.IsAvailable);
-                if (refreshWeeklySchedule != null)
-                {
-                    var color = colors[therapists.IndexOf(therapist) % colors.Length];
-                    dayDetailTherapists.Add((therapist, color, refreshWeeklySchedule.StartTime, refreshWeeklySchedule.EndTime));
-                }
-            }
             
             // Clear edit mode
             editingTherapistId = null;
