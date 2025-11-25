@@ -266,13 +266,14 @@ public static class DbSeeder
         var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
         var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-        // Get 4 specific therapists (Kevin, Raven, Marceline, Princess Bubblegum)
+        // Get 5 specific therapists (max 5 working at once)
         var therapistEmails = new[]
         {
             "kevin.levin@cntest.com",
             "raven.azarath@cntest.com",
             "marceline.abadeer@cntest.com",
-            "princess.bubblegum@cntest.com"
+            "princess.bubblegum@cntest.com",
+            "starfire.tamaranean@cntest.com"
         };
 
         var therapists = new List<ApplicationUser>();
@@ -285,9 +286,9 @@ public static class DbSeeder
             }
         }
 
-        if (therapists.Count != 4)
+        if (therapists.Count == 0)
         {
-            // Not all therapists found, skip seeding
+            // No therapists found, skip seeding
             return;
         }
 
@@ -295,32 +296,35 @@ public static class DbSeeder
         var startDate = DateTime.UtcNow.Date;
         var endDate = startDate.AddDays(30);
 
-        // Check if any specific date schedules already exist for this period
+        // Delete existing schedules for this period to allow re-seeding
         var existingSchedules = await context.TherapistAvailability
             .Where(a => a.SpecificDate != null && 
                        a.SpecificDate >= startDate && 
-                       a.SpecificDate < endDate &&
-                       therapists.Select(t => t.Id).Contains(a.TherapistId))
-            .AnyAsync();
+                       a.SpecificDate < endDate)
+            .ToListAsync();
 
-        if (existingSchedules)
+        if (existingSchedules.Any())
         {
-            // Schedules already seeded for this period
-            return;
+            context.TherapistAvailability.RemoveRange(existingSchedules);
+            await context.SaveChangesAsync();
         }
 
         // Create daily schedules for the next 30 days
         var schedules = new List<TherapistAvailability>();
         var startTime = new TimeSpan(9, 0, 0);  // 9 AM
-        var endTime = new TimeSpan(17, 0, 0);   // 5 PM
+        var endTime = new TimeSpan(19, 0, 0);   // 7 PM
+        var random = new Random();
 
         for (var date = startDate; date < endDate; date = date.AddDays(1))
         {
             // Ensure date is UTC (AddDays may lose Kind)
             var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
             
-            // Schedule all 4 therapists for each day
-            foreach (var therapist in therapists)
+            // Schedule 3-5 therapists randomly per day (never more than 5)
+            var therapistsToSchedule = random.Next(3, 6); // 3, 4, or 5 therapists
+            var selectedTherapists = therapists.OrderBy(x => random.Next()).Take(therapistsToSchedule);
+            
+            foreach (var therapist in selectedTherapists)
             {
                 schedules.Add(new TherapistAvailability
                 {
@@ -340,6 +344,7 @@ public static class DbSeeder
         {
             context.TherapistAvailability.AddRange(schedules);
             await context.SaveChangesAsync();
+            Console.WriteLine($"Seeded {schedules.Count} therapist schedules for 30 days (9 AM - 7 PM, max 5 therapists/day)");
         }
     }
 

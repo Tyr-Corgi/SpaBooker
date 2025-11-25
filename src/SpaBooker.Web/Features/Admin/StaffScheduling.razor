@@ -1,12 +1,15 @@
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @rendermode RenderMode.InteractiveServer
 @page "/admin/staff-scheduling"
 @using Microsoft.EntityFrameworkCore
 @using SpaBooker.Core.Entities
+@using SpaBooker.Core.Enums
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
 @inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject UserManager<ApplicationUser> UserManager
+@inject IJSRuntime JSRuntime
 @attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Staff Scheduling - SpaBooker Admin</PageTitle>
@@ -599,7 +602,7 @@
 @if (showDayDetailModal && selectedDate.HasValue)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -608,25 +611,97 @@
                     <button type="button" class="btn-close" @onclick="CloseDayDetailModal"></button>
                 </div>
                 <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(dayDetailError))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show">
+                            <i class="bi bi-exclamation-triangle"></i> @dayDetailError
+                            <button type="button" class="btn-close" @onclick="() => dayDetailError = null"></button>
+                        </div>
+                    }
+                    
+                    @if (!string.IsNullOrEmpty(dayDetailSuccess))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show">
+                            <i class="bi bi-check-circle"></i> @dayDetailSuccess
+                            <button type="button" class="btn-close" @onclick="() => dayDetailSuccess = null"></button>
+                        </div>
+                    }
+                    
+                    @if (hasUnsavedDayChanges)
+                    {
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle"></i> You have unsaved changes. Click "Save All Changes" to apply them.
+                        </div>
+                    }
+                    
                     @if (dayDetailTherapists.Any())
                     {
-                        <div class="list-group">
-                            @foreach (var detail in dayDetailTherapists)
-                            {
-                                <div class="list-group-item">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h6 class="mb-1">
-                                                <span class="badge" style="background-color: @detail.color;">@detail.therapist.FirstName @detail.therapist.LastName</span>
+                        <p class="text-muted mb-3">
+                            <i class="bi bi-info-circle"></i> Edit any staff member's schedule for this day below.
+                        </p>
+                        
+                        @foreach (var detail in dayDetailTherapists)
+                        {
+                            var isEditing = editingTherapistId == detail.therapist.Id;
+                            
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-3">
+                                            <h6 class="mb-0">
+                                                <span class="badge" style="background-color: @detail.color; font-size: 1rem;">
+                                                    @detail.therapist.FirstName @detail.therapist.LastName
+                                                </span>
                                             </h6>
-                                            <p class="mb-0">
-                                                <i class="bi bi-clock"></i> @detail.startTime.ToString(@"hh\:mm tt") - @detail.endTime.ToString(@"hh\:mm tt")
-                                            </p>
                                         </div>
+                                        
+                                        @if (isEditing)
+                                        {
+                                            <div class="col-md-7">
+                                                <div class="row g-2">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small mb-1">Start Time</label>
+                                                        <input type="time" class="form-control form-control-sm" value="@editStartTime" @onchange="@((e) => editStartTime = e.Value?.ToString() ?? "")" />
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small mb-1">End Time</label>
+                                                        <input type="time" class="form-control form-control-sm" value="@editEndTime" @onchange="@((e) => editEndTime = e.Value?.ToString() ?? "")" />
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small mb-1">Notes</label>
+                                                        <input type="text" class="form-control form-control-sm" @bind="editNotes" placeholder="Optional" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2 text-end">
+                                                <button type="button" class="btn btn-sm btn-success me-1" @onclick="() => ApplyTherapistEdit(detail.therapist.Id)">
+                                                    <i class="bi bi-check"></i> Apply
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-secondary me-1" @onclick="CancelTherapistEdit">
+                                                    <i class="bi bi-x"></i> Cancel
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveTherapistFromDay(detail.therapist.Id)">
+                                                    <i class="bi bi-x-circle"></i> Remove
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="col-md-7">
+                                                <p class="mb-0">
+                                                    <i class="bi bi-clock"></i> @FormatTimeSpanToAmPm(detail.startTime) - @FormatTimeSpanToAmPm(detail.endTime)
+                                                </p>
+                                            </div>
+                                            <div class="col-md-2 text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => StartEditingTherapist(detail.therapist.Id, detail.startTime, detail.endTime)">
+                                                    <i class="bi bi-pencil"></i> Edit
+                                                </button>
+                                            </div>
+                                        }
                                     </div>
                                 </div>
-                            }
-                        </div>
+                            </div>
+                        }
                     }
                     else
                     {
@@ -636,7 +711,13 @@
                     }
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseDayDetailModal">Close</button>
+                    @if (hasUnsavedDayChanges)
+                    {
+                        <button type="button" class="btn btn-success" @onclick="SaveAllDayChanges">
+                            <i class="bi bi-save"></i> Save All Changes
+                        </button>
+                    }
+                    <button type="button" class="btn btn-secondary" @onclick="AttemptCloseDayDetailModal">Close</button>
                 </div>
             </div>
         </div>
@@ -726,6 +807,16 @@
     private bool showDayDetailModal = false;
     private DateTime? selectedDate;
     private List<(ApplicationUser therapist, string color, TimeSpan startTime, TimeSpan endTime)> dayDetailTherapists = new();
+    private string? dayDetailError;
+    private string? dayDetailSuccess;
+    
+    // Inline editing in day detail modal
+    private string? editingTherapistId;
+    private string editStartTime = "09:00";
+    private string editEndTime = "17:00";
+    private string? editNotes;
+    private bool hasUnsavedDayChanges = false;
+    private Dictionary<string, (TimeSpan startTime, TimeSpan endTime, string? notes)> pendingScheduleChanges = new();
     
     // Edit day modal (Single therapist view)
     private bool showEditDayModal = false;
@@ -768,12 +859,23 @@
 
         using var context = await DbContextFactory.CreateDbContextAsync();
         
-        // Load all schedules for this therapist (both weekly recurring and specific dates)
-        schedules = await context.TherapistAvailability
-            .Where(a => a.TherapistId == selectedTherapistId)
-            .OrderBy(a => a.SpecificDate ?? DateTime.MinValue)
-            .ThenBy(a => a.DayOfWeek)
-            .ToListAsync();
+        if (selectedTherapistId == "ALL_STAFF")
+        {
+            // Load all schedules for all therapists
+            schedules = await context.TherapistAvailability
+                .OrderBy(a => a.SpecificDate ?? DateTime.MinValue)
+                .ThenBy(a => a.DayOfWeek)
+                .ToListAsync();
+        }
+        else
+        {
+            // Load all schedules for this therapist (both weekly recurring and specific dates)
+            schedules = await context.TherapistAvailability
+                .Where(a => a.TherapistId == selectedTherapistId)
+                .OrderBy(a => a.SpecificDate ?? DateTime.MinValue)
+                .ThenBy(a => a.DayOfWeek)
+                .ToListAsync();
+        }
     }
 
     private string GetCurrentWeekSummary()
@@ -813,6 +915,12 @@
         return weeklySchedule != null;
     }
 
+    private string FormatTimeSpanToAmPm(TimeSpan time)
+    {
+        var dateTime = DateTime.Today.Add(time);
+        return dateTime.ToString("h:mm tt");
+    }
+    
     private string GetAllStaffSummary()
     {
         var today = DateTime.Today;
@@ -1293,6 +1401,243 @@
         showDayDetailModal = false;
         selectedDate = null;
         dayDetailTherapists.Clear();
+        editingTherapistId = null;
+        dayDetailError = null;
+        dayDetailSuccess = null;
+        hasUnsavedDayChanges = false;
+        pendingScheduleChanges.Clear();
+    }
+    
+    private async Task AttemptCloseDayDetailModal()
+    {
+        if (hasUnsavedDayChanges)
+        {
+            bool confirmed = await JSRuntime.InvokeAsync<bool>("schedulerHelpers.confirmUnsavedChanges");
+            if (!confirmed)
+            {
+                return; // User cancelled, keep modal open
+            }
+        }
+        
+        CloseDayDetailModal();
+    }
+    
+    private void StartEditingTherapist(string therapistId, TimeSpan startTime, TimeSpan endTime)
+    {
+        editingTherapistId = therapistId;
+        editStartTime = startTime.ToString(@"hh\:mm");
+        editEndTime = endTime.ToString(@"hh\:mm");
+        editNotes = null;
+        dayDetailError = null;
+        dayDetailSuccess = null;
+    }
+    
+    private void CancelTherapistEdit()
+    {
+        editingTherapistId = null;
+        dayDetailError = null;
+    }
+    
+    private void ApplyTherapistEdit(string therapistId)
+    {
+        try
+        {
+            dayDetailError = null;
+            dayDetailSuccess = null;
+            
+            if (!TimeSpan.TryParse(editStartTime, out var startTime) || !TimeSpan.TryParse(editEndTime, out var endTime))
+            {
+                dayDetailError = "Invalid time format.";
+                return;
+            }
+            
+            if (endTime <= startTime)
+            {
+                dayDetailError = "End time must be after start time.";
+                return;
+            }
+            
+            // Store the pending change
+            pendingScheduleChanges[therapistId] = (startTime, endTime, editNotes);
+            hasUnsavedDayChanges = true;
+            
+            // Update the display with the pending change
+            var index = dayDetailTherapists.FindIndex(d => d.therapist.Id == therapistId);
+            if (index >= 0)
+            {
+                var detail = dayDetailTherapists[index];
+                dayDetailTherapists[index] = (detail.therapist, detail.color, startTime, endTime);
+            }
+            
+            editingTherapistId = null;
+        }
+        catch (Exception ex)
+        {
+            dayDetailError = $"Error applying changes: {ex.Message}";
+        }
+    }
+    
+    private async Task SaveAllDayChanges()
+    {
+        if (!selectedDate.HasValue) return;
+        
+        try
+        {
+            dayDetailError = null;
+            dayDetailSuccess = null;
+            
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var utcDate = DateTime.SpecifyKind(selectedDate.Value.Date, DateTimeKind.Utc);
+            
+            foreach (var (therapistId, (startTime, endTime, notes)) in pendingScheduleChanges)
+            {
+                var schedule = await context.TherapistAvailability
+                    .FirstOrDefaultAsync(a => a.TherapistId == therapistId && a.SpecificDate == utcDate);
+                
+                if (schedule != null)
+                {
+                    // Update existing schedule
+                    schedule.StartTime = startTime;
+                    schedule.EndTime = endTime;
+                    schedule.Notes = notes;
+                }
+                else
+                {
+                    // Create new schedule
+                    schedule = new TherapistAvailability
+                    {
+                        TherapistId = therapistId,
+                        DayOfWeek = selectedDate.Value.DayOfWeek,
+                        StartTime = startTime,
+                        EndTime = endTime,
+                        IsAvailable = true,
+                        SpecificDate = utcDate,
+                        Notes = notes,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    context.TherapistAvailability.Add(schedule);
+                }
+            }
+            
+            await context.SaveChangesAsync();
+            
+            // Refresh the schedules to reflect changes in the calendar
+            await LoadSchedules();
+            
+            // Clear pending changes
+            pendingScheduleChanges.Clear();
+            hasUnsavedDayChanges = false;
+            
+            dayDetailSuccess = $"{pendingScheduleChanges.Count} schedule(s) updated successfully!";
+        }
+        catch (Exception ex)
+        {
+            dayDetailError = $"Error saving changes: {ex.Message}";
+        }
+    }
+    
+    private async Task RemoveTherapistFromDay(string therapistId)
+    {
+        if (!selectedDate.HasValue) return;
+        
+        try
+        {
+            dayDetailError = null;
+            dayDetailSuccess = null;
+            
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            var utcDate = DateTime.SpecifyKind(selectedDate.Value.Date, DateTimeKind.Utc);
+            
+            // Find any bookings for this therapist on this date
+            var dayStart = utcDate;
+            var dayEnd = utcDate.AddDays(1);
+            
+            var bookingsToReassign = await context.Bookings
+                .Where(b => b.TherapistId == therapistId && 
+                            b.StartTime >= dayStart && 
+                            b.StartTime < dayEnd &&
+                            b.Status != BookingStatus.Cancelled)
+                .ToListAsync();
+            
+            // Unassign therapist from these bookings (keep room assignments)
+            foreach (var booking in bookingsToReassign)
+            {
+                booking.TherapistId = null;
+                // RoomId remains unchanged - we preserve room assignments
+            }
+            
+            // Remove the therapist's schedule for this day
+            var schedule = await context.TherapistAvailability
+                .FirstOrDefaultAsync(a => a.TherapistId == therapistId && a.SpecificDate == utcDate);
+            
+            if (schedule != null)
+            {
+                context.TherapistAvailability.Remove(schedule);
+            }
+            
+            await context.SaveChangesAsync();
+            
+            // Refresh the calendar schedules
+            await LoadSchedules();
+            
+            // Refresh the day detail modal by reloading therapists for this day
+            var savedDate = selectedDate.Value; // Save the date before clearing
+            dayDetailTherapists.Clear();
+            
+            // Reload the therapists for this specific day
+            using var refreshContext = await DbContextFactory.CreateDbContextAsync();
+            var utcDateRefresh = DateTime.SpecifyKind(savedDate.Date, DateTimeKind.Utc);
+            
+            var therapistsForDay = await refreshContext.TherapistAvailability
+                .Include(a => a.Therapist)
+                .Where(a => a.SpecificDate == utcDateRefresh && a.IsAvailable)
+                .ToListAsync();
+            
+            // Generate color palette for therapists
+            var colors = new[] { "#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#95a5a6", "#34495e", "#16a085" };
+            var colorIndex = 0;
+            
+            foreach (var availability in therapistsForDay)
+            {
+                var color = colors[colorIndex % colors.Length];
+                dayDetailTherapists.Add((availability.Therapist, color, availability.StartTime, availability.EndTime));
+                colorIndex++;
+            }
+            
+            // Clear edit mode
+            editingTherapistId = null;
+            
+            if (bookingsToReassign.Any())
+            {
+                dayDetailSuccess = $"Therapist removed from this day. {bookingsToReassign.Count} booking(s) moved to 'Unassigned' group.";
+            }
+            else
+            {
+                dayDetailSuccess = "Therapist removed from this day.";
+            }
+            
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            dayDetailError = $"Error removing therapist: {ex.Message}";
+        }
+    }
+    
+    private async Task EditTherapistScheduleForDay(string therapistId, DateTime date)
+    {
+        // Close the day detail modal
+        showDayDetailModal = false;
+        
+        // Set the selected therapist and date
+        selectedTherapistId = therapistId;
+        selectedDate = date;
+        
+        // Load schedules for this therapist
+        await LoadSchedules();
+        
+        // Open the edit day modal (single therapist view)
+        await OnCalendarDayClick(date);
     }
     
     private void CloseEditDayModal()

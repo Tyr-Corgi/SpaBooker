@@ -363,3 +363,10 @@
     text-decoration: underline !important;
 }
 
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .schedule-grid {
+        display: none;
+    }
+}

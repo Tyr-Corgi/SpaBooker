@@ -1004,6 +1004,17 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadClients();
+        
+        // Check if we have a clientId query parameter
+        var uri = new Uri(NavigationManager.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var clientId = query["clientId"];
+        
+        if (!string.IsNullOrEmpty(clientId))
+        {
+            // Automatically open the notes modal for this client
+            await ShowNotesModal(clientId);
+        }
     }
 
     private async Task LoadClients()
