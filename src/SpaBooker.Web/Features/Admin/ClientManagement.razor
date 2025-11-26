@@ -282,7 +282,7 @@
                                                 <td class="text-end">
                                                     <div class="d-flex flex-column gap-1">
                                                         <button class="btn btn-sm btn-primary" 
-                                                                @onclick="@((e) => HandleBookAppointmentClick(currentClientId))">
+                                                                @onclick="@(async (e) => await HandleBookAppointmentClick(currentClientId))">
                                                             <i class="bi bi-calendar-plus me-1"></i>Book Appointment
                                                         </button>
                                                         <button class="btn btn-sm" style="background: linear-gradient(135deg, #E8B4B8, #D89BA1); border-color: #D89BA1; color: white;"
@@ -955,6 +955,100 @@
     </div>
 }
 
+@* Booking Modal *@
+@if (showBookingModal && selectedClient != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-calendar-plus me-2"></i>Book Appointment - @selectedClient.FirstName @selectedClient.LastName
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseBookingModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(bookingError))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle me-2"></i>@bookingError
+                            <button type="button" class="btn-close" @onclick="() => bookingError = null"></button>
+                        </div>
+                    }
+                    
+                    <!-- Date Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Date *</label>
+                        <input type="date" class="form-control" value="@bookingDate" @onchange="@(e => bookingDate = e.Value?.ToString() ?? "")" />
+                    </div>
+                    
+                    <!-- Time Selection -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Start Time *</label>
+                            <input type="time" class="form-control" value="@bookingStartTime" @onchange="@(e => bookingStartTime = e.Value?.ToString() ?? "")" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">End Time *</label>
+                            <input type="time" class="form-control" value="@bookingEndTime" @onchange="@(e => bookingEndTime = e.Value?.ToString() ?? "")" />
+                        </div>
+                    </div>
+                    
+                    <!-- Service Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Service *</label>
+                        <select class="form-select" @bind="selectedServiceId" @bind:after="OnServiceSelected">
+                            <option value="0">-- Select a service --</option>
+                            @foreach (var service in availableServices)
+                            {
+                                <option value="@service.Id">
+                                    @service.Name (@service.DurationMinutes min - $@service.BasePrice.ToString("F2"))
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    
+                    <!-- Therapist Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Therapist (Optional)</label>
+                        <select class="form-select" @bind="selectedTherapistId">
+                            <option value="">-- Select a therapist --</option>
+                            @foreach (var therapist in availableTherapists)
+                            {
+                                <option value="@therapist.Id">@therapist.FirstName @therapist.LastName</option>
+                            }
+                        </select>
+                    </div>
+                    
+                    <!-- Room Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Room (Optional)</label>
+                        <select class="form-select" @bind="selectedRoomId">
+                            <option value="">-- Select a room --</option>
+                            @foreach (var room in availableRooms)
+                            {
+                                <option value="@room.Id">@room.Name</option>
+                            }
+                        </select>
+                    </div>
+                    
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" rows="3" @bind="bookingNotes" placeholder="Add any special notes or requests..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseBookingModal">Cancel</button>
+                    <button class="btn btn-primary" @onclick="CreateBooking">
+                        <i class="bi bi-save me-1"></i>Create Booking
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     // Client lists and data
     private List<ApplicationUser> allClients = new();
@@ -975,6 +1069,7 @@
     private bool showDetailsModal = false;
     private bool showEditModal = false;
     private bool showNotesModal = false;
+    private bool showBookingModal = false;
     private ApplicationUser? selectedClient;
     private ClientData? selectedClientData;
     private string activeTab = "overview";
@@ -993,6 +1088,19 @@
     private string newNoteContent = "";
     private string newNoteType = "Staff";
     private string? noteSuccessMessage;
+    
+    // Booking modal state
+    private List<SpaService> availableServices = new();
+    private List<ApplicationUser> availableTherapists = new();
+    private List<Room> availableRooms = new();
+    private string? bookingError;
+    private int selectedServiceId = 0;
+    private string? selectedTherapistId;
+    private int? selectedRoomId;
+    private string bookingDate = DateTime.Today.ToString("yyyy-MM-dd");
+    private string bookingStartTime = "09:00";
+    private string bookingEndTime = "10:00";
+    private string bookingNotes = "";
     
     // Selected client details
     private List<Booking> selectedClientBookings = new();
@@ -1164,11 +1272,10 @@
         ShowEditClientModal(clientId);
     }
 
-    private void HandleBookAppointmentClick(string clientId)
+    private async Task HandleBookAppointmentClick(string clientId)
     {
         Console.WriteLine($"HandleBookAppointmentClick called! clientId: {clientId}");
-        // Navigate to the scheduler page with the client pre-selected
-        NavigationManager.NavigateTo($"/admin/scheduler?clientId={clientId}");
+        await ShowBookingModal(clientId);
     }
 
     private async Task HandleNotesClick(string clientId)
@@ -1551,6 +1658,146 @@
         }
     }
 
+    // Booking Modal Methods
+    
+    private async Task ShowBookingModal(string clientId)
+    {
+        selectedClient = allClients.FirstOrDefault(c => c.Id == clientId);
+        if (selectedClient == null) return;
+        
+        // Reset form
+        selectedServiceId = 0;
+        selectedTherapistId = null;
+        selectedRoomId = null;
+        bookingDate = DateTime.Today.ToString("yyyy-MM-dd");
+        bookingStartTime = "09:00";
+        bookingEndTime = "10:00";
+        bookingNotes = "";
+        bookingError = null;
+        
+        // Load available services
+        availableServices = await DbContext.SpaServices
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+        
+        // Load all therapists
+        var therapistList = await UserManager.GetUsersInRoleAsync("Therapist");
+        availableTherapists = therapistList.OrderBy(t => t.FirstName).ToList();
+        
+        // Load all rooms
+        availableRooms = await DbContext.Rooms
+            .Where(r => r.IsActive)
+            .OrderBy(r => r.Name)
+            .ToListAsync();
+        
+        showBookingModal = true;
+        StateHasChanged();
+    }
+    
+    private void CloseBookingModal()
+    {
+        showBookingModal = false;
+        selectedClient = null;
+        bookingError = null;
+    }
+    
+    private async Task OnServiceSelected()
+    {
+        if (selectedServiceId == 0) return;
+        
+        var service = availableServices.FirstOrDefault(s => s.Id == selectedServiceId);
+        if (service != null)
+        {
+            // Update end time based on service duration
+            if (TimeSpan.TryParse(bookingStartTime, out var startTime))
+            {
+                var endTime = startTime.Add(TimeSpan.FromMinutes(service.DurationMinutes));
+                bookingEndTime = $"{endTime.Hours:D2}:{endTime.Minutes:D2}";
+                StateHasChanged();
+            }
+        }
+    }
+    
+    private async Task CreateBooking()
+    {
+        try
+        {
+            bookingError = null;
+            
+            // Validation
+            if (selectedClient == null)
+            {
+                bookingError = "Client not selected";
+                return;
+            }
+            
+            if (selectedServiceId == 0)
+            {
+                bookingError = "Please select a service";
+                return;
+            }
+            
+            if (!DateTime.TryParse(bookingDate, out var date))
+            {
+                bookingError = "Invalid date";
+                return;
+            }
+            
+            if (!TimeSpan.TryParse(bookingStartTime, out var startTime) || 
+                !TimeSpan.TryParse(bookingEndTime, out var endTime))
+            {
+                bookingError = "Invalid time";
+                return;
+            }
+            
+            var startDateTime = DateTime.SpecifyKind(date.Date.Add(startTime), DateTimeKind.Utc);
+            var endDateTime = DateTime.SpecifyKind(date.Date.Add(endTime), DateTimeKind.Utc);
+            
+            // Check for conflicts
+            var hasConflict = await DbContext.Bookings
+                .AnyAsync(b => 
+                    ((b.TherapistId == selectedTherapistId && selectedTherapistId != null) || 
+                     (b.RoomId == selectedRoomId && selectedRoomId != null)) &&
+                    b.Status != BookingStatus.Cancelled &&
+                    b.Status != BookingStatus.NoShow &&
+                    ((b.StartTime < endDateTime && b.EndTime > startDateTime)));
+            
+            if (hasConflict)
+            {
+                bookingError = "Time slot conflict detected. Please choose a different time or therapist/room.";
+                return;
+            }
+            
+            // Create booking
+            var booking = new Booking
+            {
+                ClientId = selectedClient.Id,
+                ServiceId = selectedServiceId,
+                TherapistId = selectedTherapistId,
+                RoomId = selectedRoomId,
+                StartTime = startDateTime,
+                EndTime = endDateTime,
+                Status = BookingStatus.Confirmed,
+                Notes = bookingNotes,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            DbContext.Bookings.Add(booking);
+            await DbContext.SaveChangesAsync();
+            
+            CloseBookingModal();
+            successMessage = $"Booking created successfully for {selectedClient.FirstName} {selectedClient.LastName}!";
+            await LoadClients(); // Refresh the list
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            bookingError = $"Error creating booking: {ex.Message}";
+        }
+    }
+    
     // Data class for client statistics
     private class ClientData
     {
