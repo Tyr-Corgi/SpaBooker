@@ -2,11 +2,16 @@
 @using Microsoft.EntityFrameworkCore
 @using SpaBooker.Core.Entities
 @using SpaBooker.Core.Enums
+@using SpaBooker.Core.Interfaces
+@using SpaBooker.Core.DTOs.Client
+@using SpaBooker.Core.DTOs.Booking
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
-@inject ApplicationDbContext DbContext
+@inject IClientService ClientService
+@inject IBookingService BookingService
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -320,8 +325,9 @@
 @* Client Details Modal *@
 @if (showDetailsModal && selectedClient != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" @onclick="CloseDetailsModal" @onclick:stopPropagation="false">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" @onclick:stopPropagation="true">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">
@@ -508,9 +514,9 @@
                                         {
                                             <tr>
                                                 <td>@booking.StartTime.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")</td>
-                                                <td>@booking.Service.Name</td>
-                                                <td>@booking.Therapist.FirstName @booking.Therapist.LastName</td>
-                                                <td>@booking.Location.Name</td>
+                                                <td>@(booking.Service?.Name ?? "N/A")</td>
+                                                <td>@(booking.Therapist != null ? $"{booking.Therapist.FirstName} {booking.Therapist.LastName}" : "Unassigned")</td>
+                                                <td>@(booking.Location?.Name ?? "N/A")</td>
                                                 <td>$@booking.TotalPrice.ToString("N2")</td>
                                                 <td>
                                                     <span class="badge @GetStatusBadgeClass(booking.Status)">
@@ -696,23 +702,13 @@
                         <!-- Notes Tab -->
                         @if (activeTab == "notes")
                         {
-                            <div class="mb-3">
-                                <label class="form-label"><strong>Admin Notes</strong></label>
-                                <textarea class="form-control" rows="4" 
-                                          @bind="clientNotes" 
-                                          placeholder="Add notes about client preferences, special requests, or other important information..."></textarea>
-                                <div class="mt-2">
-                                    <button class="btn btn-primary" @onclick="SaveClientNotes">
-                                        <i class="bi bi-save me-1"></i>Save Notes
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="alert alert-info">
+                            <div class="alert alert-info mb-3">
                                 <i class="bi bi-info-circle me-2"></i>
-                                <strong>Note:</strong> This feature requires adding a Notes field to the ApplicationUser entity. 
-                                For now, notes can be added but won't persist to the database.
+                                Use the <strong>Notes</strong> button on the client list to manage detailed notes for this client.
                             </div>
+                            <button class="btn btn-primary" @onclick="@(() => HandleNotesClick(selectedClient!.Id))">
+                                <i class="bi bi-journal-text me-1"></i>Open Notes Manager
+                            </button>
                         }
                     }
                 </div>
@@ -739,8 +735,9 @@
 @* Edit Client Modal *@
 @if (showEditModal && selectedClient != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" @onclick="CloseEditModal" @onclick:stopPropagation="false">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" @onclick:stopPropagation="true">
             <div class="modal-content">
                 <div class="modal-header bg-secondary text-white">
                     <h5 class="modal-title">
@@ -842,8 +839,9 @@
 @* Notes Modal *@
 @if (showNotesModal && selectedClient != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" @onclick="CloseNotesModal" @onclick:stopPropagation="false">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" @onclick:stopPropagation="true">
             <div class="modal-content">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title">
@@ -890,10 +888,10 @@
                             <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Note History</h6>
                         </div>
                         <div class="card-body">
-                            @if (clientNotes != null && clientNotes.Any())
+                            @if (clientNotesList != null && clientNotesList.Any())
                             {
                                 <div class="timeline">
-                                    @foreach (var note in clientNotes.OrderByDescending(n => n.CreatedAt))
+                                    @foreach (var note in clientNotesList.OrderByDescending(n => n.CreatedAt))
                                     {
                                         <div class="timeline-item mb-3 pb-3 border-bottom">
                                             <div class="d-flex justify-content-between align-items-start">
@@ -958,8 +956,9 @@
 @* Booking Modal *@
 @if (showBookingModal && selectedClient != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" @onclick="CloseBookingModal" @onclick:stopPropagation="false">
+        <div class="modal-dialog modal-lg" @onclick:stopPropagation="true">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">
@@ -986,11 +985,21 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Start Time *</label>
-                            <input type="time" class="form-control" value="@bookingStartTime" @onchange="@(e => bookingStartTime = e.Value?.ToString() ?? "")" />
+                            <select class="form-select" @bind="bookingStartTime" @bind:after="OnStartTimeChanged">
+                                @foreach (var time in availableTimeSlots)
+                                {
+                                    <option value="@time.Value">@time.Display</option>
+                                }
+                            </select>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">End Time *</label>
-                            <input type="time" class="form-control" value="@bookingEndTime" @onchange="@(e => bookingEndTime = e.Value?.ToString() ?? "")" />
+                            <select class="form-select" @bind="bookingEndTime">
+                                @foreach (var time in availableTimeSlots)
+                                {
+                                    <option value="@time.Value">@time.Display</option>
+                                }
+                            </select>
                         </div>
                     </div>
                     
@@ -1006,6 +1015,35 @@
                                 </option>
                             }
                         </select>
+                    </div>
+                    
+                    <!-- Location Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Location *</label>
+                        <select class="form-select" @bind="selectedLocationId" @bind:after="OnLocationChanged">
+                            @foreach (var location in availableLocations)
+                            {
+                                <option value="@location.Id">@location.Name</option>
+                            }
+                        </select>
+                        @if (selectedClient?.LocationId != selectedLocationId && selectedClient?.LocationId != null)
+                        {
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="updateHomeLocation" @bind="updateClientHomeLocation" />
+                                <label class="form-check-label text-muted" for="updateHomeLocation">
+                                    <small>Update client's home location to this spa</small>
+                                </label>
+                            </div>
+                        }
+                        else if (selectedClient?.LocationId == null)
+                        {
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="setHomeLocation" @bind="updateClientHomeLocation" />
+                                <label class="form-check-label text-muted" for="setHomeLocation">
+                                    <small>Set this as client's home location</small>
+                                </label>
+                            </div>
+                        }
                     </div>
                     
                     <!-- Therapist Selection -->
@@ -1053,7 +1091,7 @@
     // Client lists and data
     private List<ApplicationUser> allClients = new();
     private List<ApplicationUser> filteredClients = new();
-    private Dictionary<string, ClientData> clientStats = new();
+    private Dictionary<string, ClientStatisticsDto> clientStats = new();
     
     // Filters and search
     private string selectedFilter = "All";
@@ -1071,7 +1109,7 @@
     private bool showNotesModal = false;
     private bool showBookingModal = false;
     private ApplicationUser? selectedClient;
-    private ClientData? selectedClientData;
+    private ClientStatisticsDto? selectedClientData;
     private string activeTab = "overview";
     
     // Edit form state
@@ -1084,7 +1122,7 @@
     private bool editLockoutEnabled = false;
     
     // Notes state
-    private List<ClientNote> clientNotes = new();
+    private List<ClientNote> clientNotesList = new();
     private string newNoteContent = "";
     private string newNoteType = "Staff";
     private string? noteSuccessMessage;
@@ -1093,10 +1131,14 @@
     private List<SpaService> availableServices = new();
     private List<ApplicationUser> availableTherapists = new();
     private List<Room> availableRooms = new();
+    private List<Location> availableLocations = new();
+    private List<(string Value, string Display)> availableTimeSlots = new();
     private string? bookingError;
     private int selectedServiceId = 0;
     private string? selectedTherapistId;
     private int? selectedRoomId;
+    private int selectedLocationId;
+    private bool updateClientHomeLocation = false;
     private string bookingDate = DateTime.Today.ToString("yyyy-MM-dd");
     private string bookingStartTime = "09:00";
     private string bookingEndTime = "10:00";
@@ -1129,85 +1171,37 @@
     {
         isLoading = true;
 
-        // Load all users with Client role
-        var allUsers = await DbContext.Users
-            .Include(u => u.Location)
-            .Include(u => u.BookingsAsClient)
-                .ThenInclude(b => b.Service)
-            .Include(u => u.BookingsAsClient)
-                .ThenInclude(b => b.Therapist)
-            .Include(u => u.BookingsAsClient)
-                .ThenInclude(b => b.Location)
-            .Include(u => u.Memberships)
-                .ThenInclude(m => m.MembershipPlan)
-            .Include(u => u.Memberships)
-                .ThenInclude(m => m.CreditTransactions)
-            .OrderByDescending(u => u.CreatedAt)
-            .ToListAsync();
-
-        // Filter to only clients
-        allClients = new List<ApplicationUser>();
-        foreach (var user in allUsers)
+        try
         {
-            var roles = await UserManager.GetRolesAsync(user);
-            if (roles.Contains("Client"))
-            {
-                allClients.Add(user);
-            }
-        }
+            // Use the ClientService to get all clients
+            allClients = await ClientService.GetAllClientsAsync();
 
-        // Calculate stats for each client
-        clientStats = new Dictionary<string, ClientData>();
+            // Load statistics for each client using the service
+            clientStats = new Dictionary<string, ClientStatisticsDto>();
         foreach (var client in allClients)
         {
-            var data = new ClientData
+                var statsResult = await ClientService.GetClientStatisticsAsync(client.Id);
+                if (statsResult.IsSuccess && statsResult.Value != null)
             {
-                TotalBookings = client.BookingsAsClient.Count,
-                CompletedBookings = client.BookingsAsClient.Count(b => b.Status == BookingStatus.Completed),
-                CancelledBookings = client.BookingsAsClient.Count(b => b.Status == BookingStatus.Cancelled),
-                LifetimeValue = client.BookingsAsClient.Where(b => b.Status == BookingStatus.Completed).Sum(b => b.TotalPrice),
-                LastBookingDate = client.BookingsAsClient
-                    .Where(b => b.Status == BookingStatus.Completed && b.StartTime < DateTime.UtcNow)
-                    .OrderByDescending(b => b.StartTime)
-                    .FirstOrDefault()?.StartTime,
-                NextBookingDate = client.BookingsAsClient
-                    .Where(b => (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Pending) && b.StartTime > DateTime.UtcNow)
-                    .OrderBy(b => b.StartTime)
-                    .FirstOrDefault()?.StartTime,
-                FavoriteService = client.BookingsAsClient
-                    .GroupBy(b => b.Service.Name)
-                    .OrderByDescending(g => g.Count())
-                    .FirstOrDefault()?.Key,
-                FavoriteTherapist = client.BookingsAsClient
-                    .GroupBy(b => $"{b.Therapist.FirstName} {b.Therapist.LastName}")
-                    .OrderByDescending(g => g.Count())
-                    .FirstOrDefault()?.Key
-            };
-
-            // Check membership
-            var activeMembership = client.Memberships.FirstOrDefault(m => m.Status == MembershipStatus.Active);
-            if (activeMembership != null)
-            {
-                data.HasActiveMembership = true;
-                data.MembershipPlanName = activeMembership.MembershipPlan.Name;
-                data.CurrentCredits = activeMembership.CurrentCredits;
-            }
-
-            // Calculate days since last visit
-            if (data.LastBookingDate.HasValue)
-            {
-                data.DaysSinceLastVisit = (int)(DateTime.UtcNow - data.LastBookingDate.Value).TotalDays;
+                    clientStats[client.Id] = statsResult.Value;
             }
             else
             {
-                data.DaysSinceLastVisit = 999;
+                    // Provide default stats if service call fails
+                    clientStats[client.Id] = new ClientStatisticsDto();
             }
-
-            clientStats[client.Id] = data;
         }
 
         filteredClients = allClients;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading clients: {ex.Message}";
+        }
+        finally
+        {
         isLoading = false;
+        }
     }
 
     private void ApplyFilter(string filter)
@@ -1294,20 +1288,15 @@
         
         if (selectedClient == null) return;
 
-        selectedClientData = clientStats[clientId];
+        // Get client statistics from service
+        var statsResult = await ClientService.GetClientStatisticsAsync(clientId);
+        selectedClientData = statsResult.IsSuccess ? statsResult.Value : new ClientStatisticsDto();
         
-        // Load detailed data
-        selectedClientBookings = await DbContext.Bookings
-            .Include(b => b.Service)
-            .Include(b => b.Therapist)
-            .Include(b => b.Location)
-            .Where(b => b.ClientId == clientId)
-            .ToListAsync();
+        // Get booking history from service
+        selectedClientBookings = await ClientService.GetClientBookingHistoryAsync(clientId);
 
-        selectedClientMembership = await DbContext.UserMemberships
-            .Include(m => m.MembershipPlan)
-            .Include(m => m.CreditTransactions)
-            .FirstOrDefaultAsync(m => m.UserId == clientId && m.Status == MembershipStatus.Active);
+        // Get active membership from service
+        selectedClientMembership = await ClientService.GetClientActiveMembershipAsync(clientId);
 
         if (selectedClientMembership != null)
         {
@@ -1318,12 +1307,15 @@
             selectedClientCreditTransactions = new List<MembershipCreditTransaction>();
         }
 
-        selectedClientPurchasedGiftCerts = await DbContext.GiftCertificates
+        // Load gift certificates (keep using DbContextFactory for now - could be moved to a service later)
+        await using var context = await DbContextFactory.CreateDbContextAsync();
+        
+        selectedClientPurchasedGiftCerts = await context.GiftCertificates
             .Include(g => g.PurchasedByUser)
             .Where(g => g.PurchasedByUserId == clientId)
             .ToListAsync();
 
-        selectedClientRedeemedGiftCerts = await DbContext.GiftCertificates
+        selectedClientRedeemedGiftCerts = await context.GiftCertificates
             .Include(g => g.PurchasedByUser)
             .Where(g => g.RedeemedByUserId == clientId)
             .ToListAsync();
@@ -1349,6 +1341,9 @@
         Console.WriteLine($"selectedClient found for edit: {selectedClient != null}");
         
         if (selectedClient == null) return;
+
+        // Close details modal if open (we're opening edit from within details)
+        showDetailsModal = false;
 
         // Populate edit form
         editFirstName = selectedClient.FirstName;
@@ -1378,36 +1373,40 @@
 
         try
         {
-            // Update user properties
-            selectedClient.FirstName = editFirstName;
-            selectedClient.LastName = editLastName;
-            selectedClient.Email = editEmail;
-            selectedClient.PhoneNumber = editPhoneNumber;
+            // Use ClientService to update basic info
+            var updateResult = await ClientService.UpdateClientAsync(
+                selectedClient.Id, 
+                editFirstName, 
+                editLastName, 
+                editPhoneNumber
+            );
+
+            if (updateResult.IsFailure)
+            {
+                errorMessage = updateResult.Error?.Message ?? "Failed to update client";
+                successMessage = null;
+                return;
+            }
+
+            // Handle email and lockout changes via UserManager (these are Identity-specific)
+            if (selectedClient.Email != editEmail)
+            {
+                await UserManager.SetEmailAsync(selectedClient, editEmail);
+                await UserManager.SetUserNameAsync(selectedClient, editEmail);
+            }
+
             selectedClient.EmailConfirmed = editEmailConfirmed;
+            await UserManager.UpdateAsync(selectedClient);
 
             // Handle lockout
             if (editLockoutEnabled && (!selectedClient.LockoutEnd.HasValue || selectedClient.LockoutEnd <= DateTimeOffset.UtcNow))
             {
-                // Enable lockout - set to 100 years from now
-                selectedClient.LockoutEnd = DateTimeOffset.UtcNow.AddYears(100);
+                await UserManager.SetLockoutEndDateAsync(selectedClient, DateTimeOffset.UtcNow.AddYears(100));
             }
             else if (!editLockoutEnabled && selectedClient.LockoutEnd.HasValue && selectedClient.LockoutEnd > DateTimeOffset.UtcNow)
             {
-                // Disable lockout
-                selectedClient.LockoutEnd = null;
+                await UserManager.SetLockoutEndDateAsync(selectedClient, null);
             }
-
-            // Update username if email changed
-            if (selectedClient.UserName != editEmail)
-            {
-                selectedClient.UserName = editEmail;
-                selectedClient.NormalizedUserName = editEmail.ToUpper();
-            }
-
-            selectedClient.NormalizedEmail = editEmail.ToUpper();
-
-            DbContext.Users.Update(selectedClient);
-            await DbContext.SaveChangesAsync();
 
             successMessage = "Client information updated successfully!";
             errorMessage = null;
@@ -1455,12 +1454,6 @@
         }
     }
 
-    private void SaveClientNotes()
-    {
-        successMessage = "Notes saved successfully! (Note: This feature requires database schema update to persist)";
-        StateHasChanged();
-    }
-
     private async Task ExportClients()
     {
         try
@@ -1470,7 +1463,7 @@
 
             foreach (var client in allClients)
             {
-                var stats = clientStats.ContainsKey(client.Id) ? clientStats[client.Id] : new ClientData();
+                var stats = clientStats.ContainsKey(client.Id) ? clientStats[client.Id] : new ClientStatisticsDto();
                 csv.AppendLine($"\"{client.Email}\",\"{client.FirstName}\",\"{client.LastName}\",\"{client.PhoneNumber}\",\"{client.CreatedAt:yyyy-MM-dd}\",\"{stats.LastBookingDate:yyyy-MM-dd}\",{stats.TotalBookings},{stats.LifetimeValue:F2},{stats.HasActiveMembership}");
             }
 
@@ -1515,12 +1508,16 @@
         return Math.Max(0, (int)(nextVisit - DateTime.UtcNow).TotalDays);
     }
 
-    private string GetVisitFrequency(ClientData data)
+    private string GetVisitFrequency(ClientStatisticsDto data)
     {
         if (data.TotalBookings == 0) return "No visits";
         if (data.TotalBookings == 1) return "First visit";
         
-        var daysSinceCreation = (DateTime.UtcNow - allClients.First(c => clientStats[c.Id] == data).CreatedAt).TotalDays;
+        // Find the client for this data to get creation date
+        var client = allClients.FirstOrDefault(c => clientStats.ContainsKey(c.Id) && clientStats[c.Id] == data);
+        if (client == null) return "Unknown";
+        
+        var daysSinceCreation = (DateTime.UtcNow - client.CreatedAt).TotalDays;
         if (daysSinceCreation < 30) return "New client";
         
         var visitsPerMonth = (data.TotalBookings / (daysSinceCreation / 30));
@@ -1565,11 +1562,8 @@
         selectedClient = allClients.FirstOrDefault(c => c.Id == clientId);
         if (selectedClient == null) return;
 
-        // Load client notes from database
-        clientNotes = await DbContext.Set<ClientNote>()
-            .Where(n => n.ClientId == clientId)
-            .OrderByDescending(n => n.CreatedAt)
-            .ToListAsync();
+        // Load client notes using the service
+        clientNotesList = await ClientService.GetClientNotesAsync(clientId);
 
         showNotesModal = true;
         StateHasChanged();
@@ -1579,7 +1573,7 @@
     {
         showNotesModal = false;
         selectedClient = null;
-        clientNotes = new();
+        clientNotesList = new();
         newNoteContent = "";
         newNoteType = "Staff";
         noteSuccessMessage = null;
@@ -1594,31 +1588,26 @@
 
         try
         {
-            var currentUser = await UserManager.GetUserAsync(NavigationManager.ToAbsoluteUri(NavigationManager.Uri).Host != null 
-                ? null 
-                : null);
-            
-            var note = new ClientNote
+            // Use the ClientService to add the note
+            var result = await ClientService.AddClientNoteAsync(
+                selectedClient.Id, 
+                newNoteContent, 
+                newNoteType, 
+                "Admin" // TODO: Get actual user name from auth context
+            );
+
+            if (result.IsSuccess)
             {
-                Id = Guid.NewGuid().ToString(),
-                ClientId = selectedClient.Id,
-                Content = newNoteContent,
-                NoteType = newNoteType,
-                CreatedAt = DateTime.UtcNow,
-                CreatedByName = "Admin" // You can get the actual user name from the current user context
-            };
-
-            DbContext.Set<ClientNote>().Add(note);
-            await DbContext.SaveChangesAsync();
-
-            // Reload notes
-            clientNotes = await DbContext.Set<ClientNote>()
-                .Where(n => n.ClientId == selectedClient.Id)
-                .OrderByDescending(n => n.CreatedAt)
-                .ToListAsync();
-
+                // Reload notes using the service
+                clientNotesList = await ClientService.GetClientNotesAsync(selectedClient.Id);
             newNoteContent = "";
             noteSuccessMessage = "Note added successfully!";
+            }
+            else
+            {
+                noteSuccessMessage = $"Error: {result.Error?.Message}";
+            }
+            
             StateHasChanged();
         }
         catch (Exception ex)
@@ -1632,19 +1621,18 @@
     {
         try
         {
-            var note = await DbContext.Set<ClientNote>().FindAsync(noteId);
+            // Use DbContextFactory for this operation (note deletion not in service yet)
+            await using var context = await DbContextFactory.CreateDbContextAsync();
+            var note = await context.Set<ClientNote>().FindAsync(noteId);
             if (note != null)
             {
-                DbContext.Set<ClientNote>().Remove(note);
-                await DbContext.SaveChangesAsync();
+                context.Set<ClientNote>().Remove(note);
+                await context.SaveChangesAsync();
 
-                // Reload notes
+                // Reload notes using the service
                 if (selectedClient != null)
                 {
-                    clientNotes = await DbContext.Set<ClientNote>()
-                        .Where(n => n.ClientId == selectedClient.Id)
-                        .OrderByDescending(n => n.CreatedAt)
-                        .ToListAsync();
+                    clientNotesList = await ClientService.GetClientNotesAsync(selectedClient.Id);
                 }
 
                 noteSuccessMessage = "Note deleted successfully!";
@@ -1669,27 +1657,35 @@
         selectedServiceId = 0;
         selectedTherapistId = null;
         selectedRoomId = null;
+        updateClientHomeLocation = false;
         bookingDate = DateTime.Today.ToString("yyyy-MM-dd");
         bookingStartTime = "09:00";
         bookingEndTime = "10:00";
         bookingNotes = "";
         bookingError = null;
         
-        // Load available services
-        availableServices = await DbContext.SpaServices
+        // Generate time slots (15-minute intervals from 9 AM to 9 PM)
+        GenerateTimeSlots();
+        
+        // Load available services and locations using DbContextFactory
+        await using var context = await DbContextFactory.CreateDbContextAsync();
+        
+        availableServices = await context.SpaServices
             .Where(s => s.IsActive)
             .OrderBy(s => s.Name)
             .ToListAsync();
         
-        // Load all therapists
-        var therapistList = await UserManager.GetUsersInRoleAsync("Therapist");
-        availableTherapists = therapistList.OrderBy(t => t.FirstName).ToList();
-        
-        // Load all rooms
-        availableRooms = await DbContext.Rooms
-            .Where(r => r.IsActive)
-            .OrderBy(r => r.Name)
+        // Load all locations
+        availableLocations = await context.Locations
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.Name)
             .ToListAsync();
+        
+        // Set default location to client's home location
+        selectedLocationId = selectedClient.LocationId ?? availableLocations.FirstOrDefault()?.Id ?? 0;
+        
+        // Filter rooms and therapists by selected location
+        await OnLocationChanged();
         
         showBookingModal = true;
         StateHasChanged();
@@ -1700,6 +1696,57 @@
         showBookingModal = false;
         selectedClient = null;
         bookingError = null;
+    }
+    
+    private void GenerateTimeSlots()
+    {
+        availableTimeSlots.Clear();
+        for (int hour = 9; hour <= 21; hour++)
+        {
+            for (int minute = 0; minute < 60; minute += 15)
+            {
+                var time = new TimeSpan(hour, minute, 0);
+                availableTimeSlots.Add((
+                    $"{hour:D2}:{minute:D2}",
+                    DateTime.Today.Add(time).ToString("h:mm tt")
+                ));
+            }
+        }
+    }
+    
+    private void OnStartTimeChanged()
+    {
+        // When start time changes, update end time based on selected service duration
+        if (selectedServiceId == 0) return;
+        
+        var service = availableServices.FirstOrDefault(s => s.Id == selectedServiceId);
+        if (service != null && TimeSpan.TryParse(bookingStartTime, out var startTime))
+        {
+            var endTime = startTime.Add(TimeSpan.FromMinutes(service.DurationMinutes));
+            bookingEndTime = $"{endTime.Hours:D2}:{endTime.Minutes:D2}";
+        }
+    }
+    
+    private async Task OnLocationChanged()
+    {
+        await using var context = await DbContextFactory.CreateDbContextAsync();
+        
+        // Filter rooms by selected location
+        availableRooms = await context.Rooms
+            .Where(r => r.IsActive && r.LocationId == selectedLocationId)
+            .OrderBy(r => r.Name)
+            .ToListAsync();
+        selectedRoomId = null; // Reset room selection
+        
+        // Filter therapists by selected location (include those with no location set)
+        var allTherapists = await UserManager.GetUsersInRoleAsync("Therapist");
+        availableTherapists = allTherapists
+            .Where(t => t.LocationId == null || t.LocationId == selectedLocationId)
+            .OrderBy(t => t.FirstName)
+            .ToList();
+        selectedTherapistId = null; // Reset therapist selection
+        
+        StateHasChanged();
     }
     
     private async Task OnServiceSelected()
@@ -1754,38 +1801,38 @@
             var startDateTime = DateTime.SpecifyKind(date.Date.Add(startTime), DateTimeKind.Utc);
             var endDateTime = DateTime.SpecifyKind(date.Date.Add(endTime), DateTimeKind.Utc);
             
-            // Check for conflicts
-            var hasConflict = await DbContext.Bookings
-                .AnyAsync(b => 
-                    ((b.TherapistId == selectedTherapistId && selectedTherapistId != null) || 
-                     (b.RoomId == selectedRoomId && selectedRoomId != null)) &&
-                    b.Status != BookingStatus.Cancelled &&
-                    b.Status != BookingStatus.NoShow &&
-                    ((b.StartTime < endDateTime && b.EndTime > startDateTime)));
-            
-            if (hasConflict)
+            // Update client's home location if requested
+            if (updateClientHomeLocation && selectedClient.LocationId != selectedLocationId)
             {
-                bookingError = "Time slot conflict detected. Please choose a different time or therapist/room.";
-                return;
+                await using var context = await DbContextFactory.CreateDbContextAsync();
+                var client = await context.Users.FindAsync(selectedClient.Id);
+                if (client != null)
+            {
+                    client.LocationId = selectedLocationId;
+                    await context.SaveChangesAsync();
+                }
             }
             
-            // Create booking
-            var booking = new Booking
+            // Create booking using the BookingService
+            var createDto = new CreateBookingDto
             {
                 ClientId = selectedClient.Id,
                 ServiceId = selectedServiceId,
                 TherapistId = selectedTherapistId,
                 RoomId = selectedRoomId,
+                LocationId = selectedLocationId,
                 StartTime = startDateTime,
                 EndTime = endDateTime,
-                Status = BookingStatus.Confirmed,
-                Notes = bookingNotes,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                Notes = bookingNotes
             };
             
-            DbContext.Bookings.Add(booking);
-            await DbContext.SaveChangesAsync();
+            var result = await BookingService.CreateBookingAsync(createDto);
+            
+            if (result.IsFailure)
+            {
+                bookingError = result.Error?.Message ?? "Failed to create booking";
+                return;
+            }
             
             CloseBookingModal();
             successMessage = $"Booking created successfully for {selectedClient.FirstName} {selectedClient.LastName}!";
@@ -1797,22 +1844,6 @@
             bookingError = $"Error creating booking: {ex.Message}";
         }
     }
-    
-    // Data class for client statistics
-    private class ClientData
-    {
-        public int TotalBookings { get; set; }
-        public int CompletedBookings { get; set; }
-        public int CancelledBookings { get; set; }
-        public decimal LifetimeValue { get; set; }
-        public DateTime? LastBookingDate { get; set; }
-        public DateTime? NextBookingDate { get; set; }
-        public int DaysSinceLastVisit { get; set; }
-        public bool HasActiveMembership { get; set; }
-        public string MembershipPlanName { get; set; } = "";
-        public decimal CurrentCredits { get; set; }
-        public string? FavoriteService { get; set; }
-        public string? FavoriteTherapist { get; set; }
-    }
+
 }
 

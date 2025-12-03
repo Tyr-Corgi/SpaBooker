@@ -2,6 +2,16 @@
 
 A comprehensive spa booking and management system built with ASP.NET Core 8, Blazor Server, and PostgreSQL.
 
+## Documentation
+
+For detailed documentation, see the [docs/](docs/) folder:
+
+- [Architecture Overview](docs/architecture/overview.md)
+- [Security Guide](docs/guides/security.md)
+- [Testing Guidelines](docs/guides/testing.md)
+- [Stripe Integration](docs/operations/stripe-integration.md)
+- [Changelog](docs/CHANGELOG.md)
+
 ## Architecture
 
 - **Pattern**: Vertical Slice Architecture

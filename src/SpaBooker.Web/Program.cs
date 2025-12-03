@@ -221,6 +221,12 @@ builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
 // Register Cache Service for performance optimization
 builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
 
+// Register Business Services (Phase 1 - Vertical Slice Architecture)
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IRoomAvailabilityService, RoomAvailabilityService>();
+builder.Services.AddScoped<ITherapistAvailabilityService, TherapistAvailabilityService>();
+builder.Services.AddScoped<IClientService, ClientService>();
+
 // Register FluentValidation validators
 builder.Services.AddValidatorsFromAssemblyContaining<BookingValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<UserRegistrationValidator>();

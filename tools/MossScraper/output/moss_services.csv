@@ -1,0 +1,80 @@
+# Moss Spa Services - Scraped from mossspa.co.nz/christchurch
+# Generated: 2025-11-26 14:25:35
+# Total Services: 74
+# To import: Update LocationId to match your database, then use SQL bulk insert or manual import
+#
+Name,Category,Description,DurationMinutes,BasePrice,IsActive,LocationId
+Anti-Ageing Collagen and Gold Facial,Facial,90 minutes | $260,60,260,True,1
+Anti-Ageing Collagen and Gold Facial,Facial,90 minutes | $260,60,260,True,1
+Anti-Ageing Collagen and Gold Facial,Facial,90 minutes | $260,60,260,True,1
+Anti-Ageing Collagen and Gold Facial,Facial,90 minutes | $260,60,260,True,1
+Anti-Ageing Collagen and Gold Facial,Facial,90 minutes | $260,60,260,True,1
+Anti-Ageing Collagen and Gold Facial,Facial,90 minutes | $260,60,260,True,1
+AcniVine Balancing Facial,Facial,60 minutes | $150,60,150,True,1
+AcniVine Balancing Facial,Facial,60 minutes | $150,60,150,True,1
+Collagen Renewal Facial,Facial,30 minutes | $11560 minutes | $210,60,11560,True,1
+Collagen Renewal Facial,Facial,30 minutes | $11560 minutes | $210,60,11560,True,1
+Clarifying Lactic Acid Peel,Facial,30 minutes | $120,60,120,True,1
+Clarifying Lactic Acid Peel,Facial,30 minutes | $120,60,120,True,1
+Radiating Vitamin A Peel,Facial,45 minutes | $160,60,160,True,1
+Radiating Vitamin A Peel,Facial,45 minutes | $160,60,160,True,1
++ add Refreshing Retinol Eye Mask to any facial,Facial,$40,60,40,True,1
++ add Refreshing Retinol Eye Mask to any facial,Facial,$40,60,40,True,1
+CoreStone,Massage,The perfect way to indulge the mind and body. Let yourself unwind with our Moss massage balms that are made in New Zealand from ingredients including organic beeswax and quality essential oils.,60,180,True,1
+CoreStone,Massage,The perfect way to indulge the mind and body. Let yourself unwind with our Moss massage balms that are made in New Zealand from ingredients including organic beeswax and quality essential oils.,60,180,True,1
+CoreStone,Massage,The perfect way to indulge the mind and body. Let yourself unwind with our Moss massage balms that are made in New Zealand from ingredients including organic beeswax and quality essential oils.,60,180,True,1
+CoreStone,Massage,The perfect way to indulge the mind and body. Let yourself unwind with our Moss massage balms that are made in New Zealand from ingredients including organic beeswax and quality essential oils.,60,180,True,1
+CoreStone,Massage,60 minutes | $180,60,180,True,1
+CoreStone,Massage,60 minutes | $180,60,180,True,1
+Soothing Scalp,Massage,30 minutes | $95,60,95,True,1
+Soothing Scalp,Massage,30 minutes | $95,60,95,True,1
+"Relaxing Back, Neck and Shoulder",Massage,30 minutes | $100,60,100,True,1
+"Relaxing Back, Neck and Shoulder",Massage,30 minutes | $100,60,100,True,1
+Full Body Harmony,Massage,60 minutes | $16590 minutes | $230,60,16590,True,1
+Full Body Harmony,Massage,60 minutes | $16590 minutes | $230,60,16590,True,1
+Deep Tissue Wellness,Massage,30 minutes | $11060 minutes | $180,60,11060,True,1
+Deep Tissue Wellness,Massage,30 minutes | $11060 minutes | $180,60,11060,True,1
+Invigorating Bamboo Fusion,Massage,60 minutes | $175,60,175,True,1
+Invigorating Bamboo Fusion,Massage,60 minutes | $175,60,175,True,1
+Nourishing Maternity Massage,Massage,30 minutes | $10060 minutes | $175,60,10060,True,1
+Nourishing Maternity Massage,Massage,30 minutes | $10060 minutes | $175,60,10060,True,1
+You and Me Pamper,Massage,30 minutes | $200 Per Couple60 minutes | $320 Per Couple90 minutes | $440 Per Couple,60,200,True,1
+You and Me Pamper,Massage,30 minutes | $200 Per Couple60 minutes | $320 Per Couple90 minutes | $440 Per Couple,60,200,True,1
+Luxurious Pinotage &amp; Lime Salt Glow,Body Treatment,"New Zealand Manuka honey, mineral clay, fruit and berries are among the ingredients in our body treatments. Feel the difference as they soothe, hydrate and elevate.",60,120,True,1
+Luxurious Pinotage &amp; Lime Salt Glow,Body Treatment,"New Zealand Manuka honey, mineral clay, fruit and berries are among the ingredients in our body treatments. Feel the difference as they soothe, hydrate and elevate.",60,120,True,1
+Luxurious Pinotage &amp; Lime Salt Glow,Body Treatment,"New Zealand Manuka honey, mineral clay, fruit and berries are among the ingredients in our body treatments. Feel the difference as they soothe, hydrate and elevate.",60,120,True,1
+Luxurious Pinotage &amp; Lime Salt Glow,Body Treatment,"New Zealand Manuka honey, mineral clay, fruit and berries are among the ingredients in our body treatments. Feel the difference as they soothe, hydrate and elevate.",60,120,True,1
+Luxurious Pinotage &amp; Lime Salt Glow,Body Treatment,Back 30 minutes | $120Full Body 60 minutes | $185,60,120,True,1
+Luxurious Pinotage &amp; Lime Salt Glow,Body Treatment,Back 30 minutes | $120Full Body 60 minutes | $185,60,120,True,1
+Grape Cleanse &amp; Hydrating Milk Ceremony,Body Treatment,60 minutes | $160,60,160,True,1
+Grape Cleanse &amp; Hydrating Milk Ceremony,Body Treatment,60 minutes | $160,60,160,True,1
+Detoxifying Thermal Mud Therapy,Body Treatment,Back 90 minutes | $325Full Body 120 minutes | $380,60,325,True,1
+Detoxifying Thermal Mud Therapy,Body Treatment,Back 90 minutes | $325Full Body 120 minutes | $380,60,325,True,1
+Invigorating Leg Treatment,Body Treatment,45 minutes | $145,60,145,True,1
+Invigorating Leg Treatment,Body Treatment,45 minutes | $145,60,145,True,1
+Muscle-Release Body Ritual,Body Treatment,120 minutes | $280,60,280,True,1
+Muscle-Release Body Ritual,Body Treatment,120 minutes | $280,60,280,True,1
+Maternity Pampering Treatment,Body Treatment,90 minutes | $190,60,190,True,1
+Maternity Pampering Treatment,Body Treatment,90 minutes | $190,60,190,True,1
+Ultimate Pamper Package,Body Treatment,180 minutes | $360,60,360,True,1
+Ultimate Pamper Package,Body Treatment,180 minutes | $360,60,360,True,1
++ add Restorative Spa Immersion,Body Treatment,30 minutes | $65,60,65,True,1
++ add Restorative Spa Immersion,Body Treatment,30 minutes | $65,60,65,True,1
+Mānuka Honey Indulgence,Package,The perfect way to indulge the mind and body.,60,195,True,1
+Mānuka Honey Indulgence,Package,The perfect way to indulge the mind and body.,60,195,True,1
+Mānuka Honey Indulgence,Package,The perfect way to indulge the mind and body.,60,195,True,1
+Mānuka Honey Indulgence,Package,The perfect way to indulge the mind and body.,60,195,True,1
+Mānuka Honey Indulgence,Package,75 minutes | $195 per person,60,195,True,1
+Mānuka Honey Indulgence,Package,75 minutes | $195 per person,60,195,True,1
+High Tea pamper package,Package,60 minutes | $150 per person,60,150,True,1
+High Tea pamper package,Package,60 minutes | $150 per person,60,150,True,1
+Relax and Restore,Package,90 minutes | $225,60,225,True,1
+Relax and Restore,Package,90 minutes | $225,60,225,True,1
+Replenish and Pamper,Package,90 minutes | $250,60,250,True,1
+Replenish and Pamper,Package,90 minutes | $250,60,250,True,1
+Refresh and Reconnect Couples Pamper,Package,150 minutes | $690 per couple,60,690,True,1
+Refresh and Reconnect Couples Pamper,Package,150 minutes | $690 per couple,60,690,True,1
+Couples Connection,Package,120 minutes | $550 per couple,60,550,True,1
+Couples Connection,Package,120 minutes | $550 per couple,60,550,True,1
+Bespoke Bridal Pamper,Package,From $350 per person,60,350,True,1
+Bespoke Bridal Pamper,Package,From $350 per person,60,350,True,1

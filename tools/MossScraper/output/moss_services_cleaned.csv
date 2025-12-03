@@ -1,0 +1,44 @@
+# Moss Spa Services - Cleaned and Ready for Import
+# Generated: 2025-11-26
+# Total Services: 37 (after removing duplicates and fixing parsing errors)
+# IMPORTANT: Update LocationId to match your database before importing
+#
+Name,Category,Description,DurationMinutes,BasePrice,IsActive,LocationId
+Anti-Ageing Collagen and Gold Facial,Facial,Luxurious anti-aging facial treatment with collagen and gold,90,260.00,True,1
+AcniVine Balancing Facial,Facial,Balancing facial treatment for acne-prone skin,60,150.00,True,1
+Collagen Renewal Facial (30 min),Facial,Quick collagen renewal treatment,30,115.00,True,1
+Collagen Renewal Facial (60 min),Facial,Full collagen renewal facial,60,210.00,True,1
+Clarifying Lactic Acid Peel,Facial,Clarifying peel treatment with lactic acid,30,120.00,True,1
+Radiating Vitamin A Peel,Facial,Brightening vitamin A peel treatment,45,160.00,True,1
+Add Refreshing Retinol Eye Mask,Facial,Add-on retinol eye mask treatment,15,40.00,True,1
+CoreStone Massage,Massage,The perfect way to indulge the mind and body with heated stones,60,180.00,True,1
+Soothing Scalp Massage,Massage,Relaxing scalp massage treatment,30,95.00,True,1
+Relaxing Back Neck and Shoulder,Massage,Targeted massage for upper body tension,30,100.00,True,1
+Full Body Harmony (60 min),Massage,Complete full body relaxation massage,60,165.00,True,1
+Full Body Harmony (90 min),Massage,Extended full body massage,90,230.00,True,1
+Deep Tissue Wellness (30 min),Massage,Intensive deep tissue massage - short session,30,110.00,True,1
+Deep Tissue Wellness (60 min),Massage,Intensive deep tissue massage - full session,60,180.00,True,1
+Invigorating Bamboo Fusion,Massage,Unique massage using heated bamboo,60,175.00,True,1
+Nourishing Maternity Massage (30 min),Massage,Gentle pregnancy massage - short,30,100.00,True,1
+Nourishing Maternity Massage (60 min),Massage,Gentle pregnancy massage - full,60,175.00,True,1
+You and Me Pamper (30 min),Massage,Couples massage experience - 30 minutes,30,200.00,True,1
+You and Me Pamper (60 min),Massage,Couples massage experience - 60 minutes,60,320.00,True,1
+You and Me Pamper (90 min),Massage,Couples massage experience - 90 minutes,90,440.00,True,1
+Luxurious Pinotage & Lime Salt Glow (Back),Body Treatment,Exfoliating salt glow treatment for back,30,120.00,True,1
+Luxurious Pinotage & Lime Salt Glow (Full Body),Body Treatment,Full body exfoliating salt glow treatment,60,185.00,True,1
+Grape Cleanse & Hydrating Milk Ceremony,Body Treatment,Luxurious grape-based body treatment with milk ceremony,60,160.00,True,1
+Detoxifying Thermal Mud Therapy (Back),Body Treatment,Detoxifying mud treatment for back,90,325.00,True,1
+Detoxifying Thermal Mud Therapy (Full Body),Body Treatment,Full body detoxifying mud therapy,120,380.00,True,1
+Invigorating Leg Treatment,Body Treatment,Refreshing treatment for tired legs,45,145.00,True,1
+Muscle-Release Body Ritual,Body Treatment,Deep muscle release full body treatment,120,280.00,True,1
+Maternity Pampering Treatment,Body Treatment,Specialized body treatment for expectant mothers,90,190.00,True,1
+Ultimate Pamper Package,Body Treatment,The ultimate spa experience,180,360.00,True,1
+Add Restorative Spa Immersion,Body Treatment,Add-on spa immersion experience,30,65.00,True,1
+Mānuka Honey Indulgence,Package,Signature package with Manuka honey treatments,75,195.00,True,1
+High Tea Pamper Package,Package,Spa treatment with high tea experience,60,150.00,True,1
+Relax and Restore,Package,Comprehensive relaxation package,90,225.00,True,1
+Replenish and Pamper,Package,Replenishing spa package,90,250.00,True,1
+Refresh and Reconnect Couples Pamper,Package,Romantic couples spa package,150,690.00,True,1
+Couples Connection,Package,Intimate couples spa experience,120,550.00,True,1
+Bespoke Bridal Pamper,Package,Customizable bridal spa package,120,350.00,True,1
+
