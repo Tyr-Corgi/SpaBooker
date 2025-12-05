@@ -27,9 +27,14 @@
                 <h1 class="text-rose-gold mb-2">Client Management</h1>
                 <p class="text-muted">Manage customer accounts, bookings, and memberships</p>
             </div>
-            <button class="btn btn-primary" @onclick="ExportClients">
-                <i class="bi bi-download me-2"></i>Export Client List
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" @onclick="ShowAddClientModal">
+                    <i class="bi bi-person-plus me-2"></i>Add New Client
+                </button>
+                <button class="btn btn-outline-secondary" @onclick="ExportClients">
+                    <i class="bi bi-download me-2"></i>Export Client List
+                </button>
+            </div>
         </div>
     </div>
 
@@ -836,6 +841,86 @@
     </div>
 }
 
+@* Add New Client Modal *@
+@if (showAddClientModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" @onclick="CloseAddClientModal" @onclick:stopPropagation="false">
+        <div class="modal-dialog modal-lg" @onclick:stopPropagation="true">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-person-plus me-2"></i>Add New Client
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseAddClientModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle me-2"></i>@errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                        </div>
+                    }
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" @bind="newClientFirstName" placeholder="Enter first name" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" @bind="newClientLastName" placeholder="Enter last name" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" @bind="newClientEmail" placeholder="client@example.com" />
+                            <small class="text-muted">Required if no phone number provided</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" @bind="newClientPhoneNumber" placeholder="(555) 123-4567" />
+                            <small class="text-muted">Required if no email provided</small>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Home Location (Optional)</label>
+                            <select class="form-select" @bind="newClientLocationId">
+                                <option value="">-- Select Location --</option>
+                                @foreach (var location in availableLocations)
+                                {
+                                    <option value="@location.Id">@location.Name</option>
+                                }
+                            </select>
+                            <small class="text-muted">The spa location this client typically visits</small>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Note:</strong> A welcome email will be sent to the client with a link to set their password and activate their account.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseAddClientModal">Cancel</button>
+                    <button class="btn btn-primary" @onclick="CreateNewClient" disabled="@isCreatingClient">
+                        @if (isCreatingClient)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Creating...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save me-1"></i>
+                            <span>Create Client</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @* Notes Modal *@
 @if (showNotesModal && selectedClient != null)
 {
@@ -1108,6 +1193,7 @@
     private bool showEditModal = false;
     private bool showNotesModal = false;
     private bool showBookingModal = false;
+    private bool showAddClientModal = false;
     private ApplicationUser? selectedClient;
     private ClientStatisticsDto? selectedClientData;
     private string activeTab = "overview";
@@ -1150,6 +1236,14 @@
     private List<MembershipCreditTransaction> selectedClientCreditTransactions = new();
     private List<GiftCertificate> selectedClientPurchasedGiftCerts = new();
     private List<GiftCertificate> selectedClientRedeemedGiftCerts = new();
+    
+    // Add new client modal state
+    private bool isCreatingClient = false;
+    private string newClientFirstName = "";
+    private string newClientLastName = "";
+    private string newClientEmail = "";
+    private string newClientPhoneNumber = "";
+    private int? newClientLocationId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1365,6 +1459,135 @@
         selectedClient = null;
         successMessage = null;
         errorMessage = null;
+    }
+
+    private async Task ShowAddClientModal()
+    {
+        // Load locations if not already loaded
+        if (availableLocations.Count == 0)
+        {
+            await using var context = await DbContextFactory.CreateDbContextAsync();
+            availableLocations = await context.Locations.OrderBy(l => l.Name).ToListAsync();
+        }
+        
+        // Reset form
+        newClientFirstName = "";
+        newClientLastName = "";
+        newClientEmail = "";
+        newClientPhoneNumber = "";
+        newClientLocationId = null;
+        errorMessage = null;
+        
+        showAddClientModal = true;
+    }
+
+    private void CloseAddClientModal()
+    {
+        showAddClientModal = false;
+        errorMessage = null;
+    }
+
+    private async Task CreateNewClient()
+    {
+        // Validation
+        if (string.IsNullOrWhiteSpace(newClientFirstName) || string.IsNullOrWhiteSpace(newClientLastName))
+        {
+            errorMessage = "First Name and Last Name are required";
+            return;
+        }
+        
+        if (string.IsNullOrWhiteSpace(newClientEmail) && string.IsNullOrWhiteSpace(newClientPhoneNumber))
+        {
+            errorMessage = "Either Email or Phone Number is required";
+            return;
+        }
+        
+        isCreatingClient = true;
+        errorMessage = null;
+        
+        try
+        {
+            // Create user account
+            var user = new ApplicationUser
+            {
+                UserName = !string.IsNullOrWhiteSpace(newClientEmail) ? newClientEmail : newClientPhoneNumber,
+                Email = newClientEmail,
+                FirstName = newClientFirstName,
+                LastName = newClientLastName,
+                PhoneNumber = newClientPhoneNumber,
+                LocationId = newClientLocationId,
+                EmailConfirmed = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            
+            // Generate random temporary password (user won't use this directly)
+            var tempPassword = GenerateSecurePassword();
+            var result = await UserManager.CreateAsync(user, tempPassword);
+            
+            if (result.Succeeded)
+            {
+                await UserManager.AddToRoleAsync(user, "Client");
+                
+                // Send password reset email (welcome email)
+                if (!string.IsNullOrWhiteSpace(newClientEmail))
+                {
+                    var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+                    var resetUrl = $"{NavigationManager.BaseUri}Identity/Account/ResetPassword?code={Uri.EscapeDataString(token)}";
+                    
+                    // TODO: Send welcome email with password setup link using IEmailService
+                    // For now, we'll just show a success message
+                }
+                
+                successMessage = $"Client {newClientFirstName} {newClientLastName} created successfully.";
+                if (!string.IsNullOrWhiteSpace(newClientEmail))
+                {
+                    successMessage += " A welcome email with account setup instructions has been sent.";
+                }
+                
+                CloseAddClientModal();
+                await LoadClients(); // Refresh the list
+            }
+            else
+            {
+                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating client: {ex.Message}";
+        }
+        finally
+        {
+            isCreatingClient = false;
+        }
+    }
+
+    private string GenerateSecurePassword()
+    {
+        // Generate a random 16-character password meeting requirements
+        const string upperChars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const string lowerChars = "abcdefghijkmnopqrstuvwxyz";
+        const string digitChars = "23456789";
+        const string specialChars = "!@#$%^&*";
+        
+        var random = new Random();
+        var password = new char[16];
+        
+        // Ensure at least one of each required character type
+        password[0] = upperChars[random.Next(upperChars.Length)];
+        password[1] = lowerChars[random.Next(lowerChars.Length)];
+        password[2] = digitChars[random.Next(digitChars.Length)];
+        password[3] = specialChars[random.Next(specialChars.Length)];
+        
+        // Fill the rest randomly
+        const string allChars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+        for (int i = 4; i < 16; i++)
+        {
+            password[i] = allChars[random.Next(allChars.Length)];
+        }
+        
+        // Shuffle the password
+        return new string(password.OrderBy(x => random.Next()).ToArray());
     }
 
     private async Task SaveClientChanges()

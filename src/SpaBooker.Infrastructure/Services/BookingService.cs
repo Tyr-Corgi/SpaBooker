@@ -421,9 +421,9 @@ public class BookingService : IBookingService
         {
             Id = booking.Id,
             ClientId = booking.ClientId,
-            ClientName = $"{booking.Client.FirstName} {booking.Client.LastName}",
-            ServiceId = booking.ServiceId,
-            ServiceName = booking.Service.Name,
+            ClientName = $"{booking.Client!.FirstName} {booking.Client.LastName}",
+            ServiceId = booking.ServiceId ?? 0,
+            ServiceName = booking.Service?.Name ?? "N/A",
             TherapistId = booking.TherapistId,
             TherapistName = booking.Therapist != null 
                 ? $"{booking.Therapist.FirstName} {booking.Therapist.LastName}" 

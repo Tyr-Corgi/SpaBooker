@@ -1,9 +1,12 @@
 @page "/admin/services"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @using SpaBooker.Core.Entities
 @using SpaBooker.Infrastructure.Data
-@using Microsoft.AspNetCore.Authorization
-@inject ApplicationDbContext DbContext
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
 @attribute [Authorize(Roles = "Admin")]
 
@@ -11,313 +14,611 @@
 
 <div class="container-fluid py-4">
     <div class="row mb-4">
-        <div class="col-12 d-flex justify-content-between align-items-center">
-            <div>
-                <h1 class="text-rose-gold mb-2">Service Management</h1>
-                <p class="text-muted">Manage spa services and pricing</p>
-            </div>
-            <a href="/admin/services/create" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-2"></i>Add New Service
-            </a>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrEmpty(successMessage))
-    {
-        <div class="alert alert-success alert-dismissible fade show">
-            <i class="bi bi-check-circle me-2"></i>
-            @successMessage
-            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
-        </div>
-    }
-
-    <!-- Filter by Location -->
-    <div class="row mb-4">
         <div class="col-12">
-            <ul class="nav nav-tabs">
-                <li class="nav-item">
-                    <a class="nav-link @(selectedLocationId == null ? "active" : "")" 
-                       @onclick="() => FilterByLocation(null)" 
-                       style="cursor: pointer;">
-                        All Locations (@allServices.Count)
-                    </a>
-                </li>
-                @foreach (var location in locations)
-                {
-                    <li class="nav-item">
-                        <a class="nav-link @(selectedLocationId == location.Id ? "active" : "")" 
-                           @onclick="() => FilterByLocation(location.Id)" 
-                           style="cursor: pointer;">
-                            @location.Name (@GetLocationServiceCount(location.Id))
-                        </a>
-                    </li>
-                }
-            </ul>
+            <h1 class="text-rose-gold mb-2">Service Management</h1>
+            <p class="text-muted">Manage service groups, durations, therapists, and room assignments</p>
         </div>
     </div>
 
     @if (isLoading)
     {
         <div class="text-center py-5">
-            <div class="spinner"></div>
-            <p class="mt-3 text-muted">Loading services...</p>
+            <div class="spinner-border text-rose-gold" role="status">
+                <span class="visually-hidden">Loading services...</span>
+            </div>
         </div>
     }
-    else
+    else if (serviceGroups.Any())
     {
-        <!-- Search Box -->
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <div class="input-group">
-                    <span class="input-group-text">
-                        <i class="bi bi-search"></i>
-                    </span>
-                    <input type="text" class="form-control" 
-                           placeholder="Search services..." 
-                           @bind="searchQuery" 
-                           @bind:event="oninput"
-                           @onkeyup="SearchServices" />
-                </div>
-            </div>
-            <div class="col-md-6 text-end">
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn @(showInactive ? "btn-outline-secondary" : "btn-secondary")" 
-                            @onclick="() => ToggleInactive(false)">
-                        Active Only
-                    </button>
-                    <button type="button" class="btn @(showInactive ? "btn-secondary" : "btn-outline-secondary")" 
-                            @onclick="() => ToggleInactive(true)">
-                        Show All
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Services Grid -->
-        <div class="row">
-            @if (filteredServices.Any())
+        <div class="row g-4">
+            @foreach (var group in serviceGroups)
             {
-                @foreach (var service in filteredServices)
-                {
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card service-card h-100 @(!service.IsActive ? "inactive" : "")">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <h5 class="card-title text-rose-gold mb-0">@service.Name</h5>
-                                    @if (!service.IsActive)
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm hover-lift">
+                        @if (!string.IsNullOrEmpty(group.ImageUrl))
+                        {
+                            <img src="@group.ImageUrl" class="card-img-top" alt="@group.Name" style="height: 200px; object-fit: cover;">
+                        }
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">@group.Name</h5>
+                                <span class="badge bg-info">@group.Category</span>
+                            </div>
+                            
+                            <p class="card-text text-muted small">@group.Description</p>
+                            
+                            <!-- Durations -->
+                            <div class="mb-3">
+                                <strong class="small">Durations & Prices:</strong>
+                                <div class="mt-1">
+                                    @foreach (var duration in group.Durations.Where(d => d.IsActive).OrderBy(d => d.DurationMinutes))
                                     {
-                                        <span class="badge bg-secondary">Inactive</span>
+                                        <span class="badge bg-light text-dark me-1 mb-1">
+                                            @duration.DurationMinutes min - $@duration.Price.ToString("F2")
+                                        </span>
                                     }
-                                    else
-                                    {
-                                        <span class="badge bg-success">Active</span>
-                                    }
-                                </div>
-
-                                <p class="card-text text-muted small">@service.Description</p>
-
-                                <div class="service-details">
-                                    <div class="detail-item">
-                                        <i class="bi bi-geo-alt text-rose-gold"></i>
-                                        <span>@service.Location.Name</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <i class="bi bi-clock text-rose-gold"></i>
-                                        <span>@service.DurationMinutes min</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <i class="bi bi-currency-dollar text-rose-gold"></i>
-                                        <span class="price">$@service.BasePrice.ToString("F2")</span>
-                                    </div>
-                                    @if (service.RequiresMembership)
-                                    {
-                                        <div class="detail-item">
-                                            <i class="bi bi-star text-rose-gold"></i>
-                                            <span>Members Only</span>
-                                        </div>
-                                    }
-                                </div>
-
-                                @{
-                                    var therapistCount = serviceTherapists.ContainsKey(service.Id) 
-                                        ? serviceTherapists[service.Id].Count 
-                                        : 0;
-                                }
-
-                                <div class="mt-3">
-                                    <small class="text-muted">
-                                        <i class="bi bi-people"></i>
-                                        @therapistCount therapist(s) assigned
-                                    </small>
                                 </div>
                             </div>
-                            <div class="card-footer bg-transparent border-0">
-                                <div class="d-flex gap-2">
-                                    <a href="/admin/services/edit/@service.Id" class="btn btn-sm btn-outline-primary flex-fill">
-                                        <i class="bi bi-pencil"></i> Edit
-                                    </a>
-                                    @if (service.IsActive)
+                            
+                            <!-- Therapists -->
+                            <div class="mb-3">
+                                <strong class="small">Therapists (@group.Therapists.Count):</strong>
+                                <div class="mt-1">
+                                    @if (group.Therapists.Any())
                                     {
-                                        <button class="btn btn-sm btn-outline-warning" 
-                                                @onclick="() => DeactivateService(service.Id)">
-                                            <i class="bi bi-x-circle"></i> Deactivate
-                                        </button>
+                                        @foreach (var therapist in group.Therapists.Take(3))
+                                        {
+                                            <span class="badge bg-secondary me-1 mb-1">
+                                                @therapist.Therapist.FirstName @therapist.Therapist.LastName
+                                            </span>
+                                        }
+                                        @if (group.Therapists.Count > 3)
+                                        {
+                                            <span class="badge bg-secondary">+@(group.Therapists.Count - 3) more</span>
+                                        }
                                     }
                                     else
                                     {
-                                        <button class="btn btn-sm btn-outline-success" 
-                                                @onclick="() => ActivateService(service.Id)">
-                                            <i class="bi bi-check-circle"></i> Activate
-                                        </button>
+                                        <span class="text-muted small">No therapists assigned</span>
+                                    }
+                                </div>
+                            </div>
+                            
+                            <!-- Rooms -->
+                            <div class="mb-3">
+                                <strong class="small">Rooms (@group.Rooms.Count):</strong>
+                                <div class="mt-1">
+                                    @if (group.Rooms.Any())
+                                    {
+                                        @foreach (var room in group.Rooms.Take(3))
+                                        {
+                                            <span class="badge bg-light text-dark me-1 mb-1" style="border: 2px solid @room.Room.ColorCode;">
+                                                @room.Room.Name
+                                            </span>
+                                        }
+                                        @if (group.Rooms.Count > 3)
+                                        {
+                                            <span class="badge bg-light text-dark">+@(group.Rooms.Count - 3) more</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">No rooms assigned</span>
                                     }
                                 </div>
                             </div>
                         </div>
-                    </div>
-                }
-            }
-            else
-            {
-                <div class="col-12">
-                    <div class="text-center py-5">
-                        <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
-                        <p class="text-muted mt-2">No services found</p>
+                        <div class="card-footer bg-transparent">
+                            <button class="btn btn-rose-gold btn-sm w-100" @onclick="() => ShowEditModal(group.Id)">
+                                <i class="bi bi-pencil"></i> Edit Service
+                            </button>
+                        </div>
                     </div>
                 </div>
             }
         </div>
     }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No service groups found.
+        </div>
+    }
 </div>
 
+<!-- Edit Modal -->
+@if (showEditModal && selectedServiceGroup != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Service: @selectedServiceGroup.Name</h5>
+                    <button type="button" class="btn-close" @onclick="CloseEditModal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Tab Navigation -->
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "details" ? "active" : "")" @onclick='() => activeTab = "details"'>
+                                Details
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "durations" ? "active" : "")" @onclick='() => activeTab = "durations"'>
+                                Durations
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "therapists" ? "active" : "")" @onclick='() => activeTab = "therapists"'>
+                                Therapists
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "rooms" ? "active" : "")" @onclick='() => activeTab = "rooms"'>
+                                Rooms
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Tab Content -->
+                    <div class="tab-content">
+                        <!-- Details Tab -->
+                        @if (activeTab == "details")
+                        {
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label">Service Name</label>
+                                    <input type="text" class="form-control" @bind="editModel.Name" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-control" rows="3" @bind="editModel.Description"></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Category</label>
+                                    <input type="text" class="form-control" @bind="editModel.Category" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Image URL</label>
+                                    <input type="text" class="form-control" @bind="editModel.ImageUrl" />
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="requiresMembership" @bind="editModel.RequiresMembership" />
+                                        <label class="form-check-label" for="requiresMembership">Requires Membership</label>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        
+                        <!-- Durations Tab -->
+                        @if (activeTab == "durations")
+                        {
+                            <div class="mb-3">
+                                <button class="btn btn-success btn-sm" @onclick="AddNewDuration">
+                                    <i class="bi bi-plus-circle"></i> Add Duration
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Duration (minutes)</th>
+                                            <th>Price ($)</th>
+                                            <th>Active</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var duration in editModel.Durations.Where(d => !d.MarkedForDeletion))
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" @bind="duration.DurationMinutes" min="1" />
+                                                </td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" @bind="duration.Price" step="0.01" min="0" />
+                                                </td>
+                                                <td>
+                                                    <input type="checkbox" class="form-check-input" @bind="duration.IsActive" />
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-danger btn-sm" @onclick="() => RemoveDuration(duration)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        
+                        <!-- Therapists Tab -->
+                        @if (activeTab == "therapists")
+                        {
+                            <div class="row g-2">
+                                @foreach (var therapist in allTherapists)
+                                {
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" 
+                                                   id="therapist_@therapist.Id"
+                                                   checked="@IsTherapistAssigned(therapist.Id)"
+                                                   @onchange="e => ToggleTherapist(therapist.Id, (bool)e.Value!)" />
+                                            <label class="form-check-label" for="therapist_@therapist.Id">
+                                                @therapist.FirstName @therapist.LastName
+                                            </label>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        
+                        <!-- Rooms Tab -->
+                        @if (activeTab == "rooms")
+                        {
+                            <div class="row g-2">
+                                @foreach (var room in allRooms)
+                                {
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" 
+                                                   id="room_@room.Id"
+                                                   checked="@IsRoomAssigned(room.Id)"
+                                                   @onchange="e => ToggleRoom(room.Id, (bool)e.Value!)" />
+                                            <label class="form-check-label" for="room_@room.Id">
+                                                <span style="display: inline-block; width: 12px; height: 12px; background-color: @room.ColorCode; border-radius: 2px; margin-right: 4px;"></span>
+                                                @room.Name (@room.Location.Name)
+                                            </label>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseEditModal">Cancel</button>
+                    <button type="button" class="btn btn-rose-gold" @onclick="SaveServiceGroup" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    private List<SpaService> allServices = new();
-    private List<SpaService> filteredServices = new();
-    private List<Location> locations = new();
-    private Dictionary<int, List<string>> serviceTherapists = new();
-    private int? selectedLocationId = null;
-    private string searchQuery = "";
-    private bool showInactive = false;
     private bool isLoading = true;
-    private string? successMessage;
+    private bool showEditModal = false;
+    private bool isSaving = false;
+    private string activeTab = "details";
+    
+    private List<ServiceGroup> serviceGroups = new();
+    private ServiceGroup? selectedServiceGroup;
+    private EditServiceGroupModel editModel = new();
+    
+    private List<ApplicationUser> allTherapists = new();
+    private List<Room> allRooms = new();
 
     protected override async Task OnInitializedAsync()
     {
-        // Check for success message from navigation
-        var uri = new Uri(NavigationManager.Uri);
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
-        if (query.TryGetValue("success", out var message))
-        {
-            successMessage = message.ToString();
-        }
-
         await LoadData();
     }
 
     private async Task LoadData()
     {
         isLoading = true;
-
-        allServices = await DbContext.SpaServices
-            .Include(s => s.Location)
-            .OrderBy(s => s.Location.Name)
-            .ThenBy(s => s.Name)
-            .ToListAsync();
-
-        locations = await DbContext.Locations
-            .Where(l => l.IsActive)
-            .OrderBy(l => l.Name)
-            .ToListAsync();
-
-        // Load therapist assignments
-        var assignments = await DbContext.ServiceTherapists
-            .Include(st => st.Therapist)
-            .ToListAsync();
-
-        serviceTherapists = assignments
-            .GroupBy(st => st.ServiceId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(st => $"{st.Therapist.FirstName} {st.Therapist.LastName}").ToList()
-            );
-
-        ApplyFilters();
-        isLoading = false;
-    }
-
-    private void FilterByLocation(int? locationId)
-    {
-        selectedLocationId = locationId;
-        ApplyFilters();
-    }
-
-    private void ToggleInactive(bool show)
-    {
-        showInactive = show;
-        ApplyFilters();
-    }
-
-    private void SearchServices()
-    {
-        ApplyFilters();
-    }
-
-    private void ApplyFilters()
-    {
-        filteredServices = allServices;
-
-        // Filter by location
-        if (selectedLocationId.HasValue)
+        try
         {
-            filteredServices = filteredServices.Where(s => s.LocationId == selectedLocationId.Value).ToList();
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            
+            serviceGroups = await context.ServiceGroups
+                .Include(sg => sg.Location)
+                .Include(sg => sg.Durations)
+                .Include(sg => sg.Therapists)
+                    .ThenInclude(t => t.Therapist)
+                .Include(sg => sg.Rooms)
+                    .ThenInclude(r => r.Room)
+                .Where(sg => sg.IsActive)
+                .OrderBy(sg => sg.Name)
+                .ToListAsync();
+                
+            var therapistsInRole = await UserManager.GetUsersInRoleAsync("Therapist");
+            allTherapists = therapistsInRole.OrderBy(u => u.FirstName).ThenBy(u => u.LastName).ToList();
+                
+            allRooms = await context.Rooms
+                .Include(r => r.Location)
+                .Where(r => r.IsActive)
+                .OrderBy(r => r.Location.Name)
+                .ThenBy(r => r.DisplayOrder)
+                .ToListAsync();
         }
-
-        // Filter by active status
-        if (!showInactive)
+        catch (Exception ex)
         {
-            filteredServices = filteredServices.Where(s => s.IsActive).ToList();
+            Console.WriteLine($"Error loading service management data: {ex.Message}");
         }
-
-        // Filter by search query
-        if (!string.IsNullOrWhiteSpace(searchQuery))
+        finally
         {
-            var query = searchQuery.ToLower();
-            filteredServices = filteredServices.Where(s =>
-                s.Name.ToLower().Contains(query) ||
-                s.Description.ToLower().Contains(query)
-            ).ToList();
+            isLoading = false;
         }
     }
 
-    private int GetLocationServiceCount(int locationId)
+    private async Task ShowEditModal(int serviceGroupId)
     {
-        var count = allServices.Count(s => s.LocationId == locationId);
-        return showInactive ? count : allServices.Count(s => s.LocationId == locationId && s.IsActive);
-    }
-
-    private async Task ActivateService(int serviceId)
-    {
-        var service = await DbContext.SpaServices.FindAsync(serviceId);
-        if (service != null)
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        
+        selectedServiceGroup = await context.ServiceGroups
+            .Include(sg => sg.Location)
+            .Include(sg => sg.Durations)
+            .Include(sg => sg.Therapists)
+            .Include(sg => sg.Rooms)
+            .FirstOrDefaultAsync(sg => sg.Id == serviceGroupId);
+            
+        if (selectedServiceGroup != null)
         {
-            service.IsActive = true;
-            service.UpdatedAt = DateTime.UtcNow;
-            await DbContext.SaveChangesAsync();
-            successMessage = $"Service '{service.Name}' has been activated.";
-            await LoadData();
+            editModel = new EditServiceGroupModel
+            {
+                Id = selectedServiceGroup.Id,
+                Name = selectedServiceGroup.Name,
+                Description = selectedServiceGroup.Description,
+                Category = selectedServiceGroup.Category,
+                ImageUrl = selectedServiceGroup.ImageUrl,
+                RequiresMembership = selectedServiceGroup.RequiresMembership,
+                Durations = selectedServiceGroup.Durations.Select(d => new DurationEditModel
+                {
+                    Id = d.Id,
+                    DurationMinutes = d.DurationMinutes,
+                    Price = d.Price,
+                    IsActive = d.IsActive
+                }).ToList(),
+                TherapistIds = selectedServiceGroup.Therapists.Select(t => t.TherapistId).ToList(),
+                RoomIds = selectedServiceGroup.Rooms.Select(r => r.RoomId).ToList()
+            };
+            
+            activeTab = "details";
+            showEditModal = true;
         }
     }
 
-    private async Task DeactivateService(int serviceId)
+    private void CloseEditModal()
     {
-        var service = await DbContext.SpaServices.FindAsync(serviceId);
-        if (service != null)
+        showEditModal = false;
+        selectedServiceGroup = null;
+        editModel = new();
+    }
+
+    private void AddNewDuration()
+    {
+        editModel.Durations.Add(new DurationEditModel
         {
-            service.IsActive = false;
-            service.UpdatedAt = DateTime.UtcNow;
-            await DbContext.SaveChangesAsync();
-            successMessage = $"Service '{service.Name}' has been deactivated.";
-            await LoadData();
+            DurationMinutes = 60,
+            Price = 0,
+            IsActive = true
+        });
+    }
+
+    private void RemoveDuration(DurationEditModel duration)
+    {
+        if (duration.Id.HasValue)
+        {
+            duration.MarkedForDeletion = true;
         }
+        else
+        {
+            editModel.Durations.Remove(duration);
+        }
+    }
+
+    private bool IsTherapistAssigned(string therapistId)
+    {
+        return editModel.TherapistIds.Contains(therapistId);
+    }
+
+    private void ToggleTherapist(string therapistId, bool isAssigned)
+    {
+        if (isAssigned && !editModel.TherapistIds.Contains(therapistId))
+        {
+            editModel.TherapistIds.Add(therapistId);
+        }
+        else if (!isAssigned && editModel.TherapistIds.Contains(therapistId))
+        {
+            editModel.TherapistIds.Remove(therapistId);
+        }
+    }
+
+    private bool IsRoomAssigned(int roomId)
+    {
+        return editModel.RoomIds.Contains(roomId);
+    }
+
+    private void ToggleRoom(int roomId, bool isAssigned)
+    {
+        if (isAssigned && !editModel.RoomIds.Contains(roomId))
+        {
+            editModel.RoomIds.Add(roomId);
+        }
+        else if (!isAssigned && editModel.RoomIds.Contains(roomId))
+        {
+            editModel.RoomIds.Remove(roomId);
+        }
+    }
+
+    private async Task SaveServiceGroup()
+    {
+        if (selectedServiceGroup == null) return;
+        
+        isSaving = true;
+        try
+        {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            
+            var serviceGroup = await context.ServiceGroups
+                .Include(sg => sg.Durations)
+                .Include(sg => sg.Therapists)
+                .Include(sg => sg.Rooms)
+                .FirstOrDefaultAsync(sg => sg.Id == editModel.Id);
+                
+            if (serviceGroup != null)
+            {
+                // Update basic details
+                serviceGroup.Name = editModel.Name;
+                serviceGroup.Description = editModel.Description;
+                serviceGroup.Category = editModel.Category;
+                serviceGroup.ImageUrl = editModel.ImageUrl;
+                serviceGroup.RequiresMembership = editModel.RequiresMembership;
+                serviceGroup.UpdatedAt = DateTime.UtcNow;
+                
+                // Update durations
+                foreach (var duration in editModel.Durations.Where(d => d.MarkedForDeletion && d.Id.HasValue))
+                {
+                    var existing = serviceGroup.Durations.FirstOrDefault(d => d.Id == duration.Id);
+                    if (existing != null)
+                    {
+                        context.ServiceDurations.Remove(existing);
+                    }
+                }
+                
+                foreach (var duration in editModel.Durations.Where(d => !d.MarkedForDeletion))
+                {
+                    if (duration.Id.HasValue)
+                    {
+                        var existing = serviceGroup.Durations.FirstOrDefault(d => d.Id == duration.Id);
+                        if (existing != null)
+                        {
+                            existing.DurationMinutes = duration.DurationMinutes;
+                            existing.Price = duration.Price;
+                            existing.IsActive = duration.IsActive;
+                        }
+                    }
+                    else
+                    {
+                        serviceGroup.Durations.Add(new ServiceDuration
+                        {
+                            DurationMinutes = duration.DurationMinutes,
+                            Price = duration.Price,
+                            IsActive = duration.IsActive
+                        });
+                    }
+                }
+                
+                // Update therapists
+                var currentTherapistIds = serviceGroup.Therapists.Select(t => t.TherapistId).ToList();
+                var toRemove = currentTherapistIds.Except(editModel.TherapistIds).ToList();
+                var toAdd = editModel.TherapistIds.Except(currentTherapistIds).ToList();
+                
+                foreach (var therapistId in toRemove)
+                {
+                    var assignment = serviceGroup.Therapists.FirstOrDefault(t => t.TherapistId == therapistId);
+                    if (assignment != null)
+                    {
+                        context.ServiceGroupTherapists.Remove(assignment);
+                    }
+                }
+                
+                foreach (var therapistId in toAdd)
+                {
+                    serviceGroup.Therapists.Add(new ServiceGroupTherapist
+                    {
+                        TherapistId = therapistId,
+                        AssignedAt = DateTime.UtcNow
+                    });
+                }
+                
+                // Update rooms
+                var currentRoomIds = serviceGroup.Rooms.Select(r => r.RoomId).ToList();
+                var roomsToRemove = currentRoomIds.Except(editModel.RoomIds).ToList();
+                var roomsToAdd = editModel.RoomIds.Except(currentRoomIds).ToList();
+                
+                foreach (var roomId in roomsToRemove)
+                {
+                    var assignment = serviceGroup.Rooms.FirstOrDefault(r => r.RoomId == roomId);
+                    if (assignment != null)
+                    {
+                        context.ServiceGroupRooms.Remove(assignment);
+                    }
+                }
+                
+                foreach (var roomId in roomsToAdd)
+                {
+                    serviceGroup.Rooms.Add(new ServiceGroupRoom
+                    {
+                        RoomId = roomId,
+                        AssignedAt = DateTime.UtcNow
+                    });
+                }
+                
+                await context.SaveChangesAsync();
+                await LoadData();
+                CloseEditModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving service group: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    public class EditServiceGroupModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        public bool RequiresMembership { get; set; }
+        public List<DurationEditModel> Durations { get; set; } = new();
+        public List<string> TherapistIds { get; set; } = new();
+        public List<int> RoomIds { get; set; } = new();
+    }
+
+    public class DurationEditModel
+    {
+        public int? Id { get; set; }
+        public int DurationMinutes { get; set; }
+        public decimal Price { get; set; }
+        public bool IsActive { get; set; } = true;
+        public bool MarkedForDeletion { get; set; }
     }
 }
 
+<style>
+    .hover-lift {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .hover-lift:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    .text-rose-gold {
+        color: #b76e79;
+    }
+    
+    .btn-rose-gold {
+        background-color: #b76e79;
+        border-color: #b76e79;
+        color: white;
+    }
+    
+    .btn-rose-gold:hover {
+        background-color: #a05a66;
+        border-color: #a05a66;
+        color: white;
+    }
+    
+    .nav-link {
+        cursor: pointer;
+    }
+</style>

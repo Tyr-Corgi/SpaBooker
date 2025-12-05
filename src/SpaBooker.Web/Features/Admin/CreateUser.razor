@@ -1,4 +1,5 @@
 @page "/admin/users/create"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using Microsoft.EntityFrameworkCore
 @using SpaBooker.Core.Entities
 @using SpaBooker.Infrastructure.Data
@@ -21,7 +22,7 @@
         </div>
     </div>
 
-    <EditForm Model="@createModel" OnValidSubmit="SubmitCreateUser" FormName="createUser">
+    <div>
         <DataAnnotationsValidator />
 
         @if (!string.IsNullOrEmpty(errorMessage))
@@ -176,7 +177,7 @@
         <div class="row mt-4">
             <div class="col-12">
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                    <button type="button" class="btn btn-primary" disabled="@isSaving" @onclick="SubmitCreateUser">
                         @if (isSaving)
                         {
                             <span class="spinner-border spinner-border-sm me-2"></span>
@@ -187,7 +188,7 @@
                 </div>
             </div>
         </div>
-    </EditForm>
+    </div>
 </div>
 
 @code {

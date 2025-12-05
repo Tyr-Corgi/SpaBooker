@@ -13,6 +13,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<SpaService> SpaServices => Set<SpaService>();
+    public DbSet<ServiceGroup> ServiceGroups => Set<ServiceGroup>();
+    public DbSet<ServiceDuration> ServiceDurations => Set<ServiceDuration>();
+    public DbSet<ServiceGroupTherapist> ServiceGroupTherapists => Set<ServiceGroupTherapist>();
+    public DbSet<ServiceGroupRoom> ServiceGroupRooms => Set<ServiceGroupRoom>();
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<MembershipPlan> MembershipPlans => Set<MembershipPlan>();
     public DbSet<UserMembership> UserMemberships => Set<UserMembership>();
@@ -99,6 +103,66 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // ServiceGroup configuration
+        builder.Entity<ServiceGroup>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(150);
+            entity.HasOne(e => e.Location)
+                .WithMany()
+                .HasForeignKey(e => e.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            entity.HasIndex(e => new { e.LocationId, e.IsActive });
+            entity.HasIndex(e => e.Name);
+        });
+
+        // ServiceDuration configuration
+        builder.Entity<ServiceDuration>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Price).HasPrecision(18, 2);
+            
+            entity.HasOne(e => e.ServiceGroup)
+                .WithMany(sg => sg.Durations)
+                .HasForeignKey(e => e.ServiceGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasIndex(e => new { e.ServiceGroupId, e.IsActive });
+        });
+
+        // ServiceGroupTherapist (many-to-many)
+        builder.Entity<ServiceGroupTherapist>(entity =>
+        {
+            entity.HasKey(st => new { st.ServiceGroupId, st.TherapistId });
+            
+            entity.HasOne(st => st.ServiceGroup)
+                .WithMany(sg => sg.Therapists)
+                .HasForeignKey(st => st.ServiceGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(st => st.Therapist)
+                .WithMany()
+                .HasForeignKey(st => st.TherapistId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ServiceGroupRoom (many-to-many)
+        builder.Entity<ServiceGroupRoom>(entity =>
+        {
+            entity.HasKey(sr => new { sr.ServiceGroupId, sr.RoomId });
+            
+            entity.HasOne(sr => sr.ServiceGroup)
+                .WithMany(sg => sg.Rooms)
+                .HasForeignKey(sr => sr.ServiceGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(sr => sr.Room)
+                .WithMany()
+                .HasForeignKey(sr => sr.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // Booking configuration
         builder.Entity<Booking>(entity =>
         {
@@ -122,7 +186,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(e => e.Service)
                 .WithMany(s => s.Bookings)
                 .HasForeignKey(e => e.ServiceId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+
+            entity.HasOne(e => e.ServiceDuration)
+                .WithMany(sd => sd.Bookings)
+                .HasForeignKey(e => e.ServiceDurationId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
 
             entity.HasOne(e => e.Location)
                 .WithMany(l => l.Bookings)

@@ -1,4 +1,5 @@
 @page "/admin/services/edit/{ServiceId:int}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using Microsoft.EntityFrameworkCore
 @using SpaBooker.Core.Entities
 @using SpaBooker.Infrastructure.Data
@@ -37,9 +38,7 @@
     }
     else
     {
-        <EditForm Model="@editModel" OnValidSubmit="SaveService" FormName="editService">
-            <DataAnnotationsValidator />
-
+        <div>
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <div class="alert alert-danger alert-dismissible fade show">
@@ -59,49 +58,43 @@
                         <div class="card-body">
                             <div class="mb-3">
                                 <label class="form-label">Service Name *</label>
-                                <InputText class="form-control" @bind-Value="editModel.Name" />
-                                <ValidationMessage For="@(() => editModel.Name)" />
+                                <input type="text" class="form-control" @bind="editModel.Name" />
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Description *</label>
-                                <InputTextArea class="form-control" rows="4" @bind-Value="editModel.Description" />
-                                <ValidationMessage For="@(() => editModel.Description)" />
+                                <textarea class="form-control" rows="4" @bind="editModel.Description"></textarea>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Image URL (Optional)</label>
-                                <InputText class="form-control" @bind-Value="editModel.ImageUrl" 
+                                <input type="text" class="form-control" @bind="editModel.ImageUrl" 
                                          placeholder="https://example.com/service-image.jpg" />
                                 <small class="form-text text-muted">
                                     💡 Tip: Use Unsplash for free spa/massage images. Recommended size: 800x600px
                                 </small>
-                                <ValidationMessage For="@(() => editModel.ImageUrl)" />
                             </div>
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Duration (minutes) *</label>
-                                    <InputNumber class="form-control" @bind-Value="editModel.DurationMinutes" />
-                                    <ValidationMessage For="@(() => editModel.DurationMinutes)" />
+                                    <input type="number" class="form-control" @bind="editModel.DurationMinutes" />
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Base Price ($) *</label>
-                                    <InputNumber class="form-control" @bind-Value="editModel.BasePrice" />
-                                    <ValidationMessage For="@(() => editModel.BasePrice)" />
+                                    <input type="number" step="0.01" class="form-control" @bind="editModel.BasePrice" />
                                 </div>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Location *</label>
-                                <InputSelect class="form-select" @bind-Value="editModel.LocationId">
+                                <select class="form-select" @bind="editModel.LocationId">
                                     <option value="">-- Select Location --</option>
                                     @foreach (var location in locations)
                                     {
                                         <option value="@location.Id">@location.Name</option>
                                     }
-                                </InputSelect>
-                                <ValidationMessage For="@(() => editModel.LocationId)" />
+                                </select>
                             </div>
 
                             <div class="form-check mb-3">
@@ -221,7 +214,7 @@
             <div class="row mt-4">
                 <div class="col-12">
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        <button type="button" class="btn btn-primary" disabled="@isSaving" @onclick="SaveService">
                             @if (isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm me-2"></span>
@@ -232,7 +225,7 @@
                     </div>
                 </div>
             </div>
-        </EditForm>
+        </div>
     }
 </div>
 
@@ -364,7 +357,7 @@
 
             await DbContext.SaveChangesAsync();
 
-            NavigationManager.NavigateTo($"/admin/services?success=Service '{service.Name}' updated successfully");
+            NavigationManager.NavigateTo($"/admin/services?success=Service '{service.Name}' updated successfully", forceLoad: true);
         }
         catch (Exception ex)
         {

@@ -12,8 +12,11 @@ public class Booking : ISoftDeletable
     public string TherapistId { get; set; } = string.Empty;
     public ApplicationUser Therapist { get; set; } = null!;
     
-    public int ServiceId { get; set; }
-    public SpaService Service { get; set; } = null!;
+    public int? ServiceId { get; set; }  // Keep for backwards compatibility
+    public SpaService? Service { get; set; }
+    
+    public int? ServiceDurationId { get; set; }  // New reference
+    public ServiceDuration? ServiceDuration { get; set; }
     
     public int LocationId { get; set; }
     public Location Location { get; set; } = null!;

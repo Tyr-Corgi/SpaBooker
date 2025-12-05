@@ -136,10 +136,10 @@ public class AnalyticsService : IAnalyticsService
         }
 
         return await query
-            .GroupBy(b => new { b.ServiceId, b.Service.Name })
+            .GroupBy(b => new { b.ServiceId, b.Service!.Name })
             .Select(g => new RevenueByService
             {
-                ServiceId = g.Key.ServiceId,
+                ServiceId = g.Key.ServiceId ?? 0,
                 ServiceName = g.Key.Name,
                 BookingCount = g.Count(),
                 TotalRevenue = g.Sum(b => b.TotalPrice),
