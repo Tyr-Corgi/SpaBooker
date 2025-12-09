@@ -20,5 +20,6 @@ public class ApplicationUser : IdentityUser
     public ICollection<Booking> BookingsAsTherapist { get; set; } = new List<Booking>();
     public ICollection<UserMembership> Memberships { get; set; } = new List<UserMembership>();
     public ICollection<TherapistAvailability> Availability { get; set; } = new List<TherapistAvailability>();
+    public ICollection<ServiceTherapist> ServiceTherapists { get; set; } = new List<ServiceTherapist>();
 }
 

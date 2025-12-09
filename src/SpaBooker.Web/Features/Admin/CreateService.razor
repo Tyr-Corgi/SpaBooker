@@ -295,7 +295,7 @@
 
             NavigationManager.NavigateTo($"/admin/services?success=Service '{service.Name}' created successfully");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             errorMessage = "An error occurred while creating the service. Please try again.";
         }

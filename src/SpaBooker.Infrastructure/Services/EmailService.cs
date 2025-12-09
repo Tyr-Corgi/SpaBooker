@@ -252,7 +252,7 @@ public class EmailService : IEmailService
                 <h3 style=""margin-top: 0; color: #B76E79;"">Appointment Details</h3>
                 <div class=""detail-row"">
                     <span class=""detail-label"">Service:</span>
-                    <span class=""detail-value"">{booking.Service.Name}</span>
+                    <span class=""detail-value"">{booking.Service?.Name}</span>
                 </div>
                 <div class=""detail-row"">
                     <span class=""detail-label"">Date:</span>
@@ -264,11 +264,11 @@ public class EmailService : IEmailService
                 </div>
                 <div class=""detail-row"">
                     <span class=""detail-label"">Duration:</span>
-                    <span class=""detail-value"">{booking.Service.DurationMinutes} minutes</span>
+                    <span class=""detail-value"">{booking.Service?.DurationMinutes ?? 0} minutes</span>
                 </div>
                 <div class=""detail-row"">
                     <span class=""detail-label"">Therapist:</span>
-                    <span class=""detail-value"">{booking.Therapist.FirstName} {booking.Therapist.LastName}</span>
+                    <span class=""detail-value"">{booking.Therapist?.FirstName} {booking.Therapist?.LastName}</span>
                 </div>
                 <div class=""detail-row"">
                     <span class=""detail-label"">Location:</span>
@@ -344,17 +344,17 @@ public class EmailService : IEmailService
             
             <div class=""booking-details"">
                 <h3 style=""margin-top: 0; color: #B76E79;"">Cancelled Appointment</h3>
-                <p><strong>Service:</strong> {booking.Service.Name}<br>
+                <p><strong>Service:</strong> {booking.Service?.Name}<br>
                 <strong>Date:</strong> {booking.StartTime:MMMM dd, yyyy}<br>
                 <strong>Time:</strong> {booking.StartTime:h:mm tt}<br>
-                <strong>Location:</strong> {booking.Location.Name}</p>
+                <strong>Location:</strong> {booking.Location?.Name}</p>
             </div>
 
             {refundInfo}
 
             <p>We're sorry to see this appointment cancelled. We hope to see you again soon!</p>
             
-            <p>To book a new appointment, please visit our website or contact us at {booking.Location.Phone}.</p>
+            <p>To book a new appointment, please visit our website or contact us at {booking.Location?.Phone ?? "our office"}.</p>
             
             <p>Warm regards,<br><span class=""highlight"">The SpaBooker Team</span></p>
         </div>
@@ -402,12 +402,12 @@ public class EmailService : IEmailService
             
             <div class=""booking-details"">
                 <h3 style=""margin-top: 0; color: #B76E79;"">Appointment Details</h3>
-                <p><strong>Service:</strong> {booking.Service.Name}<br>
+                <p><strong>Service:</strong> {booking.Service?.Name}<br>
                 <strong>Date:</strong> {booking.StartTime:MMMM dd, yyyy}<br>
                 <strong>Time:</strong> {booking.StartTime:h:mm tt} - {booking.EndTime:h:mm tt}<br>
-                <strong>Therapist:</strong> {booking.Therapist.FirstName} {booking.Therapist.LastName}<br>
-                <strong>Location:</strong> {booking.Location.Name}<br>
-                <strong>Address:</strong> {booking.Location.Address}, {booking.Location.City}, {booking.Location.State} {booking.Location.ZipCode}</p>
+                <strong>Therapist:</strong> {booking.Therapist?.FirstName} {booking.Therapist?.LastName}<br>
+                <strong>Location:</strong> {booking.Location?.Name}<br>
+                <strong>Address:</strong> {booking.Location?.Address}, {booking.Location?.City}, {booking.Location?.State} {booking.Location?.ZipCode}</p>
             </div>
 
             <p><strong>Important Reminders:</strong></p>
@@ -419,7 +419,7 @@ public class EmailService : IEmailService
 
             <p>We're looking forward to seeing you tomorrow!</p>
             
-            <p>If you have any questions, please contact us at {booking.Location.Phone}.</p>
+            <p>If you have any questions, please contact us at {booking.Location?.Phone ?? "our office"}.</p>
             
             <p>Warm regards,<br><span class=""highlight"">The SpaBooker Team</span></p>
         </div>

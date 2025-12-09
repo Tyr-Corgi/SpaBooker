@@ -127,6 +127,9 @@ public class AnalyticsService : IAnalyticsService
     public async Task<List<RevenueByService>> GetRevenueByServiceAsync(DateTime startDate, DateTime endDate, int? locationId = null)
     {
         var query = _context.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.ServiceDuration!)
+                .ThenInclude(sd => sd.ServiceGroup)
             .Where(b => b.CreatedAt >= startDate && b.CreatedAt <= endDate)
             .Where(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed);
 
@@ -135,18 +138,32 @@ public class AnalyticsService : IAnalyticsService
             query = query.Where(b => b.LocationId == locationId.Value);
         }
 
-        return await query
-            .GroupBy(b => new { b.ServiceId, b.Service!.Name })
+        // Materialize the data first to avoid complex EF translation issues
+        var bookings = await query.ToListAsync();
+
+        // Group by service name, handling both old (Service) and new (ServiceDuration.ServiceGroup) structures
+        return bookings
+            .Where(b => 
+                (b.Service != null) || 
+                (b.ServiceDuration?.ServiceGroup != null)) // Filter out bookings with no valid service reference
+            .GroupBy(b => new
+            {
+                // Use ServiceGroup name if available (new structure), otherwise use Service name (legacy)
+                ServiceName = b.ServiceDuration?.ServiceGroup?.Name ?? b.Service?.Name ?? "Unknown",
+                // For ServiceId, we'll use a placeholder since mixing ServiceId and ServiceGroupId is problematic
+                // This field may need reconsideration based on how it's used in reporting
+                ServiceId = b.ServiceDuration?.ServiceGroupId ?? b.ServiceId ?? 0
+            })
             .Select(g => new RevenueByService
             {
-                ServiceId = g.Key.ServiceId ?? 0,
-                ServiceName = g.Key.Name,
+                ServiceId = g.Key.ServiceId,
+                ServiceName = g.Key.ServiceName,
                 BookingCount = g.Count(),
                 TotalRevenue = g.Sum(b => b.TotalPrice),
                 AveragePrice = g.Average(b => b.TotalPrice)
             })
             .OrderByDescending(x => x.TotalRevenue)
-            .ToListAsync();
+            .ToList();
     }
 
     public async Task<List<RevenueByTherapist>> GetRevenueByTherapistAsync(DateTime startDate, DateTime endDate, int? locationId = null)
@@ -372,4 +389,3 @@ public class AnalyticsService : IAnalyticsService
             .ToListAsync();
     }
 }
-

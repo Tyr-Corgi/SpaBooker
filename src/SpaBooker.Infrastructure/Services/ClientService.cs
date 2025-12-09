@@ -84,7 +84,7 @@ public class ClientService : IClientService
             .FirstOrDefault();
 
         var favoriteService = completedBookings
-            .GroupBy(b => b.Service.Name)
+            .GroupBy(b => b.Service?.Name ?? "Unknown")
             .OrderByDescending(g => g.Count())
             .FirstOrDefault()
             ?.Key;

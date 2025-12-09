@@ -138,7 +138,7 @@
                                     
                                     var isBooked = slotBooking != null;
                                     var isBlocked = slotBlock != null;
-                                    var statusClass = isBooked ? $"booked status-{slotBooking.Status.ToString().ToLower()}" : 
+                                    var statusClass = isBooked ? $"booked status-{slotBooking!.Status.ToString().ToLower()}" : 
                                                      isBlocked ? "blocked" : "open";
                                     
                                     <div class="time-slot-row @statusClass" @onclick="() => HandleSlotClick(slotBooking, slotBlock)">
@@ -160,13 +160,13 @@
                                         <div class="service-column">
                                             @if (isBooked)
                                             {
-                                                <span>@slotBooking.Service.Name</span>
+                                                <span>@slotBooking?.Service?.Name</span>
                                             }
                                         </div>
                                         <div class="room-column">
                                             @if (isBooked)
                                             {
-                                                @if (slotBooking.Room != null)
+                                                @if (slotBooking!.Room != null)
                                                 {
                                                     <span class="badge room-badge" style="background-color: @slotBooking.Room.ColorCode; color: white;">
                                                         @slotBooking.Room.Name
@@ -185,7 +185,7 @@
                                             }
                                             else if (isBooked)
                                             {
-                                                <span class="badge @GetStatusBadgeClass(slotBooking.Status)">@slotBooking.Status</span>
+                                                <span class="badge @GetStatusBadgeClass(slotBooking!.Status)">@slotBooking.Status</span>
                                             }
                                         </div>
                                     </div>
@@ -416,7 +416,7 @@
                             <h6 class="text-rose-gold mb-3">Appointment Information</h6>
                             <dl class="row mb-0">
                                 <dt class="col-sm-4">Service:</dt>
-                                <dd class="col-sm-8">@selectedBooking.Service.Name</dd>
+                                <dd class="col-sm-8">@selectedBooking.Service?.Name</dd>
                                 
                                 <dt class="col-sm-4">Date:</dt>
                                 <dd class="col-sm-8">@selectedBooking.StartTime.ToString("dd/MM/yyyy")</dd>
@@ -616,8 +616,8 @@
                 </div>
                 <div class="modal-body">
                     <p class="mb-3">
-                        <strong>Service:</strong> @selectedBooking.Service.Name<br />
-                        <strong>Time:</strong> @selectedBooking.StartTime.ToString("dd/MM/yyyy HH:mm")
+                        <strong>Service:</strong> @selectedBooking?.Service?.Name<br />
+                        <strong>Time:</strong> @selectedBooking?.StartTime.ToString("dd/MM/yyyy HH:mm")
                     </p>
 
                     @if (availableRooms.Any())
@@ -665,7 +665,6 @@
     private bool isSaving = false;
     private bool showBlockModal = false;
     private bool showRoomAssignmentModal = false;
-    private bool showUserDropdown = false;
     private bool showViewScheduleModal = false;
     private string? currentUserId;
     private string? blockErrorMessage;

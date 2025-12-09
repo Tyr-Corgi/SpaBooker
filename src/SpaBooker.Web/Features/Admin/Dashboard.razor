@@ -187,9 +187,9 @@
                                                     <div class="fw-semibold">@booking.Client.FirstName @booking.Client.LastName</div>
                                                 </td>
                                                 <td>
-                                                    <div class="text-truncate" style="max-width: 200px;">@booking.Service.Name</div>
+                                                    <div class="text-truncate" style="max-width: 200px;">@booking.Service?.Name</div>
                                                 </td>
-                                                <td>@booking.Therapist.FirstName @booking.Therapist.LastName</td>
+                                                <td>@booking.Therapist?.FirstName @booking.Therapist?.LastName</td>
                                                 <td>
                                                     <div class="small">@booking.StartTime.ToString("MMM dd, yyyy")</div>
                                                     <div class="text-muted" style="font-size: 0.75rem;">@booking.StartTime.ToString("h:mm tt")</div>
@@ -433,11 +433,11 @@
 
         // Calculate top services for filtered data
         topServices = filteredBookings
-            .Where(b => b.Status != BookingStatus.Cancelled)
-            .GroupBy(b => new { b.ServiceId, b.Service.Name })
+            .Where(b => b.Status != BookingStatus.Cancelled && b.Service != null)
+            .GroupBy(b => new { b.ServiceId, ServiceName = b.Service!.Name })
             .Select(g => new TopService
             {
-                ServiceName = g.Key.Name,
+                ServiceName = g.Key.ServiceName,
                 BookingCount = g.Count(),
                 Revenue = g.Sum(b => b.TotalPrice)
             })

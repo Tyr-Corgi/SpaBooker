@@ -28,13 +28,51 @@
             </div>
         </div>
     }
-    else if (serviceGroups.Any())
+    else
     {
-        <div class="row g-4">
-            @foreach (var group in serviceGroups)
-            {
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm hover-lift">
+        <!-- Category Filter -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <strong class="text-muted me-2">Filter by Category:</strong>
+                    @foreach (var category in availableCategories.OrderBy(c => c))
+                    {
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   id="cat-@category"
+                                   checked="@selectedCategories.Contains(category)"
+                                   @onchange="@((e) => OnCategoryFilterChanged(category, (bool)(e.Value ?? false)))">
+                            <label class="form-check-label" for="cat-@category">
+                                <span class="badge bg-info">@category</span>
+                            </label>
+                        </div>
+                    }
+                    @if (selectedCategories.Any())
+                    {
+                        <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="ClearFilters">
+                            <i class="bi bi-x-circle"></i> Clear All
+                        </button>
+                    }
+                </div>
+                @if (selectedCategories.Any())
+                {
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Showing @filteredServiceGroups.Count of @serviceGroups.Count services
+                        </small>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (filteredServiceGroups.Any())
+        {
+            <div class="row g-4">
+                @foreach (var group in filteredServiceGroups)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm hover-lift">
                         @if (!string.IsNullOrEmpty(group.ImageUrl))
                         {
                             <img src="@group.ImageUrl" class="card-img-top" alt="@group.Name" style="height: 200px; object-fit: cover;">
@@ -121,9 +159,18 @@
     else
     {
         <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No service groups found.
+            <i class="bi bi-info-circle"></i> 
+            @if (selectedCategories.Any())
+            {
+                <text>No services found in the selected categories.</text>
+            }
+            else
+            {
+                <text>No service groups found.</text>
+            }
         </div>
     }
+}
 </div>
 
 <!-- Edit Modal -->
@@ -177,7 +224,13 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Category</label>
-                                    <input type="text" class="form-control" @bind="editModel.Category" />
+                                    <select class="form-select" @bind="editModel.Category">
+                                        <option value="">-- Select Category --</option>
+                                        @foreach (var category in PredefinedCategories)
+                                        {
+                                            <option value="@category">@category</option>
+                                        }
+                                    </select>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Image URL</label>
@@ -306,6 +359,26 @@
     
     private List<ApplicationUser> allTherapists = new();
     private List<Room> allRooms = new();
+    
+    // Predefined category options
+    private static readonly List<string> PredefinedCategories = new()
+    {
+        "Massage",
+        "Facial",
+        "Waxing",
+        "Pedicure",
+        "Manicure",
+        "Body Treatment",
+        "Specialty Treatment"
+    };
+    
+    // Category filtering
+    private HashSet<string> selectedCategories = new();
+    private List<string> availableCategories = new();
+    private List<ServiceGroup> filteredServiceGroups => 
+        selectedCategories.Any() 
+            ? serviceGroups.Where(sg => selectedCategories.Contains(sg.Category)).ToList()
+            : serviceGroups;
 
     protected override async Task OnInitializedAsync()
     {
@@ -330,6 +403,13 @@
                 .OrderBy(sg => sg.Name)
                 .ToListAsync();
                 
+            // Extract unique categories
+            availableCategories = serviceGroups
+                .Select(sg => sg.Category)
+                .Distinct()
+                .Where(c => !string.IsNullOrEmpty(c))
+                .ToList();
+                
             var therapistsInRole = await UserManager.GetUsersInRoleAsync("Therapist");
             allTherapists = therapistsInRole.OrderBy(u => u.FirstName).ThenBy(u => u.LastName).ToList();
                 
@@ -348,6 +428,23 @@
         {
             isLoading = false;
         }
+    }
+    
+    private void OnCategoryFilterChanged(string category, bool isChecked)
+    {
+        if (isChecked)
+        {
+            selectedCategories.Add(category);
+        }
+        else
+        {
+            selectedCategories.Remove(category);
+        }
+    }
+    
+    private void ClearFilters()
+    {
+        selectedCategories.Clear();
     }
 
     private async Task ShowEditModal(int serviceGroupId)
@@ -475,6 +572,9 @@
                 serviceGroup.RequiresMembership = editModel.RequiresMembership;
                 serviceGroup.UpdatedAt = DateTime.UtcNow;
                 
+                // Explicitly mark the entity as modified to ensure EF tracks the change
+                context.Entry(serviceGroup).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+                
                 // Update durations
                 foreach (var duration in editModel.Durations.Where(d => d.MarkedForDeletion && d.Id.HasValue))
                 {
@@ -561,7 +661,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error saving service group: {ex.Message}");
+            // Log error silently - could add user notification here
         }
         finally
         {
@@ -620,5 +720,31 @@
     
     .nav-link {
         cursor: pointer;
+        color: #6c757d;
+    }
+    
+    .nav-link.active {
+        color: #b76e79 !important;
+        border-bottom-color: #b76e79 !important;
+    }
+    
+    .nav-link:hover {
+        color: #b76e79;
+    }
+    
+    /* Make checked checkboxes more visible */
+    .form-check-input:checked {
+        background-color: #b76e79 !important;
+        border-color: #b76e79 !important;
+    }
+    
+    .form-check-input:focus {
+        border-color: #b76e79;
+        box-shadow: 0 0 0 0.25rem rgba(183, 110, 121, 0.25);
+    }
+    
+    /* Ensure the checkmark is visible */
+    .form-check-input:checked::after {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e") !important;
     }
 </style>

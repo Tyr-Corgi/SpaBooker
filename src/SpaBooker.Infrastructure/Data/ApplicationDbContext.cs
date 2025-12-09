@@ -98,7 +98,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.Cascade);
             
             entity.HasOne(st => st.Therapist)
-                .WithMany()
+                .WithMany(u => u.ServiceTherapists)
                 .HasForeignKey(st => st.TherapistId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

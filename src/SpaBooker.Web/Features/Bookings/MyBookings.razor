@@ -55,7 +55,7 @@
                                 <div class="card h-100 booking-card">
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-start mb-3">
-                                            <h5 class="card-title text-rose-gold mb-0">@booking.Service.Name</h5>
+                                            <h5 class="card-title text-rose-gold mb-0">@booking.Service?.Name</h5>
                                             <span class="badge @GetStatusBadgeClass(booking.Status)">
                                                 @booking.Status
                                             </span>
@@ -141,10 +141,10 @@
                                 @foreach (var booking in pastBookings.Take(10))
                                 {
                                     <tr>
-                                        <td>@booking.Service.Name</td>
+                                        <td>@booking.Service?.Name</td>
                                         <td>@booking.StartTime.ToString("MMM dd, yyyy")</td>
-                                        <td>@booking.Therapist.FirstName @booking.Therapist.LastName</td>
-                                        <td>@booking.Location.Name</td>
+                                        <td>@booking.Therapist?.FirstName @booking.Therapist?.LastName</td>
+                                        <td>@booking.Location?.Name</td>
                                         <td>
                                             <span class="badge @GetStatusBadgeClass(booking.Status)">
                                                 @booking.Status
@@ -349,7 +349,7 @@
                 await LoadBookings();
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             cancelError = "An error occurred while cancelling the booking. Please try again.";
         }

@@ -138,7 +138,7 @@
                 errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             errorMessage = "An error occurred during registration. Please try again.";
         }

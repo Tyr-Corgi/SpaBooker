@@ -344,7 +344,7 @@ public class GiftCertificateService : IGiftCertificateService
                 Amount = -cert.RemainingBalance,
                 BalanceBefore = cert.RemainingBalance,
                 BalanceAfter = 0,
-                Description = $"Gift certificate expired on {cert.ExpiresAt.Value:yyyy-MM-dd}",
+                Description = $"Gift certificate expired on {cert.ExpiresAt!.Value:yyyy-MM-dd}",
                 CreatedAt = DateTime.UtcNow
             };
 

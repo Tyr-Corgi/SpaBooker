@@ -1972,9 +1972,9 @@
         StateHasChanged();
     }
     
-    private async Task OnServiceSelected()
+    private Task OnServiceSelected()
     {
-        if (selectedServiceId == 0) return;
+        if (selectedServiceId == 0) return Task.CompletedTask;
         
         var service = availableServices.FirstOrDefault(s => s.Id == selectedServiceId);
         if (service != null)
@@ -1987,6 +1987,8 @@
                 StateHasChanged();
             }
         }
+        
+        return Task.CompletedTask;
     }
     
     private async Task CreateBooking()

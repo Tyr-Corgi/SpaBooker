@@ -337,17 +337,17 @@ public class StripeWebhookController : ControllerBase
 
                 await _unitOfWork.CommitAsync();
                 _logger.LogInformation("Added {Credits} monthly credits to membership {MembershipId} for invoice {InvoiceId}",
-                    membership.MembershipPlan.MonthlyCredits, membership.Id, invoice.Id);
+                    membership.MembershipPlan?.MonthlyCredits ?? 0, membership.Id, invoice.Id ?? "unknown");
             }
             else
             {
                 _logger.LogWarning("No membership found for subscription {SubscriptionId} in invoice {InvoiceId}",
-                    subscriptionId, invoice.Id);
+                    subscriptionId ?? "unknown", invoice.Id ?? "unknown");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to handle invoice payment succeeded for {InvoiceId}", invoice.Id);
+            _logger.LogError(ex, "Failed to handle invoice payment succeeded for {InvoiceId}", invoice.Id ?? "unknown");
             await _unitOfWork.RollbackAsync();
             throw;
         }
@@ -380,17 +380,17 @@ public class StripeWebhookController : ControllerBase
                 
                 await _unitOfWork.CommitAsync();
                 _logger.LogWarning("Membership {MembershipId} marked inactive due to payment failure for invoice {InvoiceId}",
-                    membership.Id, invoice.Id);
+                    membership.Id, invoice.Id ?? "unknown");
             }
             else
             {
                 _logger.LogWarning("No membership found for subscription {SubscriptionId} in invoice {InvoiceId}",
-                    subscriptionId, invoice.Id);
+                    subscriptionId ?? "unknown", invoice.Id ?? "unknown");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to handle invoice payment failed for {InvoiceId}", invoice.Id);
+            _logger.LogError(ex, "Failed to handle invoice payment failed for {InvoiceId}", invoice.Id ?? "unknown");
             await _unitOfWork.RollbackAsync();
             throw;
         }

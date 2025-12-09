@@ -84,13 +84,13 @@
                                                         @booking.StartTime.ToString("h:mm tt")
                                                     </div>
                                                     <div class="booking-service">
-                                                        @booking.Service.Name
+                                                        @booking.Service?.Name
                                                     </div>
                                                     <div class="booking-client">
                                                         @booking.Client.FirstName @booking.Client.LastName
                                                     </div>
                                                     <div class="booking-duration text-muted small">
-                                                        @booking.Service.DurationMinutes min
+                                                        @(booking.Service?.DurationMinutes ?? 0) min
                                                     </div>
                                                 </div>
                                             }
@@ -165,7 +165,7 @@
                             <h6 class="text-rose-gold mb-3">Appointment Information</h6>
                             <dl class="row">
                                 <dt class="col-sm-4">Service:</dt>
-                                <dd class="col-sm-8">@selectedBooking.Service.Name</dd>
+                                <dd class="col-sm-8">@selectedBooking.Service?.Name</dd>
                                 
                                 <dt class="col-sm-4">Date:</dt>
                                 <dd class="col-sm-8">@selectedBooking.StartTime.ToString("MMMM dd, yyyy")</dd>
@@ -176,7 +176,7 @@
                                 </dd>
                                 
                                 <dt class="col-sm-4">Duration:</dt>
-                                <dd class="col-sm-8">@selectedBooking.Service.DurationMinutes minutes</dd>
+                                <dd class="col-sm-8">@(selectedBooking.Service?.DurationMinutes ?? 0) minutes</dd>
                                 
                                 <dt class="col-sm-4">Status:</dt>
                                 <dd class="col-sm-8">
@@ -413,7 +413,7 @@
     {
         var totalMinutes = weekBookings
             .Where(b => b.Status != BookingStatus.Cancelled)
-            .Sum(b => b.Service.DurationMinutes);
+            .Sum(b => b.Service?.DurationMinutes ?? 0);
         var hours = totalMinutes / 60.0;
         return hours.ToString("F1") + "h";
     }

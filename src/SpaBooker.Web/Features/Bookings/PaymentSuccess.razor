@@ -37,11 +37,11 @@
                             <div class="details-box p-4 bg-light rounded">
                                 <div class="row mb-2">
                                     <div class="col-6 text-start"><strong>Service:</strong></div>
-                                    <div class="col-6 text-end">@booking.Service.Name</div>
+                                    <div class="col-6 text-end">@booking.Service?.Name</div>
                                 </div>
                                 <div class="row mb-2">
                                     <div class="col-6 text-start"><strong>Therapist:</strong></div>
-                                    <div class="col-6 text-end">@booking.Therapist.FirstName @booking.Therapist.LastName</div>
+                                    <div class="col-6 text-end">@booking.Therapist?.FirstName @booking.Therapist?.LastName</div>
                                 </div>
                                 <div class="row mb-2">
                                     <div class="col-6 text-start"><strong>Location:</strong></div>

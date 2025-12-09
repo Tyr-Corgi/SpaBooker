@@ -49,11 +49,11 @@
                         <div class="booking-summary mb-4">
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Service:</span>
-                                <strong>@booking.Service.Name</strong>
+                                <strong>@booking.Service?.Name</strong>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Therapist:</span>
-                                <strong>@booking.Therapist.FirstName @booking.Therapist.LastName</strong>
+                                <strong>@booking.Therapist?.FirstName @booking.Therapist?.LastName</strong>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Date & Time:</span>
@@ -61,7 +61,7 @@
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Duration:</span>
-                                <strong>@booking.Service.DurationMinutes minutes</strong>
+                                <strong>@(booking.Service?.DurationMinutes ?? 0) minutes</strong>
                             </div>
                         </div>
 
@@ -407,7 +407,7 @@
             var metadata = new Dictionary<string, string>
             {
                 { "booking_id", booking.Id.ToString() },
-                { "client_id", booking.ClientId },
+                { "client_id", booking.ClientId ?? string.Empty },
                 { "service_id", booking.ServiceId.ToString() }
             };
 
@@ -421,7 +421,7 @@
                 booking.Client.Email!,
                 finalAmountDue,
                 "usd",
-                $"Booking Deposit - {booking.Service.Name} on {booking.StartTime:MMM dd, yyyy}",
+                $"Booking Deposit - {booking.Service?.Name} on {booking.StartTime:MMM dd, yyyy}",
                 successUrl,
                 cancelUrl,
                 metadata

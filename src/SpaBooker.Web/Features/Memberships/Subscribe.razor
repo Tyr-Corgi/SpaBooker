@@ -210,7 +210,7 @@
             // Redirect to Stripe Checkout
             NavigationManager.NavigateTo(checkoutUrl, true);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             errorMessage = "Unable to start subscription process. Please try again or contact support.";
         }

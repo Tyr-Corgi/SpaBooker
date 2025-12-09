@@ -359,7 +359,7 @@
 
             NavigationManager.NavigateTo($"/admin/services?success=Service '{service.Name}' updated successfully", forceLoad: true);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             errorMessage = "An error occurred while saving the service. Please try again.";
         }

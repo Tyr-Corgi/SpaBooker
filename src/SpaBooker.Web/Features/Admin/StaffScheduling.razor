@@ -135,6 +135,16 @@
                                         </button>
                                     </div>
                                     
+                                    @* Date Picker for quick navigation *@
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label class="form-label mb-0 small text-muted">Jump to:</label>
+                                        <input type="date" 
+                                               class="form-control form-control-sm" 
+                                               style="width: 150px;"
+                                               value="@calendarViewDate.ToString("yyyy-MM-dd")" 
+                                               @onchange="@(e => OnAllStaffDatePickerChanged(e.Value?.ToString()))" />
+                                    </div>
+                                    
                                     <button class="btn btn-sm btn-primary" @onclick="GoToToday">
                                         <i class="bi bi-calendar-check"></i> Today
                                     </button>
@@ -431,6 +441,16 @@
                                     </button>
                                 </div>
                                 
+                                @* Date Picker for quick navigation *@
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="form-label mb-0 small text-muted">Jump to:</label>
+                                    <input type="date" 
+                                           class="form-control form-control-sm" 
+                                           style="width: 150px;"
+                                           value="@individualCalendarViewDate.ToString("yyyy-MM-dd")" 
+                                           @onchange="@(e => OnIndividualDatePickerChanged(e.Value?.ToString()))" />
+                                </div>
+                                
                                 <button class="btn btn-sm btn-primary" @onclick="IndividualGoToToday">
                                     <i class="bi bi-calendar-check"></i> Today
                                 </button>
@@ -617,7 +637,7 @@
                                                     </td>
                                                     <td>
                                                         <i class="bi bi-scissors text-muted"></i>
-                                                        @booking.Service.Name
+                                                        @booking.Service?.Name
                                                     </td>
                                                     <td>
                                                         <i class="bi bi-clock text-muted"></i>
@@ -1282,6 +1302,14 @@
         calendarViewDate = DateTime.Today;
     }
     
+    private void OnAllStaffDatePickerChanged(string? dateValue)
+    {
+        if (!string.IsNullOrEmpty(dateValue) && DateTime.TryParse(dateValue, out var selectedDate))
+        {
+            calendarViewDate = DateTime.SpecifyKind(selectedDate, DateTimeKind.Utc);
+        }
+    }
+    
     private string GetCalendarViewTitle()
     {
         return calendarViewMode switch
@@ -1795,7 +1823,7 @@
             // Unassign therapist from these bookings (keep room assignments)
             foreach (var booking in bookingsToReassign)
             {
-                booking.TherapistId = null;
+                booking.TherapistId = null!;
                 // RoomId remains unchanged - we preserve room assignments
             }
             
@@ -2032,6 +2060,14 @@
     private void IndividualGoToToday()
     {
         individualCalendarViewDate = DateTime.UtcNow.Date;
+    }
+    
+    private void OnIndividualDatePickerChanged(string? dateValue)
+    {
+        if (!string.IsNullOrEmpty(dateValue) && DateTime.TryParse(dateValue, out var selectedDate))
+        {
+            individualCalendarViewDate = DateTime.SpecifyKind(selectedDate, DateTimeKind.Utc);
+        }
     }
     
     private string GetIndividualCalendarViewTitle()

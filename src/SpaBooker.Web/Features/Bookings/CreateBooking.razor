@@ -452,7 +452,7 @@
             // Redirect to payment page
             NavigationManager.NavigateTo($"/bookings/payment/{booking.Id}");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             errorMessage = "An error occurred while creating your booking. Please try again.";
         }

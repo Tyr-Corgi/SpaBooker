@@ -178,7 +178,7 @@
         bufferTimeModel.BufferMinutes = BufferTimeOptions.Value.BufferMinutes;
     }
 
-    private async Task SaveSettings()
+    private Task SaveSettings()
     {
         isSaving = true;
         errorMessage = null;
@@ -190,7 +190,8 @@
             if (bufferTimeModel.BufferMinutes < 0 || bufferTimeModel.BufferMinutes > 60)
             {
                 errorMessage = "Buffer time must be between 0 and 60 minutes.";
-                return;
+                isSaving = false;
+                return Task.CompletedTask;
             }
 
             // Note: In a production app, you would save this to a database table (e.g., SystemSettings)
@@ -210,6 +211,8 @@
         {
             isSaving = false;
         }
+        
+        return Task.CompletedTask;
     }
 
     private void ResetToDefault()

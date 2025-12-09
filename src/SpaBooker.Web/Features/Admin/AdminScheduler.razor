@@ -76,29 +76,26 @@
                             </div>
 
                             <!-- Date Navigation -->
-                            <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="col-md-8 mb-3 mb-md-0">
                                 <label class="form-label fw-bold mb-2">
                                     <i class="bi bi-calendar-event"></i> Date
                                 </label>
-                                <div class="d-flex gap-2 align-items-center">
-                                    <button class="btn btn-primary fw-bold" @onclick="NavigatePreviousDay" title="Previous Day">
+                                <div class="d-flex gap-2 align-items-stretch">
+                                    <button class="btn btn-primary fw-bold" style="width: 40px; padding: 0.375rem 0;" @onclick="NavigatePreviousDay" title="Previous Day">
                                         ◀
                                     </button>
-                                    <div class="flex-grow-1 text-center date-display-box">
-                                        <strong>@currentDate.ToString("dddd, dd/MM/yyyy")</strong>
-                                    </div>
-                                    <button class="btn btn-primary fw-bold" @onclick="NavigateNextDay" title="Next Day">
+                                    <input type="date" 
+                                           class="form-control text-center" 
+                                           style="font-size: 1rem; padding-right: 2.5rem; max-width: 200px;"
+                                           value="@currentDate.ToString("yyyy-MM-dd")" 
+                                           @onchange="@(e => OnDatePickerChanged(e.Value?.ToString()))" />
+                                    <button class="btn btn-primary fw-bold" style="width: 40px; padding: 0.375rem 0;" @onclick="NavigateNextDay" title="Next Day">
                                         ▶
                                     </button>
+                                    <button class="btn btn-primary" @onclick="GoToToday">
+                                        <i class="bi bi-calendar-check"></i> Today
+                                    </button>
                                 </div>
-                            </div>
-
-                            <!-- Today Button -->
-                            <div class="col-md-4 text-md-end">
-                                <label class="form-label fw-bold mb-2 d-block">&nbsp;</label>
-                                <button class="btn btn-primary" @onclick="GoToToday">
-                                    <i class="bi bi-calendar-check"></i> Today
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -240,9 +237,9 @@
                                                     <div class="booking-info">
                                                         <div class="time-label">@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</div>
                                                         <div class="client-name">@booking.Client.FirstName @booking.Client.LastName</div>
-                                                        <div class="service-name">@booking.Service.Name</div>
+                                                        <div class="service-name">@booking.Service?.Name</div>
                                                         <div class="therapist-badge">
-                                                            <i class="bi bi-person-fill"></i> @booking.Therapist.FirstName
+                                                            <i class="bi bi-person-fill"></i> @booking.Therapist?.FirstName
                                                         </div>
                                                     </div>
                                                 </button>
@@ -314,7 +311,7 @@
                                                     <div class="booking-info">
                                                         <div class="time-label">@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</div>
                                                         <div class="client-name">@booking.Client.FirstName @booking.Client.LastName</div>
-                                                        <div class="service-name">@booking.Service.Name</div>
+                                                        <div class="service-name">@booking.Service?.Name</div>
                                                         @if (booking.Room != null)
                                                         {
                                                             <div class="room-badge-small" style="background-color: @booking.Room.ColorCode;">
@@ -681,7 +678,7 @@
                             <h6 class="text-rose-gold mb-3">Appointment Information</h6>
                             <dl class="row mb-0">
                                 <dt class="col-sm-4">Service:</dt>
-                                <dd class="col-sm-8">@selectedBooking.Service.Name</dd>
+                                <dd class="col-sm-8">@selectedBooking.Service?.Name</dd>
                                 
                                 <dt class="col-sm-4">Date:</dt>
                                 <dd class="col-sm-8">
@@ -984,7 +981,7 @@
                     <div class="alert alert-info mb-3">
                         <strong>Booking Details:</strong><br/>
                         <i class="bi bi-person"></i> <strong>Client:</strong> @selectedBooking.Client.FirstName @selectedBooking.Client.LastName<br/>
-                        <i class="bi bi-scissors"></i> <strong>Service:</strong> @selectedBooking.Service.Name<br/>
+                        <i class="bi bi-scissors"></i> <strong>Service:</strong> @selectedBooking.Service?.Name<br/>
                         <i class="bi bi-clock"></i> <strong>Time:</strong> @selectedBooking.StartTime.ToString("MMM dd, yyyy 'at' h:mm tt")
                     </div>
                     
@@ -1042,7 +1039,6 @@
     private List<Room> availableRoomsForBooking = new();
     private string? roomAssignmentError;
     private string? roomAssignmentSuccess;
-    private bool isRoomSaving = false;
     private string tempRoomSelection = "";
     
     // Therapist booking modal state
@@ -1263,6 +1259,15 @@
     {
         currentDate = currentDate.AddDays(1);
         await LoadScheduleData();
+    }
+    
+    private async Task OnDatePickerChanged(string? dateValue)
+    {
+        if (!string.IsNullOrEmpty(dateValue) && DateTime.TryParse(dateValue, out var selectedDate))
+        {
+            currentDate = DateTime.SpecifyKind(selectedDate, DateTimeKind.Utc);
+            await LoadScheduleData();
+        }
     }
 
     private async Task GoToToday()
@@ -1830,7 +1835,6 @@
         availableRoomsForBooking.Clear();
         roomAssignmentError = null;
         roomAssignmentSuccess = null;
-        isRoomSaving = false;
         hasUnsavedChanges = false;
         await InvokeAsync(StateHasChanged);
     }
@@ -1985,7 +1989,6 @@
             // Clear previous messages and show loading
             roomAssignmentError = null;
             roomAssignmentSuccess = null;
-            isRoomSaving = true;
             await InvokeAsync(StateHasChanged);
             
             // Parse the selected room ID (empty string means unassigned)
@@ -2002,7 +2005,6 @@
             {
                 roomAssignmentError = "Booking not found in database (ID: " + selectedBooking.Id + ")";
                 Console.WriteLine($"[ERROR] Booking {selectedBooking.Id} not found");
-                isRoomSaving = false;
                 await InvokeAsync(StateHasChanged);
                 return;
             }
@@ -2022,7 +2024,6 @@
             if (saveResult == 0)
             {
                 roomAssignmentError = "No changes were saved to the database. SaveChangesAsync returned 0.";
-                isRoomSaving = false;
                 await InvokeAsync(StateHasChanged);
                 return;
             }
@@ -2048,7 +2049,6 @@
             // Reload available rooms in case availability changed
             await LoadAvailableRoomsForBooking();
             
-            isRoomSaving = false;
             await InvokeAsync(StateHasChanged);
             
             // Clear success message after 3 seconds
@@ -2063,7 +2063,6 @@
         {
             roomAssignmentError = $"Exception: {ex.Message}\n\nStack Trace: {ex.StackTrace}";
             Console.WriteLine($"[ERROR] Exception in HandleRoomSelection: {ex}");
-            isRoomSaving = false;
             await InvokeAsync(StateHasChanged);
         }
     }

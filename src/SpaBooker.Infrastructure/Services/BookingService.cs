@@ -56,13 +56,13 @@ public class BookingService : IBookingService
         {
             ClientId = dto.ClientId,
             ServiceId = dto.ServiceId,
-            TherapistId = dto.TherapistId,
+            TherapistId = dto.TherapistId ?? string.Empty,
             RoomId = dto.RoomId,
             LocationId = dto.LocationId ?? 1, // Default to location 1 if not specified
             StartTime = dto.StartTime,
             EndTime = dto.EndTime,
             Status = BookingStatus.Confirmed,
-            Notes = dto.Notes,
+            Notes = dto.Notes ?? string.Empty,
             TotalPrice = service.BasePrice,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -264,14 +264,14 @@ public class BookingService : IBookingService
         var query = _context.Bookings
             .Include(b => b.Client)
             .Include(b => b.Service)
-            .ThenInclude(s => s.Location)
+            .ThenInclude(s => s!.Location)
             .Include(b => b.Therapist)
             .Include(b => b.Room)
             .Where(b => b.StartTime.Date == date.Date);
 
         if (locationId.HasValue)
         {
-            query = query.Where(b => b.Service.LocationId == locationId.Value);
+            query = query.Where(b => b.Service != null && b.Service.LocationId == locationId.Value);
         }
 
         var bookings = await query
@@ -286,14 +286,14 @@ public class BookingService : IBookingService
         var query = _context.Bookings
             .Include(b => b.Client)
             .Include(b => b.Service)
-            .ThenInclude(s => s.Location)
+            .ThenInclude(s => s!.Location)
             .Include(b => b.Therapist)
             .Include(b => b.Room)
             .Where(b => b.StartTime >= startDate && b.StartTime <= endDate);
 
         if (locationId.HasValue)
         {
-            query = query.Where(b => b.Service.LocationId == locationId.Value);
+            query = query.Where(b => b.Service != null && b.Service.LocationId == locationId.Value);
         }
 
         var bookings = await query
