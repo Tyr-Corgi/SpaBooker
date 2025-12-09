@@ -1,9 +1,10 @@
 @page "/admin/rooms"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using Microsoft.EntityFrameworkCore
 @using SpaBooker.Core.Entities
 @using SpaBooker.Infrastructure.Data
 @using Microsoft.AspNetCore.Authorization
-@inject ApplicationDbContext DbContext
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject NavigationManager NavigationManager
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -152,6 +153,35 @@
                                     }
                                 </div>
 
+                                <div class="mb-3">
+                                    <h6 class="text-muted mb-2">
+                                        <i class="bi bi-collection"></i> Service Groups
+                                    </h6>
+                                    @{
+                                        var roomServiceGroups = allServiceGroups
+                                            .Where(sg => sg.Rooms.Any(r => r.RoomId == room.Id))
+                                            .ToList();
+                                        
+                                        if (roomServiceGroups.Any())
+                                        {
+                                            <div class="service-badges">
+                                                @foreach (var sg in roomServiceGroups.Take(3))
+                                                {
+                                                    <span class="badge bg-info me-1 mb-1">@sg.Name</span>
+                                                }
+                                                @if (roomServiceGroups.Count > 3)
+                                                {
+                                                    <span class="text-muted small">+@(roomServiceGroups.Count - 3) more</span>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <p class="text-muted small mb-0">No service groups assigned</p>
+                                        }
+                                    }
+                                </div>
+
                                 <div class="d-flex gap-2">
                                     <button class="btn btn-sm btn-outline-primary flex-grow-1" 
                                             @onclick="() => ShowEditDialog(room)">
@@ -297,19 +327,70 @@
                             }
                         </div>
 
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">
-                                Cancel
-                            </button>
-                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                                @if (isSaving)
+                        <hr />
+
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-collection me-1"></i>Service Group Assignments
+                            </label>
+                            <p class="text-muted small">Select which service groups can use this room</p>
+                            
+                            @if (currentRoom.LocationId > 0)
+                            {
+                                var locationServiceGroups = allServiceGroups
+                                    .Where(sg => sg.LocationId == currentRoom.LocationId)
+                                    .ToList();
+
+                                @if (locationServiceGroups.Any())
                                 {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <div class="service-checkboxes">
+                                        @foreach (var serviceGroup in locationServiceGroups)
+                                        {
+                                            var isChecked = selectedServiceGroupIds.Contains(serviceGroup.Id);
+                                            <div class="form-check mb-2">
+                                                <input type="checkbox" class="form-check-input" 
+                                                       id="servicegroup-@serviceGroup.Id"
+                                                       checked="@isChecked"
+                                                       @onchange="@(e => ToggleServiceGroup(serviceGroup.Id, e.Value))" />
+                                                <label class="form-check-label" for="servicegroup-@serviceGroup.Id">
+                                                    <strong>@serviceGroup.Name</strong>
+                                                    <span class="badge bg-info ms-2">@serviceGroup.Category</span>
+                                                    <br />
+                                                    <small class="text-muted">@serviceGroup.Description</small>
+                                                </label>
+                                            </div>
+                                        }
+                                    </div>
                                 }
-                                @(isEditMode ? "Update Room" : "Create Room")
-                            </button>
+                                else
+                                {
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        No service groups available for this location.
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Please select a location first to choose service groups.
+                                </div>
+                            }
                         </div>
                     </EditForm>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" @onclick="SaveRoom" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        @(isEditMode ? "Update Room" : "Create Room")
+                    </button>
                 </div>
             </div>
         </div>
@@ -365,12 +446,14 @@
     private List<Room> filteredRooms = new();
     private List<Location> locations = new();
     private List<SpaService> allServices = new();
+    private List<ServiceGroup> allServiceGroups = new();
     private Dictionary<int, List<RoomServiceCapability>> roomServiceCapabilities = new();
     
     private int? selectedLocationId;
     private Room currentRoom = new();
     private Room? roomToDelete;
     private HashSet<int> selectedServiceIds = new();
+    private HashSet<int> selectedServiceGroupIds = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -383,6 +466,8 @@
 
         try
         {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            
             // Get current user's location to default to
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             var user = authState.User;
@@ -396,21 +481,27 @@
                 }
             }
 
-            locations = await DbContext.Locations
+            locations = await context.Locations
                 .Where(l => l.IsActive)
                 .OrderBy(l => l.Name)
                 .ToListAsync();
 
-            allServices = await DbContext.SpaServices
+            allServices = await context.SpaServices
                 .Where(s => s.IsActive)
                 .OrderBy(s => s.Name)
                 .ToListAsync();
 
-            allRooms = await DbContext.Rooms
+            allServiceGroups = await context.ServiceGroups
+                .Include(sg => sg.Rooms)
+                .Where(sg => sg.IsActive)
+                .OrderBy(sg => sg.Name)
+                .ToListAsync();
+
+            allRooms = await context.Rooms
                 .Include(r => r.Location)
                 .ToListAsync();
 
-            var capabilities = await DbContext.RoomServiceCapabilities
+            var capabilities = await context.RoomServiceCapabilities
                 .Include(rsc => rsc.Service)
                 .ToListAsync();
 
@@ -445,6 +536,8 @@
 
     private void ShowCreateDialog()
     {
+        Console.WriteLine("ShowCreateDialog called");
+        
         isEditMode = false;
         currentRoom = new Room 
         { 
@@ -453,11 +546,18 @@
             ColorCode = "#3B82F6"
         };
         selectedServiceIds.Clear();
+        selectedServiceGroupIds.Clear();
+        
+        Console.WriteLine($"Setting showModal to true. isEditMode: {isEditMode}");
         showModal = true;
+        StateHasChanged();
+        Console.WriteLine($"showModal is now: {showModal}, StateHasChanged called");
     }
 
     private void ShowEditDialog(Room room)
     {
+        Console.WriteLine($"ShowEditDialog called for room: {room.Name}");
+        
         isEditMode = true;
         currentRoom = new Room
         {
@@ -480,8 +580,19 @@
         {
             selectedServiceIds.Clear();
         }
+        
+        // Load existing service group assignments from already-loaded data
+        var existingGroupAssignments = allServiceGroups
+            .Where(sg => sg.Rooms.Any(r => r.RoomId == room.Id))
+            .Select(sg => sg.Id)
+            .ToList();
+        
+        selectedServiceGroupIds = existingGroupAssignments.ToHashSet();
 
+        Console.WriteLine($"Setting showModal to true. isEditMode: {isEditMode}, currentRoom: {currentRoom.Name}");
         showModal = true;
+        StateHasChanged();
+        Console.WriteLine($"showModal is now: {showModal}, StateHasChanged called");
     }
 
     private void CloseModal()
@@ -489,6 +600,7 @@
         showModal = false;
         currentRoom = new();
         selectedServiceIds.Clear();
+        selectedServiceGroupIds.Clear();
     }
 
     private void ToggleService(int serviceId, object? value)
@@ -501,6 +613,19 @@
         else
         {
             selectedServiceIds.Remove(serviceId);
+        }
+    }
+    
+    private void ToggleServiceGroup(int serviceGroupId, object? value)
+    {
+        var isChecked = value is bool b && b;
+        if (isChecked)
+        {
+            selectedServiceGroupIds.Add(serviceGroupId);
+        }
+        else
+        {
+            selectedServiceGroupIds.Remove(serviceGroupId);
         }
     }
 
@@ -523,9 +648,11 @@
                 return;
             }
 
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            
             if (isEditMode)
             {
-                var existingRoom = await DbContext.Rooms
+                var existingRoom = await context.Rooms
                     .FirstOrDefaultAsync(r => r.Id == currentRoom.Id);
 
                 if (existingRoom == null)
@@ -541,19 +668,36 @@
                 existingRoom.IsActive = currentRoom.IsActive;
 
                 // Update service capabilities
-                var existingCapabilities = await DbContext.RoomServiceCapabilities
+                var existingCapabilities = await context.RoomServiceCapabilities
                     .Where(rsc => rsc.RoomId == existingRoom.Id)
                     .ToListAsync();
 
-                DbContext.RoomServiceCapabilities.RemoveRange(existingCapabilities);
+                context.RoomServiceCapabilities.RemoveRange(existingCapabilities);
 
                 foreach (var serviceId in selectedServiceIds)
                 {
-                    DbContext.RoomServiceCapabilities.Add(new RoomServiceCapability
+                    context.RoomServiceCapabilities.Add(new RoomServiceCapability
                     {
                         RoomId = existingRoom.Id,
                         ServiceId = serviceId,
                         CreatedAt = DateTime.UtcNow
+                    });
+                }
+                
+                // Update service group assignments
+                var existingGroupAssignments = await context.Set<ServiceGroupRoom>()
+                    .Where(sgr => sgr.RoomId == existingRoom.Id)
+                    .ToListAsync();
+                
+                context.RemoveRange(existingGroupAssignments);
+                
+                foreach (var serviceGroupId in selectedServiceGroupIds)
+                {
+                    context.Set<ServiceGroupRoom>().Add(new ServiceGroupRoom
+                    {
+                        ServiceGroupId = serviceGroupId,
+                        RoomId = existingRoom.Id,
+                        AssignedAt = DateTime.UtcNow
                     });
                 }
 
@@ -571,24 +715,35 @@
                     CreatedAt = DateTime.UtcNow
                 };
 
-                DbContext.Rooms.Add(newRoom);
-                await DbContext.SaveChangesAsync();
+                context.Rooms.Add(newRoom);
+                await context.SaveChangesAsync();
 
                 // Add service capabilities
                 foreach (var serviceId in selectedServiceIds)
                 {
-                    DbContext.RoomServiceCapabilities.Add(new RoomServiceCapability
+                    context.RoomServiceCapabilities.Add(new RoomServiceCapability
                     {
                         RoomId = newRoom.Id,
                         ServiceId = serviceId,
                         CreatedAt = DateTime.UtcNow
                     });
                 }
+                
+                // Add service group assignments
+                foreach (var serviceGroupId in selectedServiceGroupIds)
+                {
+                    context.Set<ServiceGroupRoom>().Add(new ServiceGroupRoom
+                    {
+                        ServiceGroupId = serviceGroupId,
+                        RoomId = newRoom.Id,
+                        AssignedAt = DateTime.UtcNow
+                    });
+                }
 
                 successMessage = $"Room '{newRoom.Name}' created successfully!";
             }
 
-            await DbContext.SaveChangesAsync();
+            await context.SaveChangesAsync();
             await LoadData();
             CloseModal();
         }
@@ -623,15 +778,17 @@
 
         try
         {
+            using var context = await DbContextFactory.CreateDbContextAsync();
+            
             // Remove service capabilities first
-            var capabilities = await DbContext.RoomServiceCapabilities
+            var capabilities = await context.RoomServiceCapabilities
                 .Where(rsc => rsc.RoomId == roomToDelete.Id)
                 .ToListAsync();
 
-            DbContext.RoomServiceCapabilities.RemoveRange(capabilities);
+            context.RoomServiceCapabilities.RemoveRange(capabilities);
 
             // Set any bookings with this room to null (unassigned)
-            var bookings = await DbContext.Bookings
+            var bookings = await context.Bookings
                 .Where(b => b.RoomId == roomToDelete.Id)
                 .ToListAsync();
 
@@ -641,8 +798,13 @@
             }
 
             // Remove the room
-            DbContext.Rooms.Remove(roomToDelete);
-            await DbContext.SaveChangesAsync();
+            var roomToRemove = await context.Rooms.FindAsync(roomToDelete.Id);
+            if (roomToRemove != null)
+            {
+                context.Rooms.Remove(roomToRemove);
+            }
+            
+            await context.SaveChangesAsync();
 
             successMessage = $"Room '{roomToDelete.Name}' deleted successfully!";
             await LoadData();
