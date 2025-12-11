@@ -564,3 +564,12 @@ logs/
 .env.local
 .env.*.local
 
+# Temporary and scratch files
+assets/
+ktopReposSpaBooker
+rcSpaBooker.Web
+*.tmp
+
+# Script execution logs
+scripts/database/*.log
+

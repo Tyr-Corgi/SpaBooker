@@ -865,21 +865,25 @@
                         </div>
                     }
                 </div>
-                <div class="modal-footer">
-                    @if (existingDaySchedule != null)
-                    {
-                        <button type="button" class="btn btn-danger" @onclick="DeleteDaySchedule" disabled="@isSaving">
-                            <i class="bi bi-trash"></i> Delete
-                        </button>
-                    }
-                    <button type="button" class="btn btn-secondary" @onclick="CloseEditDayModal">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="SaveDaySchedule" disabled="@isSaving">
-                        @if (isSaving)
+                <div class="modal-footer d-flex justify-content-between">
+                    <div>
+                        @if (existingDaySchedule != null)
                         {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <button type="button" class="btn btn-danger" @onclick="DeleteDaySchedule" disabled="@isSaving">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
                         }
-                        <i class="bi bi-check-circle"></i> Save
-                    </button>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-secondary me-2" @onclick="CloseEditDayModal">Cancel</button>
+                        <button type="button" class="btn btn-primary" @onclick="SaveDaySchedule" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <i class="bi bi-check-circle"></i> Save
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1931,23 +1935,25 @@
         try
         {
             using var context = await DbContextFactory.CreateDbContextAsync();
+            var utcDate = DateTime.SpecifyKind(selectedDate.Value.Date, DateTimeKind.Utc);
             
-            if (existingDaySchedule != null)
+            // Check if there's already a specific-date schedule for this day
+            var specificDateSchedule = await context.TherapistAvailability
+                .FirstOrDefaultAsync(a => a.TherapistId == selectedTherapistId && a.SpecificDate == utcDate);
+            
+            if (specificDateSchedule != null)
             {
-                // Update existing
-                var scheduleToUpdate = await context.TherapistAvailability.FindAsync(existingDaySchedule.Id);
-                if (scheduleToUpdate != null)
-                {
-                    scheduleToUpdate.StartTime = startTime;
-                    scheduleToUpdate.EndTime = endTime;
-                    scheduleToUpdate.IsAvailable = true;
-                    scheduleToUpdate.Notes = editDayNotes;
-                    scheduleToUpdate.UpdatedAt = DateTime.UtcNow;
-                }
+                // Update existing specific-date schedule
+                specificDateSchedule.StartTime = startTime;
+                specificDateSchedule.EndTime = endTime;
+                specificDateSchedule.IsAvailable = true;
+                specificDateSchedule.Notes = editDayNotes;
+                specificDateSchedule.UpdatedAt = DateTime.UtcNow;
+                context.TherapistAvailability.Update(specificDateSchedule);
             }
             else
             {
-                // Create new
+                // Create new specific-date schedule (even if there's a weekly recurring one)
                 var newSchedule = new TherapistAvailability
                 {
                     TherapistId = selectedTherapistId,
@@ -1955,7 +1961,7 @@
                     StartTime = startTime,
                     EndTime = endTime,
                     IsAvailable = true,
-                    SpecificDate = DateTime.SpecifyKind(selectedDate.Value.Date, DateTimeKind.Utc),
+                    SpecificDate = utcDate,
                     Notes = editDayNotes,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -1966,6 +1972,7 @@
             await LoadSchedules();
             successMessage = $"Schedule for {selectedDate.Value:MMMM dd, yyyy} saved successfully.";
             CloseEditDayModal();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
