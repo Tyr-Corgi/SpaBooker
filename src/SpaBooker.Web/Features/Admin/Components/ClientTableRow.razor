@@ -129,10 +129,13 @@
         if (ClientData.TotalBookings == 1)
             return "1 visit";
 
-        if (ClientData.DaysSinceFirstVisit < 30)
+        // Calculate days since first visit from the client's creation date
+        var daysSinceFirstVisit = (int)(DateTime.UtcNow - Client.CreatedAt.ToUniversalTime()).TotalDays;
+        
+        if (daysSinceFirstVisit < 30)
             return "New - " + ClientData.TotalBookings + " visits";
 
-        var monthsActive = Math.Max(1, ClientData.DaysSinceFirstVisit / 30.0);
+        var monthsActive = Math.Max(1, daysSinceFirstVisit / 30.0);
         var visitsPerMonth = ClientData.TotalBookings / monthsActive;
 
         if (visitsPerMonth >= 4)
