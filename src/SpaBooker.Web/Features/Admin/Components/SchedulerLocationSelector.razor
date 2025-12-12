@@ -1,0 +1,75 @@
+@using SpaBooker.Core.Entities
+
+@* Scheduler Location & Date Selector Component *@
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <!-- Location Selector -->
+                    <div class="col-md-4 mb-3 mb-md-0">
+                        <label class="form-label fw-bold mb-2">
+                            <i class="bi bi-geo-alt"></i> Location
+                        </label>
+                        <select class="form-select" value="@SelectedLocationId" @onchange="@HandleLocationChanged">
+                            @foreach (var location in Locations)
+                            {
+                                <option value="@location.Id">@location.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Date Navigation -->
+                    <div class="col-md-8 mb-3 mb-md-0">
+                        <label class="form-label fw-bold mb-2">
+                            <i class="bi bi-calendar-event"></i> Date
+                        </label>
+                        <div class="d-flex gap-2 align-items-stretch">
+                            <button class="btn btn-primary fw-bold" style="width: 40px; padding: 0.375rem 0;" 
+                                    @onclick="OnNavigatePrevious" title="Previous Day">
+                                ◀
+                            </button>
+                            <input type="date" 
+                                   class="form-control text-center" 
+                                   style="font-size: 1rem; padding-right: 2.5rem; max-width: 200px;"
+                                   value="@CurrentDate.ToString("yyyy-MM-dd")" 
+                                   @onchange="@HandleDateChanged" />
+                            <button class="btn btn-primary fw-bold" style="width: 40px; padding: 0.375rem 0;" 
+                                    @onclick="OnNavigateNext" title="Next Day">
+                                ▶
+                            </button>
+                            <button class="btn btn-primary" @onclick="OnGoToToday">
+                                <i class="bi bi-calendar-check"></i> Today
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<Location> Locations { get; set; } = new();
+    [Parameter] public int SelectedLocationId { get; set; }
+    [Parameter] public DateTime CurrentDate { get; set; }
+    [Parameter] public EventCallback<int> OnLocationChanged { get; set; }
+    [Parameter] public EventCallback<string?> OnDateChanged { get; set; }
+    [Parameter] public EventCallback OnNavigatePrevious { get; set; }
+    [Parameter] public EventCallback OnNavigateNext { get; set; }
+    [Parameter] public EventCallback OnGoToToday { get; set; }
+
+    private async Task HandleLocationChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int locationId))
+        {
+            await OnLocationChanged.InvokeAsync(locationId);
+        }
+    }
+
+    private async Task HandleDateChanged(ChangeEventArgs e)
+    {
+        await OnDateChanged.InvokeAsync(e.Value?.ToString());
+    }
+}

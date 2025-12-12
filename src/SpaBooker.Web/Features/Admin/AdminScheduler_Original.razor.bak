@@ -8,7 +8,6 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
-@using SpaBooker.Web.Features.Admin.Components
 @inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -57,16 +56,52 @@
     }
     else
     {
-        @* Use extracted SchedulerLocationSelector component *@
-        <SchedulerLocationSelector 
-            Locations="@locations"
-            SelectedLocationId="@selectedLocationId"
-            CurrentDate="@currentDate"
-            OnLocationChanged="@HandleLocationChanged"
-            OnDateChanged="@OnDatePickerChanged"
-            OnNavigatePrevious="@NavigatePreviousDay"
-            OnNavigateNext="@NavigateNextDay"
-            OnGoToToday="@GoToToday" />
+        <!-- Controls -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <!-- Location Selector -->
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <label class="form-label fw-bold mb-2">
+                                    <i class="bi bi-geo-alt"></i> Location
+                                </label>
+                                <select class="form-select" @bind="selectedLocationId" @bind:after="OnLocationChanged">
+                                    @foreach (var location in locations)
+                                    {
+                                        <option value="@location.Id">@location.Name</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <!-- Date Navigation -->
+                            <div class="col-md-8 mb-3 mb-md-0">
+                                <label class="form-label fw-bold mb-2">
+                                    <i class="bi bi-calendar-event"></i> Date
+                                </label>
+                                <div class="d-flex gap-2 align-items-stretch">
+                                    <button class="btn btn-primary fw-bold" style="width: 40px; padding: 0.375rem 0;" @onclick="NavigatePreviousDay" title="Previous Day">
+                                        ◀
+                                    </button>
+                                    <input type="date" 
+                                           class="form-control text-center" 
+                                           style="font-size: 1rem; padding-right: 2.5rem; max-width: 200px;"
+                                           value="@currentDate.ToString("yyyy-MM-dd")" 
+                                           @onchange="@(e => OnDatePickerChanged(e.Value?.ToString()))" />
+                                    <button class="btn btn-primary fw-bold" style="width: 40px; padding: 0.375rem 0;" @onclick="NavigateNextDay" title="Next Day">
+                                        ▶
+                                    </button>
+                                    <button class="btn btn-primary" @onclick="GoToToday">
+                                        <i class="bi bi-calendar-check"></i> Today
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         @if (!rooms.Any() && !therapists.Any())
         {
@@ -77,12 +112,34 @@
         }
         else
         {
-            @* Use extracted SchedulerViewToggle component *@
-            <SchedulerViewToggle 
-                ShowRooms="@showRooms"
-                ShowTherapists="@showTherapists"
-                OnRoomsToggled="@HandleRoomsToggled"
-                OnTherapistsToggled="@HandleTherapistsToggled" />
+            <!-- View Options -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body py-2">
+                            <div class="d-flex align-items-center gap-4">
+                                <label class="form-label fw-bold mb-0">
+                                    <i class="bi bi-eye"></i> Show:
+                                </label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="showRoomsCheckbox" 
+                                           checked="@showRooms" @onchange="ToggleRoomsView">
+                                    <label class="form-check-label" for="showRoomsCheckbox">
+                                        Rooms
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="showTherapistsCheckbox" 
+                                           checked="@showTherapists" @onchange="ToggleTherapistsView">
+                                    <label class="form-check-label" for="showTherapistsCheckbox">
+                                        Therapists
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             @ClearRenderedBookings()
             <!-- Schedule Grid -->
@@ -1192,12 +1249,6 @@
         await LoadScheduleData();
     }
 
-    private async Task HandleLocationChanged(int locationId)
-    {
-        selectedLocationId = locationId;
-        await OnLocationChanged();
-    }
-
     private async Task NavigatePreviousDay()
     {
         currentDate = currentDate.AddDays(-1);
@@ -1239,35 +1290,11 @@
         showRooms = newValue;
         StateHasChanged();
     }
-
-    private void HandleRoomsToggled(bool newValue)
-    {
-        // Prevent unchecking if it's the last one checked
-        if (!newValue && !showTherapists)
-        {
-            return; // Keep at least one checked
-        }
-        
-        showRooms = newValue;
-        StateHasChanged();
-    }
     
     private void ToggleTherapistsView(ChangeEventArgs e)
     {
         var newValue = (bool)(e.Value ?? false);
         
-        // Prevent unchecking if it's the last one checked
-        if (!newValue && !showRooms)
-        {
-            return; // Keep at least one checked
-        }
-        
-        showTherapists = newValue;
-        StateHasChanged();
-    }
-
-    private void HandleTherapistsToggled(bool newValue)
-    {
         // Prevent unchecking if it's the last one checked
         if (!newValue && !showRooms)
         {

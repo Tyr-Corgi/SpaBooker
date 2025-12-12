@@ -23,6 +23,11 @@ public interface IBookingService
     Task<Result> CancelBookingAsync(int bookingId, string reason);
     
     /// <summary>
+    /// Reschedules a booking to a new time slot
+    /// </summary>
+    Task<Result<Booking>> RescheduleBookingAsync(RescheduleBookingDto dto);
+    
+    /// <summary>
     /// Confirms a pending booking
     /// </summary>
     Task<Result> ConfirmBookingAsync(int bookingId);

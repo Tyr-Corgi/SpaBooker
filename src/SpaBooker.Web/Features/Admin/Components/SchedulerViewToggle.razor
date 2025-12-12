@@ -1,0 +1,46 @@
+@* Scheduler View Toggle Component - Show/Hide Rooms and Therapists *@
+
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-2">
+                <div class="d-flex align-items-center gap-4">
+                    <label class="form-label fw-bold mb-0">
+                        <i class="bi bi-eye"></i> Show:
+                    </label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="showRoomsCheckbox" 
+                               checked="@ShowRooms" @onchange="HandleRoomsToggle">
+                        <label class="form-check-label" for="showRoomsCheckbox">
+                            Rooms
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="showTherapistsCheckbox" 
+                               checked="@ShowTherapists" @onchange="HandleTherapistsToggle">
+                        <label class="form-check-label" for="showTherapistsCheckbox">
+                            Therapists
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool ShowRooms { get; set; } = true;
+    [Parameter] public bool ShowTherapists { get; set; } = true;
+    [Parameter] public EventCallback<bool> OnRoomsToggled { get; set; }
+    [Parameter] public EventCallback<bool> OnTherapistsToggled { get; set; }
+
+    private async Task HandleRoomsToggle(ChangeEventArgs e)
+    {
+        await OnRoomsToggled.InvokeAsync((bool)(e.Value ?? true));
+    }
+
+    private async Task HandleTherapistsToggle(ChangeEventArgs e)
+    {
+        await OnTherapistsToggled.InvokeAsync((bool)(e.Value ?? true));
+    }
+}

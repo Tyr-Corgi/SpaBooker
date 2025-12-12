@@ -35,7 +35,7 @@
                     </div>
 
                     @* People Section - Collapsible using details/summary *@
-                    <details class="nav-section">
+                    <details class="nav-section" id="nav-people" data-section-id="nav-people">
                         <summary class="nav-section-toggle">
                             <span class="bi bi-people-fill" aria-hidden="true"></span> People
                             <span class="toggle-icon"></span>
@@ -55,7 +55,7 @@
                     </details>
 
                     @* Setup & Management Section - Collapsible using details/summary *@
-                    <details class="nav-section">
+                    <details class="nav-section" id="nav-setup" data-section-id="nav-setup">
                         <summary class="nav-section-toggle">
                             <span class="bi bi-gear-fill" aria-hidden="true"></span> Setup & Management
                             <span class="toggle-icon"></span>
@@ -90,7 +90,7 @@
                     </details>
 
                     @* Sales & Offers Section - Collapsible using details/summary *@
-                    <details class="nav-section">
+                    <details class="nav-section" id="nav-sales" data-section-id="nav-sales">
                         <summary class="nav-section-toggle">
                             <span class="bi bi-gem" aria-hidden="true"></span> Sales & Offers
                             <span class="toggle-icon"></span>
@@ -192,3 +192,52 @@
         </AuthorizeView>
     </nav>
 </div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("navMenuState.init");
+        }
+    }
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
+}
+
+<script>
+    window.navMenuState = {
+        init: function() {
+            // Restore state from localStorage
+            const sections = document.querySelectorAll('details.nav-section[data-section-id]');
+            sections.forEach(section => {
+                const sectionId = section.getAttribute('data-section-id');
+                const isOpen = localStorage.getItem(sectionId) === 'true';
+                
+                if (isOpen) {
+                    section.setAttribute('open', '');
+                }
+                
+                // Save state when toggled
+                section.addEventListener('toggle', function() {
+                    localStorage.setItem(sectionId, section.open);
+                });
+            });
+        }
+    };
+    
+    // Initialize on page load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.navMenuState) {
+                window.navMenuState.init();
+            }
+        });
+    } else {
+        if (window.navMenuState) {
+            window.navMenuState.init();
+        }
+    }
+</script>
+

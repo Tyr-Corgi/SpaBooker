@@ -190,6 +190,91 @@ public class BookingService : IBookingService
         }
     }
 
+    public async Task<Result<Booking>> RescheduleBookingAsync(RescheduleBookingDto dto)
+    {
+        var booking = await _context.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.Client)
+            .FirstOrDefaultAsync(b => b.Id == dto.BookingId);
+
+        if (booking == null)
+        {
+            return Result.Failure<Booking>(Error.BookingNotFound);
+        }
+
+        // Check if booking can be rescheduled (must be at least 24 hours before)
+        var hoursUntilBooking = (booking.StartTime - DateTime.UtcNow).TotalHours;
+        if (hoursUntilBooking < 24)
+        {
+            return Result.Failure<Booking>(new Error("Booking.RescheduleTooLate", 
+                "Bookings can only be rescheduled up to 24 hours before the appointment time."));
+        }
+
+        // Validate new time slot
+        if (dto.NewEndTime <= dto.NewStartTime)
+        {
+            return Result.Failure<Booking>(Error.InvalidTimeSlot);
+        }
+
+        // Store original times for audit
+        var originalStart = booking.StartTime;
+        var originalEnd = booking.EndTime;
+
+        // Check therapist availability for new time
+        if (!string.IsNullOrEmpty(booking.TherapistId))
+        {
+            var therapistAvailable = await _therapistAvailability.IsTherapistAvailableAsync(
+                booking.TherapistId, dto.NewStartTime, dto.NewEndTime, booking.Id);
+            
+            if (therapistAvailable.IsFailure || therapistAvailable.Value != true)
+            {
+                return Result.Failure<Booking>(Error.TherapistNotAvailable);
+            }
+        }
+
+        // Check room availability for new time
+        if (booking.RoomId.HasValue)
+        {
+            var roomAvailable = await _roomAvailability.IsRoomAvailableAsync(
+                booking.RoomId.Value, dto.NewStartTime, dto.NewEndTime, booking.Id);
+            
+            if (roomAvailable.IsFailure || roomAvailable.Value != true)
+            {
+                return Result.Failure<Booking>(Error.RoomNotAvailable);
+            }
+        }
+
+        // Update booking with new times
+        booking.StartTime = dto.NewStartTime;
+        booking.EndTime = dto.NewEndTime;
+        booking.UpdatedAt = DateTime.UtcNow;
+        
+        // Add reschedule note
+        var rescheduleNote = $"\nRescheduled from {originalStart:yyyy-MM-dd HH:mm} to {dto.NewStartTime:yyyy-MM-dd HH:mm}";
+        if (!string.IsNullOrEmpty(dto.RescheduleReason))
+        {
+            rescheduleNote += $" - Reason: {dto.RescheduleReason}";
+        }
+        booking.Notes = (booking.Notes ?? "") + rescheduleNote;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            
+            await _auditService.LogBookingAsync(
+                "Reschedule",
+                booking.Id,
+                $"Booking rescheduled from {originalStart:yyyy-MM-dd HH:mm} to {dto.NewStartTime:yyyy-MM-dd HH:mm}"
+            );
+            
+            return Result.Success(booking);
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<Booking>(new Error("Booking.RescheduleFailed", ex.Message));
+        }
+    }
+
     public async Task<Result> ConfirmBookingAsync(int bookingId)
     {
         var booking = await _context.Bookings.FindAsync(bookingId);

@@ -96,8 +96,11 @@
                                         @if (booking.Status == BookingStatus.Pending || booking.Status == BookingStatus.Confirmed)
                                         {
                                             <div class="mt-3 d-flex gap-2">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowRescheduleModal(booking)">
+                                                    <i class="bi bi-calendar-event"></i> Reschedule
+                                                </button>
                                                 <button class="btn btn-sm btn-outline-danger" @onclick="() => CancelBooking(booking.Id)">
-                                                    Cancel
+                                                    <i class="bi bi-x-circle"></i> Cancel
                                                 </button>
                                             </div>
                                         }
@@ -197,6 +200,72 @@
     </div>
 }
 
+<!-- Reschedule Modal -->
+@if (showRescheduleModal && bookingToReschedule != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reschedule Appointment</h5>
+                    <button type="button" class="btn-close" @onclick="CloseRescheduleModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3 p-3 bg-light rounded">
+                        <h6 class="mb-2">Current Appointment</h6>
+                        <p class="mb-1"><strong>Service:</strong> @bookingToReschedule.Service?.Name</p>
+                        <p class="mb-1"><strong>Current Date:</strong> @bookingToReschedule.StartTime.ToString("MMMM dd, yyyy")</p>
+                        <p class="mb-0"><strong>Current Time:</strong> @bookingToReschedule.StartTime.ToString("h:mm tt") - @bookingToReschedule.EndTime.ToString("h:mm tt")</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(rescheduleError))
+                    {
+                        <div class="alert alert-danger">@rescheduleError</div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(rescheduleInfo))
+                    {
+                        <div class="alert alert-info">@rescheduleInfo</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">New Date</label>
+                        <input type="date" class="form-control" @bind="newBookingDate" min="@DateTime.Now.AddDays(1).ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">New Time</label>
+                        <input type="time" class="form-control" @bind="newBookingTime" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Reason for Rescheduling (Optional)</label>
+                        <textarea class="form-control" rows="3" @bind="rescheduleReason" placeholder="Let us know why you need to reschedule..."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Please Note:</strong> Appointments can only be rescheduled up to 24 hours before the scheduled time.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseRescheduleModal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmReschedule" disabled="@isRescheduling">
+                        @if (isRescheduling)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-calendar-check"></i> Confirm Reschedule
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Booking> upcomingBookings = new();
     private List<Booking> pastBookings = new();
@@ -207,6 +276,16 @@
     private bool isCancelling = false;
     private string? cancelError;
     private string? currentUserId;
+    
+    // Reschedule fields
+    private bool showRescheduleModal = false;
+    private Booking? bookingToReschedule;
+    private bool isRescheduling = false;
+    private string? rescheduleError;
+    private string? rescheduleInfo;
+    private DateTime? newBookingDate;
+    private TimeOnly? newBookingTime;
+    private string? rescheduleReason;
 
     protected override async Task OnInitializedAsync()
     {
@@ -356,6 +435,113 @@
         finally
         {
             isCancelling = false;
+        }
+    }
+
+    private void ShowRescheduleModal(Booking booking)
+    {
+        bookingToReschedule = booking;
+        showRescheduleModal = true;
+        rescheduleError = null;
+        rescheduleInfo = null;
+        
+        // Set defaults to current booking date/time
+        newBookingDate = booking.StartTime.Date;
+        newBookingTime = TimeOnly.FromDateTime(booking.StartTime);
+        rescheduleReason = null;
+
+        // Check if booking can be rescheduled
+        var hoursUntilBooking = (booking.StartTime - DateTime.UtcNow).TotalHours;
+        if (hoursUntilBooking < 24)
+        {
+            rescheduleInfo = $"⚠️ This appointment is less than 24 hours away. You may not be able to reschedule it.";
+        }
+    }
+
+    private void CloseRescheduleModal()
+    {
+        showRescheduleModal = false;
+        bookingToReschedule = null;
+        rescheduleError = null;
+        rescheduleInfo = null;
+        newBookingDate = null;
+        newBookingTime = null;
+        rescheduleReason = null;
+    }
+
+    private async Task ConfirmReschedule()
+    {
+        if (bookingToReschedule == null || newBookingDate == null || newBookingTime == null) 
+        {
+            rescheduleError = "Please select a new date and time.";
+            return;
+        }
+
+        isRescheduling = true;
+        rescheduleError = null;
+
+        try
+        {
+            // Combine date and time
+            var newStartTime = newBookingDate.Value.Date + newBookingTime.Value.ToTimeSpan();
+            
+            // Calculate end time based on original duration
+            var duration = bookingToReschedule.EndTime - bookingToReschedule.StartTime;
+            var newEndTime = newStartTime + duration;
+
+            // Basic validation
+            if (newStartTime <= DateTime.UtcNow)
+            {
+                rescheduleError = "New appointment time must be in the future.";
+                isRescheduling = false;
+                return;
+            }
+
+            // Check 24-hour window
+            var hoursUntilOriginal = (bookingToReschedule.StartTime - DateTime.UtcNow).TotalHours;
+            if (hoursUntilOriginal < 24)
+            {
+                rescheduleError = "Bookings can only be rescheduled up to 24 hours before the appointment time.";
+                isRescheduling = false;
+                return;
+            }
+
+            // Update booking
+            bookingToReschedule.StartTime = newStartTime;
+            bookingToReschedule.EndTime = newEndTime;
+            bookingToReschedule.UpdatedAt = DateTime.UtcNow;
+
+            // Add note about rescheduling
+            var note = $"\nRescheduled to {newStartTime:yyyy-MM-dd HH:mm}";
+            if (!string.IsNullOrEmpty(rescheduleReason))
+            {
+                note += $" - Reason: {rescheduleReason}";
+            }
+            bookingToReschedule.Notes = (bookingToReschedule.Notes ?? "") + note;
+
+            await DbContext.SaveChangesAsync();
+
+            // TODO: Send reschedule email notification
+            try
+            {
+                // await EmailService.SendBookingRescheduleAsync(bookingToReschedule.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to send reschedule email: {ex.Message}");
+            }
+
+            successMessage = $"Your appointment has been successfully rescheduled to {newStartTime:MMMM dd, yyyy} at {newStartTime:h:mm tt}.";
+            CloseRescheduleModal();
+            await LoadBookings();
+        }
+        catch (Exception ex)
+        {
+            rescheduleError = $"An error occurred while rescheduling: {ex.Message}";
+        }
+        finally
+        {
+            isRescheduling = false;
         }
     }
 }

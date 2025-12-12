@@ -8,6 +8,7 @@
 @inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Service Management - SpaBooker</PageTitle>
@@ -30,6 +31,50 @@
     }
     else
     {
+        <!-- Location Filter -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <strong class="text-muted me-2">Filter by Location:</strong>
+                    @foreach (var location in allLocations.OrderBy(l => l.Name))
+                    {
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   id="loc-@location.Id"
+                                   checked="@selectedLocationIds.Contains(location.Id)"
+                                   @onchange="@((e) => OnLocationFilterChanged(location.Id, (bool)(e.Value ?? false)))">
+                            <label class="form-check-label" for="loc-@location.Id">
+                                <span class="badge bg-primary">@location.Name</span>
+                            </label>
+                        </div>
+                    }
+                    @if (selectedLocationIds.Any() || selectedCategories.Any())
+                    {
+                        <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="ClearAllFilters">
+                            <i class="bi bi-x-circle"></i> Clear All Filters
+                        </button>
+                    }
+                </div>
+                @if (selectedLocationIds.Any() || selectedCategories.Any())
+                {
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Showing @filteredServiceGroups.Count of @serviceGroups.Count services
+                            @if (selectedLocationIds.Any())
+                            {
+                                <text> from @selectedLocationIds.Count location(s)</text>
+                            }
+                            @if (selectedCategories.Any())
+                            {
+                                <text> in @selectedCategories.Count categor(ies)</text>
+                            }
+                        </small>
+                    </div>
+                }
+            </div>
+        </div>
+
         <!-- Category Filter -->
         <div class="card mb-4">
             <div class="card-body">
@@ -48,21 +93,7 @@
                             </label>
                         </div>
                     }
-                    @if (selectedCategories.Any())
-                    {
-                        <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="ClearFilters">
-                            <i class="bi bi-x-circle"></i> Clear All
-                        </button>
-                    }
                 </div>
-                @if (selectedCategories.Any())
-                {
-                    <div class="mt-2">
-                        <small class="text-muted">
-                            Showing @filteredServiceGroups.Count of @serviceGroups.Count services
-                        </small>
-                    </div>
-                }
             </div>
         </div>
 
@@ -360,6 +391,11 @@
     private List<ApplicationUser> allTherapists = new();
     private List<Room> allRooms = new();
     
+    // Location filtering
+    private List<Location> allLocations = new();
+    private HashSet<int> selectedLocationIds = new();
+    private string? currentUserId;
+    
     // Predefined category options
     private static readonly List<string> PredefinedCategories = new()
     {
@@ -375,14 +411,50 @@
     // Category filtering
     private HashSet<string> selectedCategories = new();
     private List<string> availableCategories = new();
-    private List<ServiceGroup> filteredServiceGroups => 
-        selectedCategories.Any() 
-            ? serviceGroups.Where(sg => selectedCategories.Contains(sg.Category)).ToList()
-            : serviceGroups;
+    private List<ServiceGroup> filteredServiceGroups
+    {
+        get
+        {
+            var filtered = serviceGroups.AsEnumerable();
+            
+            // Filter by location
+            if (selectedLocationIds.Any())
+            {
+                filtered = filtered.Where(sg => selectedLocationIds.Contains(sg.LocationId));
+            }
+            
+            // Filter by category
+            if (selectedCategories.Any())
+            {
+                filtered = filtered.Where(sg => selectedCategories.Contains(sg.Category));
+            }
+            
+            return filtered.ToList();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        await GetCurrentUser();
         await LoadData();
+    }
+    
+    private async Task GetCurrentUser()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            currentUserId = appUser?.Id;
+            
+            // Default to user's location if they have one
+            if (appUser?.LocationId.HasValue == true)
+            {
+                selectedLocationIds.Add(appUser.LocationId.Value);
+            }
+        }
     }
 
     private async Task LoadData()
@@ -391,6 +463,12 @@
         try
         {
             using var context = await DbContextFactory.CreateDbContextAsync();
+            
+            // Load locations
+            allLocations = await context.Locations
+                .Where(l => l.IsActive)
+                .OrderBy(l => l.Name)
+                .ToListAsync();
             
             serviceGroups = await context.ServiceGroups
                 .Include(sg => sg.Location)
@@ -430,6 +508,18 @@
         }
     }
     
+    private void OnLocationFilterChanged(int locationId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            selectedLocationIds.Add(locationId);
+        }
+        else
+        {
+            selectedLocationIds.Remove(locationId);
+        }
+    }
+    
     private void OnCategoryFilterChanged(string category, bool isChecked)
     {
         if (isChecked)
@@ -444,6 +534,12 @@
     
     private void ClearFilters()
     {
+        selectedCategories.Clear();
+    }
+    
+    private void ClearAllFilters()
+    {
+        selectedLocationIds.Clear();
         selectedCategories.Clear();
     }
 
