@@ -1,0 +1,39 @@
+@* Client Search Bar Component - Search and sort controls *@
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text">
+                <i class="bi bi-search"></i>
+            </span>
+            <input type="text" class="form-control" 
+                   placeholder="Search by name, email, or phone..." 
+                   value="@SearchQuery"
+                   @oninput="HandleSearchInput" />
+        </div>
+    </div>
+    <div class="col-md-6 text-end">
+        <button class="btn btn-outline-secondary" @onclick="HandleSortToggle">
+            <i class="bi bi-sort-down me-2"></i>
+            Sort by: @SortBy
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string SearchQuery { get; set; } = "";
+    [Parameter] public string SortBy { get; set; } = "Name";
+    [Parameter] public EventCallback<string> OnSearchChanged { get; set; }
+    [Parameter] public EventCallback<string> OnSortChanged { get; set; }
+
+    private async Task HandleSearchInput(ChangeEventArgs e)
+    {
+        await OnSearchChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    }
+
+    private async Task HandleSortToggle()
+    {
+        var newSort = SortBy == "Name" ? "LastVisit" : "Name";
+        await OnSortChanged.InvokeAsync(newSort);
+    }
+}

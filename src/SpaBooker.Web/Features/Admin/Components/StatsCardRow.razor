@@ -1,0 +1,38 @@
+@* Stats Dashboard Component - Reusable stat cards *@
+
+<div class="row mb-4">
+    @foreach (var stat in Stats)
+    {
+        <div class="col-md-@GetColumnSize()">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">@stat.Label</p>
+                            <h3 class="mb-0">@stat.Value</h3>
+                        </div>
+                        <i class="bi @stat.Icon text-@stat.ColorClass" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<StatCard> Stats { get; set; } = new();
+
+    private int GetColumnSize()
+    {
+        if (Stats.Count == 0) return 12;
+        return 12 / Stats.Count;
+    }
+
+    public class StatCard
+    {
+        public string Label { get; set; } = "";
+        public string Value { get; set; } = "";
+        public string Icon { get; set; } = "bi-info-circle";
+        public string ColorClass { get; set; } = "primary";
+    }
+}

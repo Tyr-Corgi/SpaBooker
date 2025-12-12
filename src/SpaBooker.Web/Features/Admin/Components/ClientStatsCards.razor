@@ -1,0 +1,63 @@
+@using SpaBooker.Core.DTOs.Client
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Total Clients</p>
+                        <h3 class="mb-0">@TotalClients</h3>
+                    </div>
+                    <i class="bi bi-people text-primary" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Active Members</p>
+                        <h3 class="mb-0">@ActiveMembers</h3>
+                    </div>
+                    <i class="bi bi-star text-warning" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">New This Month</p>
+                        <h3 class="mb-0">@NewThisMonth</h3>
+                    </div>
+                    <i class="bi bi-person-plus text-success" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Inactive (30d)</p>
+                        <h3 class="mb-0">@Inactive</h3>
+                    </div>
+                    <i class="bi bi-clock-history text-danger" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int TotalClients { get; set; }
+    [Parameter] public int ActiveMembers { get; set; }
+    [Parameter] public int NewThisMonth { get; set; }
+    [Parameter] public int Inactive { get; set; }
+}

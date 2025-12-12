@@ -1,0 +1,56 @@
+@using SpaBooker.Core.Entities
+
+<div class="card">
+    <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="bi bi-person-badge"></i> Select Therapist</h5>
+    </div>
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <label class="form-label">Therapist</label>
+                <select class="form-select form-select-lg" @onchange="OnSelectionChanged">
+                    <option value="">-- Select a therapist --</option>
+                    <option value="ALL_STAFF" selected="@(SelectedTherapistId == "ALL_STAFF")">📅 All Staff Overview</option>
+                    @foreach (var therapist in Therapists)
+                    {
+                        <option value="@therapist.Id" selected="@(therapist.Id == SelectedTherapistId)">
+                            @therapist.FirstName @therapist.LastName
+                        </option>
+                    }
+                </select>
+            </div>
+            @if (!string.IsNullOrEmpty(SelectedTherapistId))
+            {
+                <div class="col-md-6">
+                    @if (SelectedTherapistId == "ALL_STAFF")
+                    {
+                        <div class="alert alert-info mb-0">
+                            <strong>All Staff Overview:</strong><br/>
+                            @SummaryText
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-0">
+                            <strong>Current Week Status:</strong><br/>
+                            @SummaryText
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<ApplicationUser> Therapists { get; set; } = new();
+    [Parameter] public string? SelectedTherapistId { get; set; }
+    [Parameter] public string? SummaryText { get; set; }
+    [Parameter] public EventCallback<string?> OnTherapistChanged { get; set; }
+
+    private async Task OnSelectionChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        await OnTherapistChanged.InvokeAsync(value);
+    }
+}

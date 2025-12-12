@@ -1,0 +1,151 @@
+@using SpaBooker.Core.Entities
+@using SpaBooker.Core.DTOs.Client
+
+@* Client Table Row Component - Individual row in client table *@
+
+<tr>
+    <td>
+        <div class="d-flex align-items-center">
+            <div class="user-avatar me-2">
+                @Client.FirstName.Substring(0, 1)@Client.LastName.Substring(0, 1)
+            </div>
+            <div>
+                <strong>@Client.FirstName @Client.LastName</strong>
+                <br />
+                <small class="text-muted">
+                    Joined @Client.CreatedAt.ToLocalTime().ToString("MMM yyyy")
+                </small>
+            </div>
+        </div>
+    </td>
+    <td>
+        <div>
+            <i class="bi bi-envelope me-1"></i>
+            <small>@Client.Email</small>
+        </div>
+        @if (!string.IsNullOrEmpty(Client.PhoneNumber))
+        {
+            <div class="mt-1">
+                <i class="bi bi-telephone me-1"></i>
+                <small>@Client.PhoneNumber</small>
+            </div>
+        }
+    </td>
+    <td>
+        @if (ClientData.HasActiveMembership)
+        {
+            <span class="badge bg-success">
+                <i class="bi bi-star-fill me-1"></i>@ClientData.MembershipPlanName
+            </span>
+            <br />
+            <small class="text-muted">@ClientData.CurrentCredits.ToString("F1") credits</small>
+        }
+        else
+        {
+            <span class="text-muted">No membership</span>
+        }
+    </td>
+    <td>
+        @if (ClientData.LastBookingDate.HasValue)
+        {
+            <span>@ClientData.LastBookingDate.Value.ToLocalTime().ToString("MMM dd, yyyy")</span>
+            <br />
+            <small class="text-muted">@GetDaysSinceLastVisit(ClientData.LastBookingDate.Value) days ago</small>
+        }
+        else
+        {
+            <span class="text-muted">No visits yet</span>
+        }
+    </td>
+    <td>
+        @if (ClientData.NextBookingDate.HasValue)
+        {
+            <span class="text-success">@ClientData.NextBookingDate.Value.ToLocalTime().ToString("MMM dd, yyyy")</span>
+            <br />
+            <small class="text-muted">in @GetDaysUntilNextVisit(ClientData.NextBookingDate.Value) days</small>
+        }
+        else
+        {
+            <span class="text-muted">No upcoming visits</span>
+        }
+    </td>
+    <td>
+        <span class="badge bg-info">@GetVisitFrequency()</span>
+        @if (Client.LockoutEnd.HasValue && Client.LockoutEnd > DateTimeOffset.UtcNow)
+        {
+            <br />
+            <span class="badge bg-danger mt-1">
+                <i class="bi bi-lock-fill me-1"></i>Locked
+            </span>
+        }
+        else if (ClientData.DaysSinceLastVisit > 90)
+        {
+            <br />
+            <span class="badge bg-warning text-dark mt-1">
+                <i class="bi bi-exclamation-triangle me-1"></i>Inactive
+            </span>
+        }
+    </td>
+    <td class="text-end">
+        <div class="d-flex flex-column gap-1">
+            <button class="btn btn-sm btn-primary" 
+                    @onclick="@(() => OnBookAppointment.InvokeAsync(Client.Id))">
+                <i class="bi bi-calendar-plus me-1"></i>Book Appointment
+            </button>
+            <button class="btn btn-sm" style="background: linear-gradient(135deg, #E8B4B8, #D89BA1); border-color: #D89BA1; color: white;"
+                    @onclick="@(() => OnShowNotes.InvokeAsync(Client.Id))">
+                <i class="bi bi-sticky me-1"></i>Notes
+            </button>
+            <button class="btn btn-sm btn-info" 
+                    @onclick="@(() => OnShowDetails.InvokeAsync(Client.Id))">
+                <i class="bi bi-eye me-1"></i>Details
+            </button>
+        </div>
+    </td>
+</tr>
+
+@code {
+    [Parameter] public ApplicationUser Client { get; set; } = null!;
+    [Parameter] public ClientStatisticsDto ClientData { get; set; } = null!;
+    [Parameter] public EventCallback<string> OnBookAppointment { get; set; }
+    [Parameter] public EventCallback<string> OnShowNotes { get; set; }
+    [Parameter] public EventCallback<string> OnShowDetails { get; set; }
+
+    private int GetDaysSinceLastVisit(DateTime lastBookingDate)
+    {
+        return (int)(DateTime.UtcNow - lastBookingDate.ToUniversalTime()).TotalDays;
+    }
+
+    private int GetDaysUntilNextVisit(DateTime nextBookingDate)
+    {
+        return (int)(nextBookingDate.ToUniversalTime() - DateTime.UtcNow).TotalDays;
+    }
+
+    private string GetVisitFrequency()
+    {
+        if (ClientData.TotalBookings == 0)
+            return "New Client";
+
+        if (ClientData.TotalBookings == 1)
+            return "1 visit";
+
+        if (ClientData.DaysSinceFirstVisit < 30)
+            return "New - " + ClientData.TotalBookings + " visits";
+
+        var monthsActive = Math.Max(1, ClientData.DaysSinceFirstVisit / 30.0);
+        var visitsPerMonth = ClientData.TotalBookings / monthsActive;
+
+        if (visitsPerMonth >= 4)
+            return "Weekly";
+        else if (visitsPerMonth >= 2)
+            return "Bi-weekly";
+        else if (visitsPerMonth >= 1)
+            return "Monthly";
+        else if (visitsPerMonth >= 0.5)
+            return "Every 2 months";
+        else if (visitsPerMonth >= 0.25)
+            return "Quarterly";
+        else
+            return "Infrequent";
+    }
+}

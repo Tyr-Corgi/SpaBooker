@@ -1,0 +1,275 @@
+@using SpaBooker.Core.Entities
+
+<div class="card">
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0"><i class="bi bi-calendar3"></i> All Staff Schedule Calendar</h5>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                @* View Toggle *@
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn @(ViewMode == CalendarViewMode.Day ? "btn-primary" : "btn-outline-secondary")" 
+                            @onclick="() => OnViewModeChanged.InvokeAsync(CalendarViewMode.Day)">
+                        Day
+                    </button>
+                    <button type="button" class="btn @(ViewMode == CalendarViewMode.Week ? "btn-primary" : "btn-outline-secondary")" 
+                            @onclick="() => OnViewModeChanged.InvokeAsync(CalendarViewMode.Week)">
+                        Week
+                    </button>
+                    <button type="button" class="btn @(ViewMode == CalendarViewMode.Month ? "btn-primary" : "btn-outline-secondary")" 
+                            @onclick="() => OnViewModeChanged.InvokeAsync(CalendarViewMode.Month)">
+                        Month
+                    </button>
+                </div>
+                
+                @* Navigation *@
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-primary" @onclick="OnNavigatePrevious" title="Previous">
+                        <span style="font-size: 1.2rem;">◀</span>
+                    </button>
+                    <button class="btn btn-outline-secondary" disabled>
+                        @ViewTitle
+                    </button>
+                    <button class="btn btn-primary" @onclick="OnNavigateNext" title="Next">
+                        <span style="font-size: 1.2rem;">▶</span>
+                    </button>
+                </div>
+                
+                @* Date Picker for quick navigation *@
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 small text-muted">Jump to:</label>
+                    <input type="date" 
+                           class="form-control form-control-sm" 
+                           style="width: 150px;"
+                           value="@ViewDate.ToString("yyyy-MM-dd")" 
+                           @onchange="@HandleDatePickerChanged" />
+                </div>
+                
+                <button class="btn btn-sm btn-primary" @onclick="OnGoToToday">
+                    <i class="bi bi-calendar-check"></i> Today
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <style>
+            .staff-calendar-grid {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 2px;
+                background-color: #e9ecef;
+                padding: 2px;
+                border-radius: 4px;
+            }
+            
+            .staff-calendar-day-header {
+                background-color: #6c757d;
+                color: white;
+                text-align: center;
+                padding: 12px 8px;
+                font-weight: 600;
+                font-size: 0.875rem;
+                text-transform: uppercase;
+            }
+            
+            .staff-calendar-day {
+                background-color: white;
+                min-height: 100px;
+                padding: 8px;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: flex-start;
+                position: relative;
+                transition: all 0.2s ease;
+            }
+            
+            .staff-calendar-day:hover {
+                background-color: #f8f9fa;
+            }
+            
+            .staff-calendar-day-number {
+                font-size: 0.875rem;
+                font-weight: 500;
+                margin-bottom: 4px;
+            }
+            
+            .staff-calendar-other-month {
+                opacity: 0.3;
+            }
+            
+            .staff-calendar-other-month:hover {
+                opacity: 0.5;
+            }
+            
+            .staff-calendar-past-day {
+                background-color: #f8f9fa;
+                color: #adb5bd;
+            }
+            
+            .staff-calendar-clickable {
+                cursor: pointer;
+            }
+            
+            .staff-calendar-clickable:hover {
+                box-shadow: 0 0 0 2px #007bff inset;
+                transform: scale(1.02);
+            }
+            
+            .staff-calendar-therapist-badge {
+                display: inline-block;
+                padding: 2px 6px;
+                margin: 2px;
+                border-radius: 3px;
+                font-size: 0.7rem;
+                font-weight: 600;
+                color: white;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+        </style>
+        
+        @RenderCalendarGrid()
+    </div>
+</div>
+
+@code {
+    [Parameter] public CalendarViewMode ViewMode { get; set; }
+    [Parameter] public DateTime ViewDate { get; set; }
+    [Parameter] public string ViewTitle { get; set; } = "";
+    [Parameter] public List<ApplicationUser> Therapists { get; set; } = new();
+    [Parameter] public List<TherapistAvailability> Schedules { get; set; } = new();
+    [Parameter] public Dictionary<string, string> TherapistColors { get; set; } = new();
+    
+    [Parameter] public EventCallback<CalendarViewMode> OnViewModeChanged { get; set; }
+    [Parameter] public EventCallback OnNavigatePrevious { get; set; }
+    [Parameter] public EventCallback OnNavigateNext { get; set; }
+    [Parameter] public EventCallback OnGoToToday { get; set; }
+    [Parameter] public EventCallback<string?> OnDatePickerChanged { get; set; }
+    [Parameter] public EventCallback<DateTime> OnDayClick { get; set; }
+    [Parameter] public Func<DateTime, ApplicationUser, List<TherapistAvailability>, TherapistAvailability?> GetScheduleFunc { get; set; } = null!;
+    [Parameter] public Func<TimeSpan, string> FormatTimeFunc { get; set; } = null!;
+
+    private async Task HandleDatePickerChanged(ChangeEventArgs e)
+    {
+        await OnDatePickerChanged.InvokeAsync(e.Value?.ToString());
+    }
+
+    private RenderFragment RenderCalendarGrid() => builder =>
+    {
+        var firstDayOfMonthAll = new DateTime(ViewDate.Year, ViewDate.Month, 1);
+        var startDateAll = ViewMode switch
+        {
+            CalendarViewMode.Day => ViewDate,
+            CalendarViewMode.Week => GetWeekStart(),
+            CalendarViewMode.Month => firstDayOfMonthAll.AddDays(-(int)firstDayOfMonthAll.DayOfWeek),
+            _ => firstDayOfMonthAll.AddDays(-(int)firstDayOfMonthAll.DayOfWeek)
+        };
+        var dayCount = ViewMode switch
+        {
+            CalendarViewMode.Day => 1,
+            CalendarViewMode.Week => 7,
+            CalendarViewMode.Month => 42,
+            _ => 42
+        };
+        var dayNamesAll = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        
+        var gridColumns = ViewMode switch
+        {
+            CalendarViewMode.Day => 1,
+            CalendarViewMode.Week => 7,
+            CalendarViewMode.Month => 7,
+            _ => 7
+        };
+        
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "staff-calendar-grid");
+        builder.AddAttribute(2, "style", $"grid-template-columns: repeat({gridColumns}, 1fr);");
+        
+        // Day headers (only for Week and Month views)
+        if (ViewMode == CalendarViewMode.Week || ViewMode == CalendarViewMode.Month)
+        {
+            foreach (var dayName in dayNamesAll)
+            {
+                builder.OpenElement(3, "div");
+                builder.AddAttribute(4, "class", "staff-calendar-day-header");
+                builder.AddContent(5, dayName);
+                builder.CloseElement();
+            }
+        }
+        
+        // Calendar days
+        for (int i = 0; i < dayCount; i++)
+        {
+            var currentDate = startDateAll.AddDays(i);
+            var capturedDate = currentDate;
+            var isCurrentMonth = currentDate.Month == ViewDate.Month;
+            var isPast = currentDate < DateTime.Today;
+            
+            // For Day and Week views, always show as "current"
+            if (ViewMode == CalendarViewMode.Day || ViewMode == CalendarViewMode.Week)
+            {
+                isCurrentMonth = true;
+            }
+            
+            // Get all therapists scheduled for this day with their schedule times
+            var scheduledTherapists = new List<(ApplicationUser therapist, string color, TimeSpan startTime, TimeSpan endTime)>();
+            foreach (var therapist in Therapists)
+            {
+                var therapistSchedules = Schedules.Where(s => s.TherapistId == therapist.Id).ToList();
+                var schedule = GetScheduleFunc?.Invoke(currentDate, therapist, therapistSchedules);
+                if (schedule != null && TherapistColors.ContainsKey(therapist.Id))
+                {
+                    scheduledTherapists.Add((therapist, TherapistColors[therapist.Id], schedule.StartTime, schedule.EndTime));
+                }
+            }
+            
+            var cssClass = "staff-calendar-day";
+            if (!isCurrentMonth) cssClass += " staff-calendar-other-month";
+            if (isPast) cssClass += " staff-calendar-past-day";
+            if (!isPast && isCurrentMonth) cssClass += " staff-calendar-clickable";
+            
+            builder.OpenElement(6, "div");
+            builder.AddAttribute(7, "class", cssClass);
+            if (!isPast && isCurrentMonth)
+            {
+                builder.AddAttribute(8, "onclick", Microsoft.AspNetCore.Components.EventCallback.Factory.Create(this, () => OnDayClick.InvokeAsync(capturedDate)));
+            }
+            
+            builder.OpenElement(9, "div");
+            builder.AddAttribute(10, "class", "staff-calendar-day-number");
+            builder.AddContent(11, currentDate.Day);
+            builder.CloseElement();
+            
+            if (scheduledTherapists.Any() && isCurrentMonth && !isPast)
+            {
+                builder.OpenElement(12, "div");
+                builder.AddAttribute(13, "style", "display: flex; flex-direction: column; gap: 2px; width: 100%; margin-top: 4px;");
+                
+                foreach (var (therapist, color, startTime, endTime) in scheduledTherapists)
+                {
+                    builder.OpenElement(14, "div");
+                    builder.AddAttribute(15, "class", "staff-calendar-therapist-badge");
+                    builder.AddAttribute(16, "style", $"background-color: {color};");
+                    builder.AddAttribute(17, "title", $"{therapist.FirstName} {therapist.LastName}");
+                    builder.AddContent(18, $"{therapist.FirstName} {therapist.LastName.Substring(0, 1)}. ({FormatTimeFunc(startTime)} - {FormatTimeFunc(endTime)})");
+                    builder.CloseElement();
+                }
+                
+                builder.CloseElement();
+            }
+            
+            builder.CloseElement();
+        }
+        
+        builder.CloseElement();
+    };
+
+    private DateTime GetWeekStart()
+    {
+        return ViewDate.AddDays(-(int)ViewDate.DayOfWeek);
+    }
+
+    public enum CalendarViewMode { Day, Week, Month }
+}

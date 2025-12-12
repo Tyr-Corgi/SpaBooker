@@ -1,0 +1,41 @@
+@* Client Filter Tabs Component - Reusable filter navigation *@
+
+<div class="row mb-4">
+    <div class="col-12">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link @(SelectedFilter == "All" ? "active" : "")" 
+                   @onclick='() => OnFilterChanged.InvokeAsync("All")' 
+                   style="cursor: pointer;">
+                    All Clients
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(SelectedFilter == "ActiveMembers" ? "active" : "")" 
+                   @onclick='() => OnFilterChanged.InvokeAsync("ActiveMembers")' 
+                   style="cursor: pointer;">
+                    Active Members
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(SelectedFilter == "NonMembers" ? "active" : "")" 
+                   @onclick='() => OnFilterChanged.InvokeAsync("NonMembers")' 
+                   style="cursor: pointer;">
+                    Non-Members
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(SelectedFilter == "Inactive" ? "active" : "")" 
+                   @onclick='() => OnFilterChanged.InvokeAsync("Inactive")' 
+                   style="cursor: pointer;">
+                    Inactive (30d+)
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string SelectedFilter { get; set; } = "All";
+    [Parameter] public EventCallback<string> OnFilterChanged { get; set; }
+}

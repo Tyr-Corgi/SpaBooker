@@ -9,7 +9,6 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
-@using SpaBooker.Web.Features.Admin.Components
 @inject IClientService ClientService
 @inject IBookingService BookingService
 @inject IDbContextFactory<ApplicationDbContext> DbContextFactory
@@ -39,24 +38,115 @@
         </div>
     </div>
 
-    @* Use extracted AlertMessages component *@
-    <AlertMessages 
-        SuccessMessage="@successMessage" 
-        ErrorMessage="@errorMessage"
-        OnDismiss="@(() => successMessage = null)"
-        OnDismissError="@(() => errorMessage = null)" />
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="bi bi-check-circle me-2"></i>
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
 
-    @* Use extracted ClientStatsCards component *@
-    <ClientStatsCards 
-        TotalClients="@allClients.Count"
-        ActiveMembers="@GetActiveMemberCount()"
-        NewThisMonth="@GetNewClientsThisMonth()"
-        Inactive="@GetInactiveClientCount()" />
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
 
-    @* Use extracted ClientFilterTabs component *@
-    <ClientFilterTabs 
-        SelectedFilter="@selectedFilter"
-        OnFilterChanged="@ApplyFilter" />
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Total Clients</p>
+                            <h3 class="mb-0">@allClients.Count</h3>
+                        </div>
+                        <i class="bi bi-people text-primary" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Active Members</p>
+                            <h3 class="mb-0">@GetActiveMemberCount()</h3>
+                        </div>
+                        <i class="bi bi-star text-warning" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">New This Month</p>
+                            <h3 class="mb-0">@GetNewClientsThisMonth()</h3>
+                        </div>
+                        <i class="bi bi-person-plus text-success" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1">Inactive (30d)</p>
+                            <h3 class="mb-0">@GetInactiveClientCount()</h3>
+                        </div>
+                        <i class="bi bi-clock-history text-danger" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link @(selectedFilter == "All" ? "active" : "")" 
+                       @onclick='() => ApplyFilter("All")' 
+                       style="cursor: pointer;">
+                        All Clients
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(selectedFilter == "ActiveMembers" ? "active" : "")" 
+                       @onclick='() => ApplyFilter("ActiveMembers")' 
+                       style="cursor: pointer;">
+                        Active Members
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(selectedFilter == "NonMembers" ? "active" : "")" 
+                       @onclick='() => ApplyFilter("NonMembers")' 
+                       style="cursor: pointer;">
+                        Non-Members
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(selectedFilter == "Inactive" ? "active" : "")" 
+                       @onclick='() => ApplyFilter("Inactive")' 
+                       style="cursor: pointer;">
+                        Inactive (30d+)
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
 
     @if (isLoading)
     {
@@ -69,12 +159,27 @@
     }
     else
     {
-        @* Use extracted ClientSearchBar component *@
-        <ClientSearchBar 
-            SearchQuery="@searchQuery"
-            SortBy="@sortBy"
-            OnSearchChanged="@HandleSearchChanged"
-            OnSortChanged="@HandleSortChanged" />
+        <!-- Search and Actions -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" 
+                           placeholder="Search by name, email, or phone..." 
+                           @bind="searchQuery" 
+                           @bind:event="oninput"
+                           @onkeyup="SearchClients" />
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-outline-secondary" @onclick='() => sortBy = sortBy == "Name" ? "LastVisit" : "Name"'>
+                    <i class="bi bi-sort-down me-2"></i>
+                    Sort by: @sortBy
+                </button>
+            </div>
+        </div>
 
         <!-- Clients Table -->
         <div class="row">
@@ -100,12 +205,107 @@
                                         @foreach (var client in filteredClients)
                                         {
                                             var clientData = clientStats[client.Id];
-                                            <ClientTableRow 
-                                                Client="@client"
-                                                ClientData="@clientData"
-                                                OnBookAppointment="@HandleBookAppointmentClick"
-                                                OnShowNotes="@HandleNotesClick"
-                                                OnShowDetails="@HandleViewMoreClick" />
+                                            var currentClientId = client.Id;
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="user-avatar me-2">
+                                                            @client.FirstName.Substring(0, 1)@client.LastName.Substring(0, 1)
+                                                        </div>
+                                                        <div>
+                                                            <strong>@client.FirstName @client.LastName</strong>
+                                                            <br />
+                                                            <small class="text-muted">
+                                                                Joined @client.CreatedAt.ToLocalTime().ToString("MMM yyyy")
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div>
+                                                        <i class="bi bi-envelope me-1"></i>
+                                                        <small>@client.Email</small>
+                                                    </div>
+                                                    @if (!string.IsNullOrEmpty(client.PhoneNumber))
+                                                    {
+                                                        <div class="mt-1">
+                                                            <i class="bi bi-telephone me-1"></i>
+                                                            <small>@client.PhoneNumber</small>
+                                                        </div>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (clientData.HasActiveMembership)
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="bi bi-star-fill me-1"></i>@clientData.MembershipPlanName
+                                                        </span>
+                                                        <br />
+                                                        <small class="text-muted">@clientData.CurrentCredits.ToString("F1") credits</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">No membership</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (clientData.LastBookingDate.HasValue)
+                                                    {
+                                                        <span>@clientData.LastBookingDate.Value.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                                                        <br />
+                                                        <small class="text-muted">@GetDaysSinceLastVisit(clientData.LastBookingDate.Value) days ago</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">No visits yet</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (clientData.NextBookingDate.HasValue)
+                                                    {
+                                                        <span class="text-success">@clientData.NextBookingDate.Value.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                                                        <br />
+                                                        <small class="text-muted">in @GetDaysUntilNextVisit(clientData.NextBookingDate.Value) days</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">No upcoming visits</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info">@GetVisitFrequency(clientData)</span>
+                                                    @if (client.LockoutEnd.HasValue && client.LockoutEnd > DateTimeOffset.UtcNow)
+                                                    {
+                                                        <br />
+                                                        <span class="badge bg-danger mt-1">
+                                                            <i class="bi bi-lock-fill me-1"></i>Locked
+                                                        </span>
+                                                    }
+                                                    else if (clientData.DaysSinceLastVisit > 90)
+                                                    {
+                                                        <br />
+                                                        <span class="badge bg-warning text-dark mt-1">
+                                                            <i class="bi bi-exclamation-triangle me-1"></i>Inactive
+                                                        </span>
+                                                    }
+                                                </td>
+                                                <td class="text-end">
+                                                    <div class="d-flex flex-column gap-1">
+                                                        <button class="btn btn-sm btn-primary" 
+                                                                @onclick="@(async (e) => await HandleBookAppointmentClick(currentClientId))">
+                                                            <i class="bi bi-calendar-plus me-1"></i>Book Appointment
+                                                        </button>
+                                                        <button class="btn btn-sm" style="background: linear-gradient(135deg, #E8B4B8, #D89BA1); border-color: #D89BA1; color: white;"
+                                                                @onclick="@((e) => HandleNotesClick(currentClientId))">
+                                                            <i class="bi bi-journal-text me-1"></i>Notes
+                                                        </button>
+                                                        <button class="btn btn-sm btn-secondary" 
+                                                                @onclick="@((e) => HandleViewMoreClick(currentClientId))">
+                                                            <i class="bi bi-info-circle me-1"></i>View More
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         }
                                     }
                                     else
@@ -1139,19 +1339,6 @@
             (c.Email?.ToLower().Contains(query) ?? false) ||
             (c.PhoneNumber?.Contains(query) ?? false)
         ).ToList();
-    }
-
-    private void HandleSearchChanged(string newSearchQuery)
-    {
-        searchQuery = newSearchQuery;
-        SearchClients();
-    }
-
-    private void HandleSortChanged(string newSortBy)
-    {
-        sortBy = newSortBy;
-        // TODO: Implement sorting logic when needed
-        StateHasChanged();
     }
 
     private void TestButtonClick()

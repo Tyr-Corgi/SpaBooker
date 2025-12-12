@@ -1,0 +1,71 @@
+@using SpaBooker.Core.Entities
+
+<div class="card h-100">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> Quick Schedule</h5>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">Date Range</label>
+            <div class="row g-2">
+                <div class="col-6">
+                    <input type="date" class="form-control" @bind="Model.StartDate" @bind:format="yyyy-MM-dd" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                    <small class="text-muted">From</small>
+                </div>
+                <div class="col-6">
+                    <input type="date" class="form-control" @bind="Model.EndDate" @bind:format="yyyy-MM-dd" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                    <small class="text-muted">To</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Time Range</label>
+            <div class="row g-2">
+                <div class="col-6">
+                    <input type="time" class="form-control" value="@Model.StartTime" @onchange="@(e => Model.StartTime = e.Value?.ToString() ?? "09:00")" />
+                    <small class="text-muted">Start</small>
+                </div>
+                <div class="col-6">
+                    <input type="time" class="form-control" value="@Model.EndTime" @onchange="@(e => Model.EndTime = e.Value?.ToString() ?? "17:00")" />
+                    <small class="text-muted">End</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Notes (Optional)</label>
+            <textarea class="form-control" rows="2" @bind="Model.Notes" placeholder="e.g., Regular shift"></textarea>
+        </div>
+
+        <div class="d-grid gap-2 mb-3">
+            <button class="btn btn-primary" @onclick="HandleApply" disabled="@IsSaving">
+                @if (IsSaving)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                <i class="bi bi-check-circle"></i> Apply Schedule
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public ScheduleModel Model { get; set; } = new();
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public EventCallback OnApplySchedule { get; set; }
+
+    private async Task HandleApply()
+    {
+        await OnApplySchedule.InvokeAsync();
+    }
+
+    public class ScheduleModel
+    {
+        public DateTime StartDate { get; set; } = DateTime.Today;
+        public DateTime EndDate { get; set; } = DateTime.Today;
+        public string StartTime { get; set; } = "09:00";
+        public string EndTime { get; set; } = "17:00";
+        public string? Notes { get; set; }
+    }
+}
