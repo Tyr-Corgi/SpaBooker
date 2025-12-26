@@ -1,4 +1,9 @@
-/* Hero Carousel Styles */
+/* ==========================================
+   Home Page - Maybourne Refined Design
+   Minimal, elegant, generous white space
+   ========================================== */
+
+/* Hero Carousel - Minimal & Refined */
 #heroCarousel {
     height: 80vh;
     min-height: 600px;
@@ -24,16 +29,6 @@
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    animation: ken-burns 20s ease-in-out infinite alternate;
-}
-
-@keyframes ken-burns {
-    0% {
-        transform: scale(1);
-    }
-    100% {
-        transform: scale(1.1);
-    }
 }
 
 .carousel-overlay {
@@ -42,12 +37,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(
-        135deg,
-        rgba(183, 110, 121, 0.8) 0%,
-        rgba(218, 165, 162, 0.7) 50%,
-        rgba(183, 110, 121, 0.8) 100%
-    );
+    z-index: 1;
 }
 
 .carousel-caption-custom {
@@ -56,81 +46,86 @@
     left: 0;
     right: 0;
     transform: translateY(-50%);
-    z-index: 10;
+    z-index: 2;
     padding: 2rem 1rem;
 }
 
-.carousel-caption-custom h1 {
-    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
-    font-weight: 700;
-    letter-spacing: -1px;
+/* Hero Typography - Refined */
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 300;
+    letter-spacing: 3px;
+    line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.carousel-caption-custom p {
-    text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.5);
+.hero-subtitle {
+    font-size: 1.3rem;
+    font-weight: 300;
+    letter-spacing: 1px;
+    line-height: 1.6;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* Animations */
-.animate-slide-up {
-    animation: slideUp 0.8s ease-out;
+.hero-description {
+    font-size: 1rem;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    line-height: 1.8;
+    opacity: 0.95;
 }
 
-.animate-slide-up-delay {
-    animation: slideUp 0.8s ease-out 0.2s both;
+/* Minimal Button Styles */
+.btn-minimal {
+    display: inline-block;
+    padding: 0.875rem 2.5rem;
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: white;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    background: transparent;
+    transition: all 0.3s ease;
 }
 
-.animate-fade-in {
-    animation: fadeIn 0.8s ease-out 0.4s both;
+.btn-minimal:hover {
+    background: white;
+    color: #2D2D2D;
+    border-color: white;
 }
 
-.animate-bounce {
-    animation: fadeIn 0.8s ease-out 0.6s both;
+.btn-minimal-outline {
+    display: inline-block;
+    padding: 0.875rem 2.5rem;
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: white;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    background: transparent;
+    transition: all 0.3s ease;
 }
 
-.animate-bounce:hover {
-    animation: bounce 0.5s;
+.btn-minimal-outline:hover {
+    background: white;
+    color: #2D2D2D;
+    border-color: white;
 }
 
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(40px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes bounce {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-10px);
-    }
-}
-
-/* Carousel Controls */
+/* Carousel Controls - Minimal */
 .carousel-control-prev,
 .carousel-control-next {
-    width: 80px;
-    height: 80px;
+    width: 50px;
+    height: 50px;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.2);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 0;
     margin: 0 2rem;
     opacity: 0.7;
     transition: all 0.3s ease;
@@ -139,156 +134,309 @@
 .carousel-control-prev:hover,
 .carousel-control-next:hover {
     opacity: 1;
-    background: rgba(255, 255, 255, 0.3);
-    transform: translateY(-50%) scale(1.1);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .carousel-control-prev-icon,
 .carousel-control-next-icon {
-    width: 30px;
-    height: 30px;
+    width: 20px;
+    height: 20px;
 }
 
 .carousel-indicators {
     bottom: 30px;
+    margin: 0;
 }
 
 .carousel-indicators [data-bs-target] {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin: 0 8px;
-    background-color: rgba(255, 255, 255, 0.5);
-    border: 2px solid white;
+    width: 30px;
+    height: 2px;
+    border-radius: 0;
+    margin: 0 6px;
+    background-color: rgba(255, 255, 255, 0.4);
+    border: none;
     transition: all 0.3s ease;
 }
 
 .carousel-indicators .active {
-    background-color: white;
-    width: 40px;
-    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.9);
+    width: 50px;
 }
 
-/* Feature Cards */
-.feature-card {
-    transition: all 0.3s ease;
-    border-radius: 12px;
+/* Section Spacing - Generous */
+.features-section,
+.packages-section {
+    padding: 120px 0;
+    background: white;
+}
+
+.features-section {
+    background: #FAFAFA;
+}
+
+/* Section Titles - Refined */
+.section-title {
+    font-size: 2.5rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: #2D2D2D;
+    margin-bottom: 1rem;
+}
+
+.section-subtitle {
+    font-size: 1.1rem;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    color: #8A8A8A;
+    line-height: 1.8;
+}
+
+/* Feature Cards - Minimal */
+.feature-card-minimal {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: white;
+    border: 1px solid #E5E5E5;
+    transition: border-color 0.3s ease;
+}
+
+.feature-card-minimal:hover {
+    border-color: #B76E79;
+}
+
+.feature-icon-minimal {
+    font-size: 2.5rem;
+    color: #B76E79;
+}
+
+.feature-title {
+    font-size: 1.3rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    color: #2D2D2D;
+    margin-bottom: 1rem;
+}
+
+.feature-description {
+    font-size: 1rem;
+    font-weight: 300;
+    line-height: 1.8;
+    color: #8A8A8A;
+    margin-bottom: 1.5rem;
+}
+
+.feature-link {
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #B76E79;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.feature-link:hover {
+    border-bottom-color: #B76E79;
+    color: #B76E79;
+}
+
+/* Package Cards - Refined */
+.package-card-minimal {
+    background: white;
+    border: 1px solid #E5E5E5;
     overflow: hidden;
+    transition: box-shadow 0.3s ease;
 }
 
-.feature-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 12px 24px rgba(183, 110, 121, 0.3) !important;
+.package-card-minimal:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.feature-icon-large {
-    font-size: 4rem;
-    line-height: 1;
-    animation: float 3s ease-in-out infinite;
+.package-image {
+    height: 280px;
+    background-size: cover;
+    background-position: center;
 }
 
-@keyframes float {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-10px);
-    }
+.package-content {
+    padding: 2.5rem;
 }
 
-/* Call to Action Section */
+.package-title {
+    font-size: 1.5rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    color: #2D2D2D;
+    margin-bottom: 1rem;
+}
+
+.package-description {
+    font-size: 0.95rem;
+    font-weight: 300;
+    line-height: 1.8;
+    color: #8A8A8A;
+    margin-bottom: 1.5rem;
+}
+
+.package-features {
+    border-top: 1px solid #F5F5F5;
+    border-bottom: 1px solid #F5F5F5;
+    padding: 1.5rem 0;
+    margin-bottom: 1.5rem;
+}
+
+.feature-item {
+    font-size: 0.9rem;
+    color: #5A5A5A;
+    padding: 0.4rem 0;
+}
+
+.package-pricing {
+    margin-bottom: 1.5rem;
+}
+
+.price-label {
+    font-size: 0.85rem;
+    font-weight: 400;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #8A8A8A;
+    margin-right: 0.5rem;
+}
+
+.price-amount {
+    font-size: 2rem;
+    font-weight: 300;
+    letter-spacing: -0.5px;
+    color: #2D2D2D;
+}
+
+.package-link {
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #B76E79;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.package-link:hover {
+    border-bottom-color: #B76E79;
+    color: #B76E79;
+}
+
+/* CTA Section - Minimal */
 .cta-section {
-    background: linear-gradient(135deg, #8B4A5E 0%, #5E3344 100%);
     position: relative;
+    min-height: 500px;
     overflow: hidden;
 }
 
-.cta-section::before {
-    content: '';
+.cta-background {
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="rgba(255,255,255,0.1)"/></svg>');
-    background-size: 100px 100px;
-    opacity: 0.5;
-    animation: patternMove 20s linear infinite;
-    pointer-events: none;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
 }
 
-.cta-section .text-white {
-    color: #2D2D2D !important;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
-}
-
-.cta-section h3 {
-    color: #2D2D2D !important;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
-}
-
-.cta-section .lead {
-    color: #2D2D2D !important;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
-}
-
-@keyframes patternMove {
-    0% {
-        transform: translate(0, 0);
-    }
-    100% {
-        transform: translate(100px, 100px);
-    }
-}
-
-/* CTA Button Styles */
-.cta-button {
-    display: inline-block;
-    padding: 1rem 3rem;
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: white;
-    text-decoration: none;
-    border: 2px solid rgba(255, 255, 255, 0.8);
-    border-radius: 8px;
-    background: transparent;
-    transition: all 0.3s ease;
-    position: relative;
+.cta-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(45, 45, 45, 0.3);
     z-index: 1;
 }
 
-.cta-button:hover {
-    color: #2D2D2D;
-    background-color: white;
-    border-color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+.cta-content {
+    position: relative;
+    z-index: 2;
+    padding: 120px 0;
 }
 
-.cta-button:active {
-    transform: translateY(0);
+.cta-title {
+    font-size: 2.5rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    line-height: 1.3;
+}
+
+.cta-subtitle {
+    font-size: 1.2rem;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    line-height: 1.8;
 }
 
 /* Responsive Design */
+@media (max-width: 992px) {
+    .features-section,
+    .packages-section {
+        padding: 80px 0;
+    }
+    
+    .section-title {
+        font-size: 2rem;
+    }
+}
+
 @media (max-width: 768px) {
     #heroCarousel {
         height: 70vh;
         min-height: 500px;
     }
 
-    .carousel-caption-custom h1 {
+    .hero-title {
         font-size: 2.5rem;
+        letter-spacing: 2px;
+    }
+
+    .hero-subtitle {
+        font-size: 1.1rem;
     }
 
     .carousel-control-prev,
     .carousel-control-next {
-        width: 60px;
-        height: 60px;
+        width: 40px;
+        height: 40px;
         margin: 0 1rem;
     }
 
-    .feature-icon-large {
-        font-size: 3rem;
+    .features-section,
+    .packages-section {
+        padding: 60px 0;
+    }
+
+    .section-title {
+        font-size: 1.75rem;
+    }
+
+    .feature-card-minimal {
+        padding: 2rem 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .package-image {
+        height: 220px;
+    }
+
+    .package-content {
+        padding: 2rem;
+    }
+
+    .cta-content {
+        padding: 80px 0;
+    }
+
+    .cta-title {
+        font-size: 2rem;
     }
 }
 
@@ -298,15 +446,463 @@
         min-height: 400px;
     }
 
-    .carousel-caption-custom {
-        padding: 1rem 0.5rem;
+    .hero-title {
+        font-size: 2rem;
+        letter-spacing: 1px;
     }
 
-    .carousel-caption-custom h1 {
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+
+    .btn-minimal,
+    .btn-minimal-outline {
+        padding: 0.75rem 2rem;
+        font-size: 0.85rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+    }
+
+    .section-subtitle {
+        font-size: 1rem;
+    }
+
+    .feature-card-minimal {
+        padding: 1.5rem 1rem;
+    }
+
+    .package-image {
+        height: 180px;
+    }
+}
+
+/* Accessibility - Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ==========================================
+   Dynamic Content Sections - Maybourne Style
+   ========================================== */
+
+/* Base Content Section - Scroll Animation */
+.content-section {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.content-section.fade-in-active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Stagger animations for child elements */
+.content-section.fade-in-active .section-image {
+    animation: fadeIn 0.8s ease 0.2s both;
+}
+
+.content-section.fade-in-active .section-text {
+    animation: fadeIn 0.8s ease 0.4s both;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Background Colors - Fixed for null handling */
+.content-section.bg-white,
+.bg-white {
+    background-color: #FFFFFF !important;
+}
+
+.content-section.bg-cream,
+.bg-cream {
+    background-color: #FAFAFA !important;
+}
+
+.content-section.bg-light-gray,
+.bg-light-gray {
+    background-color: #F5F5F5 !important;
+}
+
+/* Section Spacing - Maybourne Style (More Generous) */
+.text-image-section,
+.gallery-section,
+.video-section,
+.text-only-section {
+    padding: 140px 0;
+    min-height: 600px;
+    display: flex;
+    align-items: center;
+}
+
+.full-width-section {
+    position: relative;
+    min-height: 600px;
+    padding: 140px 0;
+    background-size: cover;
+    background-position: center;
+    background-attachment: scroll;
+    display: flex;
+    align-items: center;
+}
+
+/* Section Typography */
+.section-heading {
+    font-size: 2.5rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: #2D2D2D;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+}
+
+.section-subtitle-text {
+    font-size: 1.1rem;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    color: #8A8A8A;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.section-description {
+    font-size: 1rem;
+    font-weight: 300;
+    line-height: 1.8;
+    color: #5A5A5A;
+    margin-bottom: 2rem;
+}
+
+/* Text + Image Section - Maybourne 50/50 Split */
+.text-image-section .section-image {
+    padding: 0 3rem;
+    height: 500px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.text-image-section .section-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: none;
+    display: block;
+}
+
+/* Generic rule for ALL section images */
+.section-image {
+    height: 500px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.section-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.text-image-section .section-text {
+    padding: 0 4rem;
+    max-width: 540px;
+}
+
+/* Ensure equal height columns */
+.text-image-section .row {
+    min-height: 500px;
+}
+
+.text-image-section .col-lg-6 {
+    display: flex;
+    align-items: center;
+}
+
+/* Full Width Image Section */
+.full-width-section .section-overlay-dark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 1;
+}
+
+.full-width-section .section-content {
+    position: relative;
+    z-index: 2;
+}
+
+.full-width-section .section-heading {
+    color: white;
+}
+
+.full-width-section .section-subtitle-text {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.full-width-section .section-description {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Gallery Section */
+.gallery-section .gallery-item {
+    overflow: hidden;
+    border: 1px solid #E5E5E5;
+    transition: box-shadow 0.3s ease;
+}
+
+.gallery-section .gallery-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.gallery-section .gallery-item img {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.gallery-section .gallery-item:hover img {
+    transform: scale(1.05);
+}
+
+/* Video Section - Maybourne Style with Rose Gold Accents */
+.video-section .video-wrapper {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    overflow: hidden;
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    transition: box-shadow 0.3s ease;
+}
+
+.video-section .video-wrapper:hover {
+    box-shadow: 0 12px 32px rgba(183, 110, 121, 0.2);
+}
+
+.video-section .video-wrapper video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: none;
+    display: block;
+}
+
+.video-section .video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+/* For autoplay background videos */
+.video-section .video-wrapper video {
+    display: block;
+}
+
+.video-section .section-text {
+    padding: 0 4rem;
+    max-width: 540px;
+}
+
+/* Ensure equal height columns */
+.video-section .row {
+    min-height: 500px;
+}
+
+.video-section .col-lg-6 {
+    display: flex;
+    align-items: center;
+}
+
+/* Text Only Section */
+.text-only-section {
+    padding: 100px 0;
+}
+
+.text-only-section .section-heading {
+    margin-bottom: 1.5rem;
+}
+
+/* Responsive Design for Content Sections */
+@media (max-width: 992px) {
+    .text-image-section,
+    .gallery-section,
+    .video-section,
+    .text-only-section {
+        padding: 80px 0;
+        min-height: auto;
+    }
+
+    .full-width-section {
+        padding: 80px 0;
+        min-height: 400px;
+    }
+
+    .section-heading {
         font-size: 2rem;
     }
 
-    .carousel-caption-custom .lead {
-        font-size: 1.1rem;
+    .text-image-section .section-image,
+    .video-section .video-wrapper {
+        padding: 0 1.5rem;
+    }
+
+    .video-section .video-wrapper {
+        height: 350px;
+    }
+
+    .text-image-section .section-text,
+    .video-section .section-text {
+        padding: 3rem 1.5rem 0;
+        margin-top: 0;
+        max-width: 100%;
+    }
+
+    .text-image-section .row,
+    .video-section .row {
+        min-height: auto;
+    }
+
+    .text-image-section .col-lg-6,
+    .video-section .col-lg-6 {
+        display: block;
+    }
+
+    .text-image-section .section-image img {
+        height: 350px;
+    }
+}
+
+@media (max-width: 768px) {
+    .text-image-section,
+    .gallery-section,
+    .video-section,
+    .text-only-section {
+        padding: 60px 0;
+    }
+
+    .full-width-section {
+        padding: 60px 0;
+        min-height: 350px;
+    }
+
+    .section-heading {
+        font-size: 1.75rem;
+        letter-spacing: 1px;
+    }
+
+    .section-subtitle-text {
+        font-size: 1rem;
+    }
+
+    .section-description {
+        font-size: 0.95rem;
+    }
+
+    .text-image-section .section-image img,
+    .gallery-section .gallery-item img {
+        height: 250px;
+    }
+
+    .text-image-section .section-image,
+    .video-section .video-wrapper {
+        padding: 0 1rem;
+    }
+
+    .video-section .video-wrapper {
+        height: 300px;
+    }
+
+    .text-image-section .section-text,
+    .video-section .section-text {
+        padding: 2rem 1rem 0;
+    }
+}
+
+@media (max-width: 576px) {
+    .text-image-section,
+    .gallery-section,
+    .video-section,
+    .text-only-section {
+        padding: 40px 0;
+    }
+
+    .full-width-section {
+        padding: 40px 0;
+        min-height: 300px;
+    }
+
+    .section-heading {
+        font-size: 1.5rem;
+    }
+
+    .text-image-section .section-image img,
+    .gallery-section .gallery-item img {
+        height: 200px;
+    }
+
+    .text-image-section .section-image,
+    .video-section .video-wrapper {
+        padding: 0;
+    }
+
+    .text-image-section .section-text,
+    .video-section .section-text {
+        padding: 2rem 0 0;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .carousel-control-prev,
+    .carousel-control-next,
+    .carousel-indicators {
+        display: none !important;
+    }
+    
+    .feature-card-minimal,
+    .package-card-minimal {
+        page-break-inside: avoid;
+    }
+
+    .content-section {
+        opacity: 1 !important;
+        transform: none !important;
+        page-break-inside: avoid;
+    }
+
+    .full-width-section .section-overlay-dark {
+        display: none;
     }
 }

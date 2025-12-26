@@ -205,6 +205,9 @@ public class ClientService : IClientService
         client.FirstName = firstName;
         client.LastName = lastName;
         client.PhoneNumber = phoneNumber;
+        
+        // FIX: Explicitly mark the entity as modified to ensure EF Core saves all changes
+        _context.Entry(client).State = EntityState.Modified;
 
         try
         {

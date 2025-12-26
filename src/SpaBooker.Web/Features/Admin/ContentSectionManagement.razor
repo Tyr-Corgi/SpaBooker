@@ -1,0 +1,591 @@
+@page "/admin/content-sections"
+@rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using SpaBooker.Core.Entities
+@using SpaBooker.Infrastructure.Data
+@using System.IO
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Content Section Management</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Content Sections</h1>
+            <p class="text-muted">Manage storytelling sections on the homepage</p>
+        </div>
+        <button class="btn btn-primary" @onclick="CreateSection">
+            ➕ Create Section
+        </button>
+    </div>
+
+    @if (loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (sections.Count == 0)
+    {
+        <div class="alert alert-info">
+            ℹ️ No content sections yet. Click "Create Section" to add your first section.
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var contentSection in sections.OrderBy(s => s.DisplayOrder))
+            {
+                <div class="col-12">
+                    <div class="card section-card @(contentSection.IsActive ? "" : "opacity-50")">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- Preview Thumbnail -->
+                                <div class="col-md-2">
+                                    @if (!string.IsNullOrEmpty(contentSection.ImageUrl))
+                                    {
+                                        <div class="section-thumbnail" style="background-image: url('@(contentSection.ImageUrl)');"></div>
+                                    }
+                                    else
+                                    {
+                                        <div class="section-thumbnail bg-light d-flex align-items-center justify-content-center">
+                                            🖼️
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Section Info -->
+                                <div class="col-md-7">
+                                    <div class="d-flex align-items-start mb-2">
+                                        <span class="badge bg-secondary me-2">#@(contentSection.DisplayOrder)</span>
+                                        <span class="badge bg-primary me-2">@(contentSection.SectionType)</span>
+                                        <span class="badge bg-info me-2">@(contentSection.LayoutType)</span>
+                                        @if (contentSection.IsActive)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        }
+                                    </div>
+                                    <h5 class="card-title mb-1">@(contentSection.Title)</h5>
+                                    @if (!string.IsNullOrEmpty(contentSection.Subtitle))
+                                    {
+                                        <p class="text-muted small mb-2">@(contentSection.Subtitle)</p>
+                                    }
+                                    <p class="text-secondary mb-2" style="font-size: 0.9rem;">
+                                        @(contentSection.Description.Length > 150 ? contentSection.Description.Substring(0, 150) + "..." : contentSection.Description)
+                                    </p>
+                                    @if (!string.IsNullOrEmpty(contentSection.ButtonText))
+                                    {
+                                        <div class="text-muted small">
+                                            🔗 Button: @(contentSection.ButtonText) → @(contentSection.ButtonLink)
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="col-md-3 d-flex flex-column gap-2">
+                                    <button class="btn btn-sm btn-primary" @onclick="() => EditSection(contentSection)">
+                                        ✏️ Edit
+                                    </button>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                @onclick="() => MoveSection(contentSection, -1)"
+                                                disabled="@(contentSection.DisplayOrder == 1)">
+                                            ⬆️
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                @onclick="() => MoveSection(contentSection, 1)"
+                                                disabled="@(contentSection.DisplayOrder == sections.Count)">
+                                            ⬇️
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Edit/Create Modal -->
+@if (editingSection != null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(editingSection.Id == 0 ? "Create" : "Edit") Content Section</h5>
+                    <button type="button" class="btn-close" @onclick="CancelEdit"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="editingSection" OnValidSubmit="SaveSection">
+                        <div class="row g-3">
+                            <!-- Basic Info -->
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">Title *</label>
+                                    <InputText @bind-Value="editingSection.Title" class="form-control" placeholder="e.g., Experience Tranquility" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Subtitle</label>
+                                    <InputText @bind-Value="editingSection.Subtitle" class="form-control" placeholder="Optional tagline" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Description *</label>
+                                    <InputTextArea @bind-Value="editingSection.Description" class="form-control" rows="4" 
+                                                   placeholder="Main content text for the section" />
+                                </div>
+                            </div>
+
+                            <!-- Settings -->
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Section Type *</label>
+                                    <InputSelect @bind-Value="editingSection.SectionType" class="form-select">
+                                        <option value="TextImage">Text + Image</option>
+                                        <option value="FullWidthImage">Full Width Image</option>
+                                        <option value="Gallery">Gallery (3 images)</option>
+                                        <option value="Video">Video Section</option>
+                                        <option value="TextOnly">Text Only</option>
+                                    </InputSelect>
+                                    <small class="form-text text-muted">
+                                        How content is displayed
+                                    </small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Layout Type *</label>
+                                    <InputSelect @bind-Value="editingSection.LayoutType" class="form-select">
+                                        <option value="ImageLeft">Image Left</option>
+                                        <option value="ImageRight">Image Right</option>
+                                        <option value="ImageCenter">Image Center</option>
+                                        <option value="TextOnly">Text Only</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Background Color</label>
+                                    <InputSelect @bind-Value="editingSection.BackgroundColor" class="form-select">
+                                        <option value="white">White</option>
+                                        <option value="cream">Cream</option>
+                                        <option value="light-gray">Light Gray</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Display Order *</label>
+                                    <InputNumber @bind-Value="editingSection.DisplayOrder" class="form-control" min="1" />
+                                    <small class="form-text text-muted">
+                                        Lower numbers appear first
+                                    </small>
+                                </div>
+
+                                <div class="mb-3 form-check">
+                                    <InputCheckbox @bind-Value="editingSection.IsActive" class="form-check-input" id="isActive" />
+                                    <label class="form-check-label" for="isActive">
+                                        Active (show on homepage)
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Images -->
+                            <div class="col-12">
+                                <hr />
+                                <h6 class="mb-3">Images & Media</h6>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Image URL 1</label>
+                                    <InputText @bind-Value="editingSection.ImageUrl" class="form-control" 
+                                               placeholder="https://..." />
+                                    <small class="form-text text-muted">
+                                        High-resolution images work best (1200px+ width)
+                                    </small>
+                                    @if (!string.IsNullOrEmpty(editingSection.ImageUrl))
+                                    {
+                                        <div class="mt-2 section-preview-large" style="background-image: url('@editingSection.ImageUrl');"></div>
+                                    }
+                                </div>
+                            </div>
+
+                            @if (editingSection.SectionType == "Gallery")
+                            {
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Image URL 2</label>
+                                        <InputText @bind-Value="editingSection.ImageUrl2" class="form-control" 
+                                                   placeholder="https://..." />
+                                        @if (!string.IsNullOrEmpty(editingSection.ImageUrl2))
+                                        {
+                                            <div class="mt-2 section-preview-large" style="background-image: url('@editingSection.ImageUrl2');"></div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Image URL 3</label>
+                                        <InputText @bind-Value="editingSection.ImageUrl3" class="form-control" 
+                                                   placeholder="https://..." />
+                                        @if (!string.IsNullOrEmpty(editingSection.ImageUrl3))
+                                        {
+                                            <div class="mt-2 section-preview-large" style="background-image: url('@editingSection.ImageUrl3');"></div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            @if (editingSection.SectionType == "Video")
+                            {
+                                <div class="col-12">
+                                    <div class="mb-3">
+                                        <label class="form-label">Video URL</label>
+                                        <InputText @bind-Value="editingSection.VideoUrl" class="form-control" 
+                                                   placeholder="YouTube embed URL or /videos/your-video.mp4" />
+                                        <small class="form-text text-muted d-block mt-1">
+                                            <strong>YouTube/Vimeo:</strong> https://www.youtube.com/embed/VIDEO_ID
+                                        </small>
+                                        <small class="form-text text-muted d-block">
+                                            <strong>Local video:</strong> Upload files to /wwwroot/videos/ and reference as /videos/filename.mp4
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Video Settings -->
+                                <div class="col-12">
+                                    <div class="mb-3">
+                                        <label class="form-label d-block mb-2">Video Settings</label>
+                                        
+                                        <div class="form-check mb-2">
+                                            <InputCheckbox @bind-Value="editingSection.VideoAutoplay" class="form-check-input" id="videoAutoplay" />
+                                            <label class="form-check-label" for="videoAutoplay">
+                                                Autoplay (muted)
+                                            </label>
+                                            <small class="form-text text-muted d-block">
+                                                Video starts automatically when scrolled into view
+                                            </small>
+                                        </div>
+                                        
+                                        <div class="form-check mb-2">
+                                            <InputCheckbox @bind-Value="editingSection.VideoLoop" class="form-check-input" id="videoLoop" />
+                                            <label class="form-check-label" for="videoLoop">
+                                                Loop continuously
+                                            </label>
+                                            <small class="form-text text-muted d-block">
+                                                Video restarts when it ends
+                                            </small>
+                                        </div>
+                                        
+                                        <div class="form-check">
+                                            <InputCheckbox @bind-Value="editingSection.VideoShowControls" class="form-check-input" id="videoShowControls" />
+                                            <label class="form-check-label" for="videoShowControls">
+                                                Show player controls
+                                            </label>
+                                            <small class="form-text text-muted d-block">
+                                                Display play/pause buttons (YouTube/Vimeo only)
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- CTA Button -->
+                            <div class="col-12">
+                                <hr />
+                                <h6 class="mb-3">Call-to-Action Button (Optional)</h6>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Button Text</label>
+                                    <InputText @bind-Value="editingSection.ButtonText" class="form-control" 
+                                               placeholder="e.g., Learn More, View Services" />
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Button Link</label>
+                                    <InputText @bind-Value="editingSection.ButtonLink" class="form-control" 
+                                               placeholder="e.g., /services, /membership" />
+                                </div>
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+                <div class="modal-footer">
+                    @if (editingSection.Id != 0)
+                    {
+                        <div class="me-auto d-flex gap-2">
+                            <button type="button" class="btn btn-outline-warning" @onclick="() => ToggleActiveInModal(editingSection)">
+                                @(editingSection.IsActive ? "👁️‍🗨️ Deactivate" : "👁️ Activate")
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" @onclick="() => ConfirmDeleteFromModal(editingSection)">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    }
+                    <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveSection">
+                        ✅ Save Section
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (deletingSection != null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the section <strong>@deletingSection.Title</strong>?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteSection">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ContentSection> sections = new();
+    private ContentSection? editingSection;
+    private ContentSection? deletingSection;
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadSections();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR in OnInitializedAsync: {ex.Message}");
+            Console.WriteLine($"Stack: {ex.StackTrace}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadSections()
+    {
+        await using var context = await DbContextFactory.CreateDbContextAsync();
+        sections = await context.ContentSections
+            .OrderBy(s => s.DisplayOrder)
+            .ToListAsync();
+    }
+    
+    private void CreateSection()
+    {
+        editingSection = new ContentSection
+        {
+            DisplayOrder = sections.Count + 1,
+            IsActive = true,
+            SectionType = "TextImage",
+            LayoutType = "ImageLeft",
+            BackgroundColor = "white"
+        };
+    }
+
+    private void EditSection(ContentSection contentSection)
+    {
+        editingSection = new ContentSection
+        {
+            Id = contentSection.Id,
+            Title = contentSection.Title,
+            Subtitle = contentSection.Subtitle,
+            Description = contentSection.Description,
+            SectionType = contentSection.SectionType,
+            ImageUrl = contentSection.ImageUrl,
+            ImageUrl2 = contentSection.ImageUrl2,
+            ImageUrl3 = contentSection.ImageUrl3,
+            VideoUrl = contentSection.VideoUrl,
+            VideoAutoplay = contentSection.VideoAutoplay,
+            VideoLoop = contentSection.VideoLoop,
+            VideoShowControls = contentSection.VideoShowControls,
+            ButtonText = contentSection.ButtonText,
+            ButtonLink = contentSection.ButtonLink,
+            LayoutType = contentSection.LayoutType,
+            BackgroundColor = contentSection.BackgroundColor,
+            DisplayOrder = contentSection.DisplayOrder,
+            IsActive = contentSection.IsActive,
+            CreatedAt = contentSection.CreatedAt
+        };
+    }
+
+    private async Task SaveSection()
+    {
+        if (editingSection == null) return;
+
+        await using var context = await DbContextFactory.CreateDbContextAsync();
+
+        if (editingSection.Id == 0)
+        {
+            // Creating new section
+            editingSection.CreatedAt = DateTime.UtcNow;
+            context.ContentSections.Add(editingSection);
+        }
+        else
+        {
+            // Updating existing section
+            var existing = await context.ContentSections.FindAsync(editingSection.Id);
+            if (existing != null)
+            {
+                existing.Title = editingSection.Title;
+                existing.Subtitle = editingSection.Subtitle;
+                existing.Description = editingSection.Description;
+                existing.SectionType = editingSection.SectionType;
+                existing.ImageUrl = editingSection.ImageUrl;
+                existing.ImageUrl2 = editingSection.ImageUrl2;
+                existing.ImageUrl3 = editingSection.ImageUrl3;
+                existing.VideoUrl = editingSection.VideoUrl;
+                existing.VideoAutoplay = editingSection.VideoAutoplay;
+                existing.VideoLoop = editingSection.VideoLoop;
+                existing.VideoShowControls = editingSection.VideoShowControls;
+                existing.ButtonText = editingSection.ButtonText;
+                existing.ButtonLink = editingSection.ButtonLink;
+                existing.LayoutType = editingSection.LayoutType;
+                existing.BackgroundColor = editingSection.BackgroundColor;
+                existing.DisplayOrder = editingSection.DisplayOrder;
+                existing.IsActive = editingSection.IsActive;
+                existing.UpdatedAt = DateTime.UtcNow;
+                
+                // FIX: Explicitly mark the entity as modified to ensure EF Core saves all changes
+                context.Entry(existing).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+            }
+        }
+
+        await context.SaveChangesAsync();
+        await LoadSections();
+        editingSection = null;
+    }
+
+    private void CancelEdit()
+    {
+        editingSection = null;
+    }
+
+    private async Task MoveSection(ContentSection contentSection, int direction)
+    {
+        await using var context = await DbContextFactory.CreateDbContextAsync();
+        
+        var currentOrder = contentSection.DisplayOrder;
+        var newOrder = currentOrder + direction;
+
+        // Find the section at the target position
+        var targetSection = sections.FirstOrDefault(s => s.DisplayOrder == newOrder);
+        
+        if (targetSection != null)
+        {
+            var dbSection = await context.ContentSections.FindAsync(contentSection.Id);
+            var dbTarget = await context.ContentSections.FindAsync(targetSection.Id);
+
+            if (dbSection != null && dbTarget != null)
+            {
+                // Swap display orders
+                dbSection.DisplayOrder = newOrder;
+                dbTarget.DisplayOrder = currentOrder;
+                
+                await context.SaveChangesAsync();
+                await LoadSections();
+            }
+        }
+    }
+
+    private async Task ToggleActive(ContentSection contentSection)
+    {
+        await using var context = await DbContextFactory.CreateDbContextAsync();
+        var dbSection = await context.ContentSections.FindAsync(contentSection.Id);
+        
+        if (dbSection != null)
+        {
+            dbSection.IsActive = !dbSection.IsActive;
+            dbSection.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+            await LoadSections();
+        }
+    }
+
+    private void ToggleActiveInModal(ContentSection contentSection)
+    {
+        if (editingSection != null)
+        {
+            editingSection.IsActive = !editingSection.IsActive;
+        }
+    }
+
+    private void ConfirmDeleteFromModal(ContentSection contentSection)
+    {
+        deletingSection = contentSection;
+        // Don't close the edit modal yet - the delete confirmation will show on top
+    }
+
+    private void ConfirmDelete(ContentSection contentSection)
+    {
+        deletingSection = contentSection;
+    }
+
+    private void CancelDelete()
+    {
+        deletingSection = null;
+    }
+
+    private async Task DeleteSection()
+    {
+        if (deletingSection == null) return;
+
+        await using var context = await DbContextFactory.CreateDbContextAsync();
+        var section = await context.ContentSections.FindAsync(deletingSection.Id);
+        
+        if (section != null)
+        {
+            context.ContentSections.Remove(section);
+            await context.SaveChangesAsync();
+            
+            // Reorder remaining sections
+            var remainingSections = await context.ContentSections
+                .OrderBy(s => s.DisplayOrder)
+                .ToListAsync();
+            
+            for (int i = 0; i < remainingSections.Count; i++)
+            {
+                remainingSections[i].DisplayOrder = i + 1;
+            }
+            
+            await context.SaveChangesAsync();
+            await LoadSections();
+        }
+
+        deletingSection = null;
+    }
+}
+

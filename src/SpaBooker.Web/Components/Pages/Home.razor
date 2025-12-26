@@ -1,46 +1,50 @@
-﻿@page "/"
+@page "/"
+@using System.IO
 @using Microsoft.EntityFrameworkCore
 @using SpaBooker.Core.Entities
 @using SpaBooker.Infrastructure.Data
-@inject ApplicationDbContext DbContext
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
 @inject IJSRuntime JS
 
 <PageTitle>Home - SpaBooker</PageTitle>
 
-<!-- Hero Carousel -->
-<div id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel">
-    <div class="carousel-indicators">
-        @for (int i = 0; i < banners.Count; i++)
-        {
-            var index = i;
-            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="@index" 
-                    class="@(index == 0 ? "active" : "")" aria-current="@(index == 0 ? "true" : "false")" 
-                    aria-label="Slide @(index + 1)"></button>
-        }
-    </div>
+<!-- Hero Carousel - Maybourne Refined -->
+<div id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="6000">
+    @if (banners.Count > 1)
+    {
+        <div class="carousel-indicators">
+            @for (int i = 0; i < banners.Count; i++)
+            {
+                var index = i;
+                <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="@index" 
+                        class="@(index == 0 ? "active" : "")" aria-current="@(index == 0 ? "true" : "false")" 
+                        aria-label="Slide @(index + 1)"></button>
+            }
+        </div>
+    }
     
     <div class="carousel-inner">
         @for (int i = 0; i < banners.Count; i++)
         {
             var banner = banners[i];
             var index = i;
+            var overlayOpacity = banner.OverlayOpacity / 100.0;
             <div class="carousel-item @(index == 0 ? "active" : "")">
-                <div class="carousel-image" style="background-image: url('@banner.ImageUrl');">
-                    <div class="carousel-overlay"></div>
-                </div>
+                <div class="carousel-image" style="background-image: url('@banner.ImageUrl');"></div>
+                <div class="carousel-overlay" style="background: rgba(0, 0, 0, @overlayOpacity.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));"></div>
                 <div class="carousel-caption-custom">
                     <div class="container">
                         <div class="row justify-content-center">
-                            <div class="col-lg-8 text-center">
-                                <h1 class="display-3 fw-bold text-white mb-3 animate-slide-up">@banner.Title</h1>
-                                <p class="lead text-white mb-4 animate-slide-up-delay">@banner.Subtitle</p>
+                            <div class="col-lg-10 col-xl-8 text-center">
+                                <h1 class="hero-title text-white mb-4">@banner.Title</h1>
+                                <p class="hero-subtitle text-white mb-5">@banner.Subtitle</p>
                                 @if (!string.IsNullOrEmpty(banner.Description))
                                 {
-                                    <p class="text-white mb-4 animate-fade-in">@banner.Description</p>
+                                    <p class="hero-description text-white mb-5">@banner.Description</p>
                                 }
                                 @if (!string.IsNullOrEmpty(banner.ButtonText) && !string.IsNullOrEmpty(banner.ButtonLink))
                                 {
-                                    <a href="@banner.ButtonLink" class="btn btn-primary btn-lg px-5 py-3 animate-bounce">
+                                    <a href="@banner.ButtonLink" class="btn-minimal">
                                         @banner.ButtonText
                                     </a>
                                 }
@@ -52,83 +56,454 @@
         }
     </div>
     
-    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
-        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Previous</span>
-    </button>
-    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
-        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Next</span>
-    </button>
+    @if (banners.Count > 1)
+    {
+        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    }
 </div>
 
-<!-- Features Section -->
-<div class="container py-5">
-    <div class="row text-center mb-5">
-        <div class="col-12">
-            <h2 class="text-rose-gold mb-3">Why Choose Us?</h2>
-            <p class="text-muted">Experience the best in spa and wellness services</p>
-        </div>
-    </div>
+<!-- Dynamic Content Sections - Storytelling -->
+@if (contentSections.Any())
+{
+    foreach (var contentSection in contentSections)
+    {
+        var bgColorClass = contentSection.BackgroundColor switch
+        {
+            "cream" => "bg-cream",
+            "light-gray" => "bg-light-gray",
+            _ => "bg-white"
+        };
 
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="feature-card card h-100 text-center border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <div class="feature-icon-large mb-3">💆</div>
-                    <h5 class="card-title text-rose-gold mb-3">Expert Therapists</h5>
-                    <p class="card-text text-muted">Our licensed professionals provide personalized care tailored to your needs.</p>
+        @if (contentSection.SectionType == "TextImage")
+        {
+            <!-- Text + Image Section -->
+            <section class="content-section text-image-section @bgColorClass" data-layout="@(contentSection.LayoutType)">
+                <div class="container">
+                    <div class="row align-items-center g-5">
+                        @if (contentSection.LayoutType == "ImageLeft")
+                        {
+                            <div class="col-lg-6">
+                                <div class="section-image">
+                                    <img src="@(contentSection.ImageUrl)" alt="@(contentSection.Title)" loading="lazy" />
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="section-text">
+                                    <h2 class="section-heading">@(contentSection.Title)</h2>
+                                    @if (!string.IsNullOrEmpty(contentSection.Subtitle))
+                                    {
+                                        <p class="section-subtitle-text">@(contentSection.Subtitle)</p>
+                                    }
+                                    <p class="section-description">@(contentSection.Description)</p>
+                                    @if (!string.IsNullOrEmpty(contentSection.ButtonText))
+                                    {
+                                        <a href="@(contentSection.ButtonLink)" class="btn-minimal">@(contentSection.ButtonText)</a>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="col-lg-6">
+                                <div class="section-text">
+                                    <h2 class="section-heading">@(contentSection.Title)</h2>
+                                    @if (!string.IsNullOrEmpty(contentSection.Subtitle))
+                                    {
+                                        <p class="section-subtitle-text">@(contentSection.Subtitle)</p>
+                                    }
+                                    <p class="section-description">@(contentSection.Description)</p>
+                                    @if (!string.IsNullOrEmpty(contentSection.ButtonText))
+                                    {
+                                        <a href="@(contentSection.ButtonLink)" class="btn-minimal">@(contentSection.ButtonText)</a>
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="section-image">
+                                    <img src="@(contentSection.ImageUrl)" alt="@(contentSection.Title)" loading="lazy" />
+                                </div>
+                            </div>
+                        }
+                    </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="feature-card card h-100 text-center border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <div class="feature-icon-large mb-3">📅</div>
-                    <h5 class="card-title text-rose-gold mb-3">Easy Booking</h5>
-                    <p class="card-text text-muted">Simple online booking with real-time availability and instant confirmation.</p>
+            </section>
+        }
+        else if (contentSection.SectionType == "FullWidthImage")
+        {
+            <!-- Full Width Image Section -->
+            <section class="content-section full-width-section" style="background-image: url('@(contentSection.ImageUrl)');">
+                <div class="section-overlay-dark"></div>
+                <div class="section-content">
+                    <div class="container">
+                        <div class="row justify-content-center">
+                            <div class="col-lg-8 text-center">
+                                <h2 class="section-heading text-white">@(contentSection.Title)</h2>
+                                @if (!string.IsNullOrEmpty(contentSection.Subtitle))
+                                {
+                                    <p class="section-subtitle-text text-white">@(contentSection.Subtitle)</p>
+                                }
+                                <p class="section-description text-white">@(contentSection.Description)</p>
+                                @if (!string.IsNullOrEmpty(contentSection.ButtonText))
+                                {
+                                    <a href="@(contentSection.ButtonLink)" class="btn-minimal-outline">@(contentSection.ButtonText)</a>
+                                }
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="feature-card card h-100 text-center border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <div class="feature-icon-large mb-3">💎</div>
-                    <h5 class="card-title text-rose-gold mb-3">Membership Benefits</h5>
-                    <p class="card-text text-muted">Save with our exclusive membership plans and enjoy special perks.</p>
+            </section>
+        }
+        else if (contentSection.SectionType == "Gallery")
+        {
+            <!-- Gallery Section -->
+            <section class="content-section gallery-section @bgColorClass">
+                <div class="container">
+                    <div class="row text-center mb-5">
+                        <div class="col-12">
+                            <h2 class="section-heading">@(contentSection.Title)</h2>
+                            @if (!string.IsNullOrEmpty(contentSection.Subtitle))
+                            {
+                                <p class="section-subtitle-text">@(contentSection.Subtitle)</p>
+                            }
+                        </div>
+                    </div>
+                    <div class="row g-4">
+                        @if (!string.IsNullOrEmpty(contentSection.ImageUrl))
+                        {
+                            <div class="col-lg-4">
+                                <div class="gallery-item">
+                                    <img src="@(contentSection.ImageUrl)" alt="Gallery 1" loading="lazy" />
+                                </div>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(contentSection.ImageUrl2))
+                        {
+                            <div class="col-lg-4">
+                                <div class="gallery-item">
+                                    <img src="@(contentSection.ImageUrl2)" alt="Gallery 2" loading="lazy" />
+                                </div>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(contentSection.ImageUrl3))
+                        {
+                            <div class="col-lg-4">
+                                <div class="gallery-item">
+                                    <img src="@(contentSection.ImageUrl3)" alt="Gallery 3" loading="lazy" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(contentSection.Description))
+                    {
+                        <div class="row mt-4">
+                            <div class="col-12 text-center">
+                                <p class="section-description">@(contentSection.Description)</p>
+                                @if (!string.IsNullOrEmpty(contentSection.ButtonText))
+                                {
+                                    <a href="@(contentSection.ButtonLink)" class="btn-minimal mt-3">@(contentSection.ButtonText)</a>
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
+            </section>
+        }
+        else if (contentSection.SectionType == "Video")
+        {
+            var isDirectVideo = !string.IsNullOrEmpty(contentSection.VideoUrl) && 
+                               (contentSection.VideoUrl.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                                contentSection.VideoUrl.EndsWith(".webm", StringComparison.OrdinalIgnoreCase) ||
+                                contentSection.VideoUrl.EndsWith(".mov", StringComparison.OrdinalIgnoreCase));
+            
+            // For YouTube embeds, build URL with user-selected settings
+            var videoUrl = contentSection.VideoUrl ?? "";
+            if (!isDirectVideo && !string.IsNullOrEmpty(videoUrl))
+            {
+                // Check if it's a YouTube URL
+                if (videoUrl.Contains("youtube.com/embed/") || videoUrl.Contains("youtu.be/"))
+                {
+                    // Extract video ID
+                    var videoId = "";
+                    if (videoUrl.Contains("youtube.com/embed/"))
+                    {
+                        var parts = videoUrl.Split("/embed/");
+                        if (parts.Length > 1)
+                        {
+                            videoId = parts[1].Split('?')[0];
+                        }
+                    }
+                    
+                    // Build URL with admin-selected parameters
+                    if (!string.IsNullOrEmpty(videoId))
+                    {
+                        var urlParams = new List<string>();
+                        
+                        if (contentSection.VideoAutoplay)
+                        {
+                            urlParams.Add("autoplay=1");
+                            urlParams.Add("mute=1"); // Required for autoplay
+                        }
+                        
+                        if (contentSection.VideoLoop)
+                        {
+                            urlParams.Add("loop=1");
+                            urlParams.Add($"playlist={videoId}"); // Required for loop
+                        }
+                        
+                        if (!contentSection.VideoShowControls)
+                        {
+                            urlParams.Add("controls=0");
+                        }
+                        
+                        // Performance optimizations
+                        urlParams.Add("modestbranding=1"); // Minimize YouTube branding
+                        urlParams.Add("rel=0"); // Don't show related videos at end
+                        urlParams.Add("playsinline=1"); // Better mobile performance
+                        urlParams.Add("enablejsapi=1"); // Enable JavaScript API for better control
+                        
+                        videoUrl = $"https://www.youtube.com/embed/{videoId}?{string.Join("&", urlParams)}";
+                    }
+                }
+            }
+            
+            <!-- Video Section -->
+            <section class="content-section video-section @bgColorClass">
+                <div class="container">
+                    <div class="row align-items-center g-5">
+                        <div class="col-lg-6">
+                            <div class="section-text">
+                                <h2 class="section-heading">@(contentSection.Title)</h2>
+                                @if (!string.IsNullOrEmpty(contentSection.Subtitle))
+                                {
+                                    <p class="section-subtitle-text">@(contentSection.Subtitle)</p>
+                                }
+                                <p class="section-description">@(contentSection.Description)</p>
+                                @if (!string.IsNullOrEmpty(contentSection.ButtonText))
+                                {
+                                    <a href="@(contentSection.ButtonLink)" class="btn-minimal">@(contentSection.ButtonText)</a>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="video-wrapper">
+                                @if (isDirectVideo)
+                                {
+                                    <!-- Native HTML5 video for .mp4, .webm, .mov files -->
+                                    <video @(contentSection.VideoAutoplay ? "autoplay" : "") 
+                                           @(contentSection.VideoLoop ? "loop" : "") 
+                                           muted 
+                                           playsinline 
+                                           @(contentSection.VideoShowControls ? "controls" : "")>
+                                        <source src="@(contentSection.VideoUrl)" type="video/@(Path.GetExtension(contentSection.VideoUrl).TrimStart('.'))">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                }
+                                else if (!string.IsNullOrEmpty(videoUrl))
+                                {
+                                    <!-- Iframe for YouTube/Vimeo embeds with user-configured settings -->
+                                    <iframe src="@videoUrl" 
+                                            frameborder="0" 
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                            allowfullscreen
+                                            loading="eager"
+                                            fetchpriority="high"></iframe>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        }
+        else if (contentSection.SectionType == "TextOnly")
+        {
+            <!-- Text Only Section -->
+            <section class="content-section text-only-section @bgColorClass">
+                <div class="container">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-8 text-center">
+                            <h2 class="section-heading">@(contentSection.Title)</h2>
+                            @if (!string.IsNullOrEmpty(contentSection.Subtitle))
+                            {
+                                <p class="section-subtitle-text">@(contentSection.Subtitle)</p>
+                            }
+                            <p class="section-description">@(contentSection.Description)</p>
+                            @if (!string.IsNullOrEmpty(contentSection.ButtonText))
+                            {
+                                <a href="@(contentSection.ButtonLink)" class="btn-minimal">@(contentSection.ButtonText)</a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </section>
+        }
+    }
+}
 
-<!-- Call to Action -->
-<div class="cta-section py-5">
+<!-- Features Section - Maybourne Refined -->
+<section class="features-section">
     <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 text-center text-white">
-                <h3 class="display-5 mb-3">Ready to Experience Luxury?</h3>
-                <p class="lead mb-4">Book your appointment today and discover the ultimate in spa relaxation.</p>
-                <div class="d-flex gap-3 justify-content-center flex-wrap">
-                    <a href="/services" class="cta-button">View Services</a>
-                    <a href="/gift-certificates/purchase" class="cta-button">Buy Gift Certificate</a>
+        <div class="row text-center mb-5">
+            <div class="col-12">
+                <h2 class="section-title">Why Choose SpaBooker</h2>
+                <p class="section-subtitle">Experience excellence in every detail</p>
+            </div>
+        </div>
+
+        <div class="row g-5">
+            <div class="col-md-4">
+                <div class="feature-card-minimal">
+                    <div class="feature-icon-minimal mb-4">
+                        <i class="bi bi-star-fill"></i>
+                    </div>
+                    <h3 class="feature-title">Expert Therapists</h3>
+                    <p class="feature-description">Our licensed professionals provide personalized care tailored to your needs.</p>
+                    <a href="/services" class="feature-link">Learn more</a>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="feature-card-minimal">
+                    <div class="feature-icon-minimal mb-4">
+                        <i class="bi bi-calendar-check-fill"></i>
+                    </div>
+                    <h3 class="feature-title">Easy Booking</h3>
+                    <p class="feature-description">Simple online booking with real-time availability and instant confirmation.</p>
+                    <a href="/select-location" class="feature-link">Book now</a>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="feature-card-minimal">
+                    <div class="feature-icon-minimal mb-4">
+                        <i class="bi bi-gem"></i>
+                    </div>
+                    <h3 class="feature-title">Membership Benefits</h3>
+                    <p class="feature-description">Save with our exclusive membership plans and enjoy special perks.</p>
+                    <a href="/memberships/plans" class="feature-link">View plans</a>
                 </div>
             </div>
         </div>
     </div>
-</div>
+</section>
+
+<!-- Featured Packages Section - Refined -->
+<section class="packages-section">
+    <div class="container">
+        <div class="row text-center mb-5">
+            <div class="col-12">
+                <h2 class="section-title">Our Experiences</h2>
+                <p class="section-subtitle">Curated wellness packages for your journey</p>
+            </div>
+        </div>
+
+        <div class="row g-5">
+            <div class="col-lg-4">
+                <div class="package-card-minimal">
+                    <div class="package-image" style="background-image: url('https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=600&h=400&fit=crop');"></div>
+                    <div class="package-content">
+                        <h3 class="package-title">Signature Spa Day</h3>
+                        <p class="package-description">Complete relaxation with massage, facial, and aromatherapy. Includes access to all facilities.</p>
+                        <div class="package-features">
+                            <div class="feature-item">90-min Massage</div>
+                            <div class="feature-item">60-min Facial</div>
+                            <div class="feature-item">Aromatherapy</div>
+                        </div>
+                        <div class="package-pricing">
+                            <span class="price-label">From</span>
+                            <span class="price-amount">$249</span>
+                        </div>
+                        <a href="/services" class="package-link">View details</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="package-card-minimal">
+                    <div class="package-image" style="background-image: url('https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&h=400&fit=crop');"></div>
+                    <div class="package-content">
+                        <h3 class="package-title">Couples Retreat</h3>
+                        <p class="package-description">Share a romantic spa experience with side-by-side massages and champagne.</p>
+                        <div class="package-features">
+                            <div class="feature-item">Couples Massage</div>
+                            <div class="feature-item">Private Suite</div>
+                            <div class="feature-item">Champagne</div>
+                        </div>
+                        <div class="package-pricing">
+                            <span class="price-label">From</span>
+                            <span class="price-amount">$379</span>
+                        </div>
+                        <a href="/services" class="package-link">View details</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="package-card-minimal">
+                    <div class="package-image" style="background-image: url('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&h=400&fit=crop');"></div>
+                    <div class="package-content">
+                        <h3 class="package-title">Ultimate Wellness</h3>
+                        <p class="package-description">Full-day luxury experience with multiple treatments and gourmet lunch included.</p>
+                        <div class="package-features">
+                            <div class="feature-item">4 Treatments</div>
+                            <div class="feature-item">Gourmet Lunch</div>
+                            <div class="feature-item">All Day Access</div>
+                        </div>
+                        <div class="package-pricing">
+                            <span class="price-label">From</span>
+                            <span class="price-amount">$499</span>
+                        </div>
+                        <a href="/services" class="package-link">View details</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action - Minimal -->
+<section class="cta-section">
+    <div class="cta-background" style="background-image: url('https://images.unsplash.com/photo-1600334129128-685c5582fd35?w=1920&h=600&fit=crop');"></div>
+    <div class="cta-overlay"></div>
+    <div class="cta-content">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8 col-xl-6 text-center">
+                    <h2 class="cta-title text-white mb-4">Begin Your Journey</h2>
+                    <p class="cta-subtitle text-white mb-5">Discover tranquility in every moment</p>
+                    <a href="/services" class="btn-minimal-outline">
+                        Explore Services
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 
 @code {
     private List<Banner> banners = new();
+    private List<ContentSection> contentSections = new();
 
     protected override async Task OnInitializedAsync()
     {
+        using var context = await DbContextFactory.CreateDbContextAsync();
+        
         // Load active banners from database
-        banners = await DbContext.Banners
+        banners = await context.Banners
             .Where(b => b.IsActive)
             .OrderBy(b => b.DisplayOrder)
+            .ToListAsync();
+
+        // Load active content sections from database
+        contentSections = await context.ContentSections
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.DisplayOrder)
             .ToListAsync();
 
         // If no banners exist, create default ones with placeholder images
@@ -138,38 +513,57 @@
             {
                 new Banner
                 {
-                    Title = "Relax & Rejuvenate",
-                    Subtitle = "Experience the ultimate in spa luxury",
-                    Description = "Immerse yourself in tranquility with our signature treatments",
+                    Title = "Welcome to SpaBooker",
+                    Subtitle = "Experience tranquility redefined",
+                    Description = "",
                     ImageUrl = "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1920&h=1080&fit=crop",
                     ButtonText = "Book Now",
                     ButtonLink = "/select-location",
                     DisplayOrder = 1,
-                    IsActive = true
+                    IsActive = true,
+                    OverlayOpacity = 30
                 },
                 new Banner
                 {
-                    Title = "Special Packages",
-                    Subtitle = "Save 20% on our premium spa packages",
-                    Description = "Treat yourself to a complete wellness experience",
+                    Title = "Discover Wellness",
+                    Subtitle = "Curated experiences for your journey",
+                    Description = "",
                     ImageUrl = "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=1920&h=1080&fit=crop",
-                    ButtonText = "View Packages",
+                    ButtonText = "View Services",
                     ButtonLink = "/services",
                     DisplayOrder = 2,
-                    IsActive = true
+                    IsActive = true,
+                    OverlayOpacity = 30
                 },
                 new Banner
                 {
-                    Title = "Gift of Wellness",
-                    Subtitle = "Perfect gift for someone special",
-                    Description = "Share the joy of relaxation with our gift certificates",
+                    Title = "Gift of Relaxation",
+                    Subtitle = "Share the experience with someone special",
+                    Description = "",
                     ImageUrl = "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1920&h=1080&fit=crop",
-                    ButtonText = "Buy Gift Certificate",
+                    ButtonText = "Gift Certificates",
                     ButtonLink = "/gift-certificates/purchase",
                     DisplayOrder = 3,
-                    IsActive = true
+                    IsActive = true,
+                    OverlayOpacity = 30
                 }
             };
         }
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Load scroll animations script
+            await JS.InvokeVoidAsync("eval", @"
+                if (!document.querySelector('script[src=""/js/scroll-animations.js""]')) {
+                    const script = document.createElement('script');
+                    script.src = '/js/scroll-animations.js';
+                    document.body.appendChild(script);
+                }
+            ");
+        }
+    }
 }
+

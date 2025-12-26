@@ -19,8 +19,8 @@ public class SecurityHeadersMiddleware
         // X-Content-Type-Options: Prevents MIME-sniffing
         context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
 
-        // X-Frame-Options: Prevents clickjacking attacks
-        context.Response.Headers.Append("X-Frame-Options", "DENY");
+        // X-Frame-Options: Prevents clickjacking attacks (SAMEORIGIN allows YouTube embeds)
+        context.Response.Headers.Append("X-Frame-Options", "SAMEORIGIN");
 
         // X-XSS-Protection: Enables browser XSS filter
         context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
@@ -39,7 +39,8 @@ public class SecurityHeadersMiddleware
                   "img-src 'self' data: https:; " +
                   "font-src 'self' data:; " +
                   "connect-src 'self' https://api.stripe.com; " +
-                  "frame-src https://js.stripe.com; " +
+                  "frame-src https://js.stripe.com https://www.youtube.com https://youtube.com https://player.vimeo.com; " +
+                  "media-src 'self' https:; " +
                   "object-src 'none'; " +
                   "base-uri 'self'; " +
                   "form-action 'self';";

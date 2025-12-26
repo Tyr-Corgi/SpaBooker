@@ -666,6 +666,9 @@
                 existingRoom.LocationId = currentRoom.LocationId;
                 existingRoom.DisplayOrder = currentRoom.DisplayOrder;
                 existingRoom.IsActive = currentRoom.IsActive;
+                
+                // FIX: Explicitly mark the entity as modified to ensure EF Core saves all changes
+                context.Entry(existingRoom).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
 
                 // Update service capabilities
                 var existingCapabilities = await context.RoomServiceCapabilities

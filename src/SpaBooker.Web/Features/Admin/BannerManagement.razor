@@ -166,6 +166,21 @@
                         </div>
                     </div>
                     
+                    <div class="mb-3">
+                        <label class="form-label">Overlay Opacity: @editingBanner.OverlayOpacity%</label>
+                        <input type="range" class="form-range" @bind="editingBanner.OverlayOpacity" 
+                               @bind:event="oninput" min="0" max="100" step="5" />
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">0% (Transparent)</small>
+                            <small class="text-muted">50% (Balanced)</small>
+                            <small class="text-muted">100% (Dark)</small>
+                        </div>
+                        <small class="form-text text-muted d-block mt-2">
+                            <i class="bi bi-info-circle"></i> Controls the darkness of the overlay on the banner image. 
+                            Lower values make text harder to read but show more of the image. Recommended: 20-40%.
+                        </small>
+                    </div>
+                    
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
                         <div class="alert alert-danger">@errorMessage</div>
@@ -211,7 +226,8 @@
         editingBanner = new Banner
         {
             DisplayOrder = banners.Any() ? banners.Max(b => b.DisplayOrder) + 1 : 1,
-            IsActive = true
+            IsActive = true,
+            OverlayOpacity = 30
         };
         showBannerDialog = true;
         errorMessage = null;
@@ -229,7 +245,8 @@
             ButtonText = banner.ButtonText,
             ButtonLink = banner.ButtonLink,
             DisplayOrder = banner.DisplayOrder,
-            IsActive = banner.IsActive
+            IsActive = banner.IsActive,
+            OverlayOpacity = banner.OverlayOpacity
         };
         showBannerDialog = true;
         errorMessage = null;
@@ -277,7 +294,11 @@
                     existing.ButtonLink = editingBanner.ButtonLink;
                     existing.DisplayOrder = editingBanner.DisplayOrder;
                     existing.IsActive = editingBanner.IsActive;
+                    existing.OverlayOpacity = editingBanner.OverlayOpacity;
                     existing.UpdatedAt = DateTime.UtcNow;
+                    
+                    // FIX: Explicitly mark the entity as modified to ensure EF Core saves all changes
+                    DbContext.Entry(existing).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
                 }
             }
 

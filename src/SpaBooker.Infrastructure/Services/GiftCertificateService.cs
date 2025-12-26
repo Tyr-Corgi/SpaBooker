@@ -86,6 +86,9 @@ public class GiftCertificateService : IGiftCertificateService
         giftCert.StripePaymentIntentId = stripePaymentIntentId;
         giftCert.Status = "Active";
         giftCert.UpdatedAt = DateTime.UtcNow;
+        
+        // FIX: Explicitly mark the entity as modified to ensure EF Core saves all changes
+        _context.Entry(giftCert).State = EntityState.Modified;
 
         await _context.SaveChangesAsync();
 
@@ -268,6 +271,9 @@ public class GiftCertificateService : IGiftCertificateService
         giftCert.IsActive = false;
         giftCert.Notes = reason;
         giftCert.UpdatedAt = DateTime.UtcNow;
+        
+        // FIX: Explicitly mark the entity as modified to ensure EF Core saves all changes
+        _context.Entry(giftCert).State = EntityState.Modified;
 
         await _context.SaveChangesAsync();
     }
@@ -282,6 +288,9 @@ public class GiftCertificateService : IGiftCertificateService
         giftCert.Status = "Refunded";
         giftCert.IsActive = false;
         giftCert.UpdatedAt = DateTime.UtcNow;
+        
+        // FIX: Explicitly mark the entity as modified to ensure EF Core saves all changes
+        _context.Entry(giftCert).State = EntityState.Modified;
 
         // Create refund transaction
         var transaction = new GiftCertificateTransaction
